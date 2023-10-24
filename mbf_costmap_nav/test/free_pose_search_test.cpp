@@ -407,16 +407,16 @@ TEST_F(SearchHelperTest, search)
   4.5 |  0    0    0     0     0     0    0     0     0     0
   5.5 |  0    0   254    0    254    G    0    254   254   254
   6.5 |  0    0    0     0    254    0    0    254   254   254
-  7.5 |  0    0    0     0     0     0    0    254   254   254
-  8.5 |  0    0    0     x     0    254   0     0     0     0
+  7.5 |  0    0    x     0     0     0    0    254   254   254
+  8.5 |  0    0    0     0     0    254   0     0     0     0
   9.5 |  0    0    0     0     0     0    0     0     0     0
   */
 
   sol = sh.search();
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
-  EXPECT_NEAR(sol.pose.x, 3.5, 1e-6);
-  EXPECT_NEAR(sol.pose.y, 8.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, -3.0 / 4 * M_PI, 1e-6);
+  EXPECT_NEAR(sol.pose.x, 2.5, 1e-6);
+  EXPECT_NEAR(sol.pose.y, 7.5, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, M_PI_4, 1e-6);
 
   // Non-zero orientation
   SearchConfig config2{ M_PI_4, M_PI, 5.0, false, 0.0, toPose2D(1.5, 4.5, M_PI_4) };
@@ -425,7 +425,7 @@ TEST_F(SearchHelperTest, search)
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
   EXPECT_NEAR(sol.pose.x, 1.5, 1e-6);
   EXPECT_NEAR(sol.pose.y, 3.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, 3.0 / 2 * M_PI, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, -M_PI_2, 1e-6);
 }
 
 TEST_F(SearchHelperTest, service_test)
