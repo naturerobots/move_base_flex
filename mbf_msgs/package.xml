@@ -17,9 +17,7 @@
     <depend>nav_msgs</depend>
     <depend>geometry_msgs</depend>
     <depend>actionlib_msgs</depend>
-    <!-- <depend>genmsg</depend>
-    <depend>message_runtime</depend>
-    <depend>message_generation</depend> -->
+
 
     <exec_depend>rosidl_default_runtime</exec_depend>
 
