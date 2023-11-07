@@ -1,4 +1,4 @@
-<package>
+<package format="3">
     <name>mbf_msgs</name>
     <version>0.4.0</version>
     <description>
@@ -10,20 +10,22 @@
     <maintainer email="spuetz@uos.de">Sebastian Pütz</maintainer>
     <license>BSD-3</license>
 
-    <buildtool_depend>catkin</buildtool_depend>
+    <buildtool_depend>rosidl_default_generators</buildtool_depend>
+    <member_of_group>rosidl_interface_packages</member_of_group>
+    
+    <depend>std_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>actionlib_msgs</depend>
+    <!-- <depend>genmsg</depend>
+    <depend>message_runtime</depend>
+    <depend>message_generation</depend> -->
 
-    <build_depend>std_msgs</build_depend>
-    <build_depend>nav_msgs</build_depend>
-    <build_depend>geometry_msgs</build_depend>
-    <build_depend>actionlib_msgs</build_depend>
-    <build_depend>genmsg</build_depend>
-    <build_depend>message_runtime</build_depend>
-    <build_depend>message_generation</build_depend>
+    <exec_depend>rosidl_default_runtime</exec_depend>
 
-    <run_depend>std_msgs</run_depend>
-    <run_depend>nav_msgs</run_depend>
-    <run_depend>geometry_msgs</run_depend>
-    <run_depend>actionlib_msgs</run_depend>
-    <run_depend>message_runtime</run_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 
 </package>

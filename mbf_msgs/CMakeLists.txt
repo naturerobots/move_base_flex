@@ -1,50 +1,31 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(mbf_msgs)
 
-find_package(catkin REQUIRED
-  COMPONENTS
-  actionlib_msgs
-  genmsg
-  geometry_msgs
-  message_generation
-  message_runtime
-  nav_msgs
-  std_msgs
-)
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(actionlib_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
-add_service_files(
-  DIRECTORY
-  srv
-  FILES
-  CheckPoint.srv
-  CheckPose.srv
-  CheckPath.srv
-  FindValidPose.srv
-)
-
-add_action_files(
-  DIRECTORY
-  action
-  FILES
-  GetPath.action
-  ExePath.action
-  Recovery.action
-  MoveBase.action
-)
-
-generate_messages(
-  DEPENDENCIES
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/ExePath.action"
+  "action/GetPath.action"
+  "action/MoveBase.action"
+  "action/Recovery.action"
+  "srv/CheckPath.srv"
+  "srv/CheckPoint.srv"
+  "srv/CheckPose.srv"
+  "srv/FindValidPose.srv"
+  DEPENDENCIES 
   actionlib_msgs
   geometry_msgs
   nav_msgs
   std_msgs
 )
 
-catkin_package(
-  CATKIN_DEPENDS
-  actionlib_msgs
-  geometry_msgs
-  message_runtime
-  nav_msgs
-  std_msgs
-)
+ament_export_dependencies(
+  rosidl_default_runtime
+  )
+
+ament_package()
