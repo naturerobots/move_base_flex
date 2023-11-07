@@ -39,8 +39,10 @@
 #ifndef MBF_COSTMAP_CORE__COSTMAP_PLANNER_H_
 #define MBF_COSTMAP_CORE__COSTMAP_PLANNER_H_
 
+#include <memory>
 #include <mbf_abstract_core/abstract_planner.h>
-#include <costmap_2d/costmap_2d_ros.h>
+#include <nav2_costmap_2d/costmap_2d_ros.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 namespace mbf_costmap_core {
   /**
@@ -52,7 +54,7 @@ namespace mbf_costmap_core {
   class CostmapPlanner : public mbf_abstract_core::AbstractPlanner{
     public:
 
-      typedef boost::shared_ptr< ::mbf_costmap_core::CostmapPlanner > Ptr;
+      typedef std::shared_ptr< ::mbf_costmap_core::CostmapPlanner > Ptr;
 
       /**
        * @brief Given a goal pose in the world, compute a plan
@@ -81,8 +83,8 @@ namespace mbf_costmap_core {
        *         INTERNAL_ERROR  = 62
        *         71..99 are reserved as plugin specific errors
        */
-      virtual uint32_t makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,
-                                double tolerance, std::vector<geometry_msgs::PoseStamped> &plan, double &cost,
+      virtual uint32_t makePlan(const geometry_msgs::msg::PoseStamped &start, const geometry_msgs::msg::PoseStamped &goal,
+                                double tolerance, std::vector<geometry_msgs::msg::PoseStamped> &plan, double &cost,
                                 std::string &message) = 0;
 
       /**
@@ -97,7 +99,7 @@ namespace mbf_costmap_core {
        * @param name The name of this planner
        * @param costmap_ros A pointer to the ROS wrapper of the costmap to use for planning
        */
-      virtual void initialize(std::string name, costmap_2d::Costmap2DROS *costmap_ros) = 0;
+      virtual void initialize(std::string name, nav2_costmap_2d::Costmap2DROS *costmap_ros) = 0;
 
       /**
        * @brief  Virtual destructor for the interface

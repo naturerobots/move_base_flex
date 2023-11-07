@@ -39,9 +39,12 @@
 #ifndef MBF_COSTMAP_CORE__COSTMAP_CONTROLLER_H_
 #define MBF_COSTMAP_CORE__COSTMAP_CONTROLLER_H_
 
+#include <memory>
 #include <mbf_abstract_core/abstract_controller.h>
-#include <costmap_2d/costmap_2d_ros.h>
+#include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <mbf_utility/types.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
 
 namespace mbf_costmap_core {
   /**
@@ -53,7 +56,7 @@ namespace mbf_costmap_core {
   class CostmapController : public mbf_abstract_core::AbstractController{
     public:
 
-      typedef boost::shared_ptr< ::mbf_costmap_core::CostmapController > Ptr;
+      typedef std::shared_ptr< ::mbf_costmap_core::CostmapController > Ptr;
 
       /**
        * @brief Given the current position, orientation, and velocity of the robot, compute velocity commands
@@ -86,9 +89,9 @@ namespace mbf_costmap_core {
        *         STOPPED           = 118  # The controller execution has been stopped rigorously
        *         121..149 are reserved as plugin specific errors
        */
-      virtual uint32_t computeVelocityCommands(const geometry_msgs::PoseStamped& pose,
-                                               const geometry_msgs::TwistStamped& velocity,
-                                               geometry_msgs::TwistStamped &cmd_vel,
+      virtual uint32_t computeVelocityCommands(const geometry_msgs::msg::PoseStamped& pose,
+                                               const geometry_msgs::msg::TwistStamped& velocity,
+                                               geometry_msgs::msg::TwistStamped &cmd_vel,
                                                std::string &message) = 0;
 
       /**
@@ -105,7 +108,7 @@ namespace mbf_costmap_core {
        * @param plan The plan to pass to the local planner
        * @return True if the plan was updated successfully, false otherwise
        */
-      virtual bool setPlan(const std::vector<geometry_msgs::PoseStamped> &plan) = 0;
+      virtual bool setPlan(const std::vector<geometry_msgs::msg::PoseStamped> &plan) = 0;
 
       /**
        * @brief Requests the planner to cancel, e.g. if it takes too much time
@@ -120,7 +123,7 @@ namespace mbf_costmap_core {
        * @param tf A pointer to a transform listener
        * @param costmap_ros The cost map to use for assigning costs to local plans
        */
-      virtual void initialize(std::string name, ::TF *tf, costmap_2d::Costmap2DROS *costmap_ros) = 0;
+      virtual void initialize(std::string name, ::TF *tf, nav2_costmap_2d::Costmap2DROS *costmap_ros) = 0;
 
       /**
        * @brief  Virtual destructor for the interface

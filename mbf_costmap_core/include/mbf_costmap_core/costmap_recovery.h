@@ -39,8 +39,9 @@
 #ifndef MBF_COSTMAP_CORE__COSTMAP_RECOVERY_H_
 #define MBF_COSTMAP_CORE__COSTMAP_RECOVERY_H_
 
+#include <memory>
 #include <mbf_abstract_core/abstract_recovery.h>
-#include <costmap_2d/costmap_2d_ros.h>
+#include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <mbf_utility/types.h>
 
 namespace mbf_costmap_core
@@ -54,7 +55,7 @@ namespace mbf_costmap_core
 class CostmapRecovery : public mbf_abstract_core::AbstractRecovery{
  public:
 
-  typedef boost::shared_ptr< ::mbf_costmap_core::CostmapRecovery> Ptr;
+  typedef std::shared_ptr< ::mbf_costmap_core::CostmapRecovery> Ptr;
 
   /**
    * @brief Initialization function for the CostmapRecovery
@@ -63,8 +64,8 @@ class CostmapRecovery : public mbf_abstract_core::AbstractRecovery{
    * @param local_costmap A pointer to the local_costmap used by the navigation stack
    */
   virtual void initialize(std::string name, TF* tf,
-                          costmap_2d::Costmap2DROS* global_costmap,
-                          costmap_2d::Costmap2DROS* local_costmap) = 0;
+                          nav2_costmap_2d::Costmap2DROS* global_costmap,
+                          nav2_costmap_2d::Costmap2DROS* local_costmap) = 0;
 
   /**
    * @brief Runs the CostmapRecovery
