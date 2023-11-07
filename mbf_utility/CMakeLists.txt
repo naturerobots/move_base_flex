@@ -1,44 +1,42 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(mbf_utility)
 
-find_package(catkin REQUIRED COMPONENTS
+find_package(ament_cmake REQUIRED)
+set(dependencies
   geometry_msgs
   mbf_msgs
   roscpp
-  tf
   tf2
   tf2_ros
   tf2_geometry_msgs
 )
+foreach(dep IN LISTS dependencies)
+  find_package(${dep} REQUIRED)
+endforeach()
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES mbf_utility
-  CATKIN_DEPENDS geometry_msgs mbf_msgs roscpp tf tf2 tf2_ros tf2_geometry_msgs
-)
 
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME} SHARED
    src/navigation_utility.cpp
    src/robot_information.cpp
    src/odometry_helper.cpp
 )
-
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+ament_target_dependencies(${PROJECT_NAME} ${dependencies})
 
 install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h"
+install(DIRECTORY include/
+  DESTINATION include/
 )
+
+ament_export_include_directories(include)
+ament_export_libraries(${PROJECT_NAME})
+ament_export_dependencies(${dependencies})
+ament_packages()
