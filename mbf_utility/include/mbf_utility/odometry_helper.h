@@ -51,11 +51,14 @@ class OdometryHelper
 public:
 
   /** @brief Constructor.
+   * @param node Shared pointer to the node handle via which 
+   *        the OdometryHelper shall subscribe to topics and
+   *        publish log messages.
    * @param odom_topic The topic on which to subscribe to Odometry
    *        messages.  If the empty string is given (the default), no
    *        subscription is done.
    */
-  OdometryHelper(const rclcpp::Node::SharedPtr& node_ptr, const std::string& odom_topic = "");
+  OdometryHelper(const rclcpp::Node::SharedPtr node, const std::string& odom_topic = "");
   ~OdometryHelper() {}
 
   /**
@@ -82,6 +85,7 @@ public:
   std::string getOdomTopic() const { return odom_topic_; }
 
 private:
+  rclcpp::Node::SharedPtr node;
   // odom topic
   std::string odom_topic_;
 

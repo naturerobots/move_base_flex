@@ -35,25 +35,27 @@
  * Author: TKruse
  *********************************************************************/
 #include <mbf_utility/odometry_helper.h>
+#include <functional>
+
+using std::placeholders::_1;
 
 namespace mbf_utility
 {
 
-OdometryHelper::OdometryHelper(const std::string& odom_topic)
+OdometryHelper::OdometryHelper(const rclcpp::Node::SharedPtr node, const std::string& odom_topic) : node(node)
 {
   setOdomTopic(odom_topic);
 }
 
 void OdometryHelper::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
 {
-  // TODO fix logging
-  //ROS_INFO_STREAM_ONCE("Odometry received on topic " << getOdomTopic());
+  RCLCPP_INFO_STREAM_ONCE(node->get_logger(), "Odometry received on topic " << getOdomTopic());
 
   // we assume that the odometry is published in the frame of the base
   std::lock_guard<std::mutex> lock(odom_mutex_);
   base_odom_ = *msg;
   if (base_odom_.header.stamp == rclcpp::Time(0))
-    base_odom_.header.stamp = rclcpp::Time(0); // node.now(); TODO get node handle
+    base_odom_.header.stamp = node->now();
 }
 
 void OdometryHelper::getOdom(nav_msgs::msg::Odometry& base_odom) const
@@ -70,14 +72,12 @@ void OdometryHelper::setOdomTopic(const std::string& odom_topic)
 
     if (!odom_topic_.empty())
     {
-      // TODO fix subscription - needs node handle
-      //ros::NodeHandle gn;
-      //odom_sub_ =
-      //    gn.subscribe<nav_msgs::Odometry>(odom_topic_, 1, std::bind(&OdometryHelper::odomCallback, this, _1));
+      odom_sub_ =
+          node->create_subscription<nav_msgs::msg::Odometry>(odom_topic_, 1, std::bind(&OdometryHelper::odomCallback, this, _1));
     }
     else
     {
-      //odom_sub_.shutdown(); TODO
+      odom_sub_.reset(); // TODO check if this disables the subscription
     }
   }
 }
