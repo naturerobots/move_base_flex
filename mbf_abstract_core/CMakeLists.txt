@@ -12,10 +12,8 @@ ament_export_dependencies(
   geometry_msgs
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-DESTINATION include/${PROJECT_NAME}
-FILES_MATCHING PATTERN "*.h"
-PATTERN ".svn" EXCLUDE)
-
+install(DIRECTORY include/
+DESTINATION include
+)
 
 ament_package()
