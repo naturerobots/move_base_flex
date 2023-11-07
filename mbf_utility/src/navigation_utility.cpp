@@ -40,37 +40,38 @@
 
 #include <cmath>
 
-#include <tf/tf.h>
-
-#include <mbf_msgs/MoveBaseResult.h>
-#include <mbf_msgs/GetPathResult.h>
-#include <mbf_msgs/ExePathResult.h>
-#include <mbf_msgs/RecoveryResult.h>
-
+#include <rclcpp/rclcpp.hpp>
+#include <mbf_msgs/action/move_base.hpp>
+#include <mbf_msgs/action/get_path.hpp>
+#include <mbf_msgs/action/exe_path.hpp>
+#include <mbf_msgs/action/recovery.hpp>
 #include "mbf_utility/navigation_utility.h"
 
 namespace mbf_utility
 {
 
-bool getRobotPose(const TF &tf,
+bool getRobotPose(const rclcpp::Node::ConstSharedPtr& node,
+                  const TF &tf,
                   const std::string &robot_frame,
                   const std::string &global_frame,
-                  const ros::Duration &timeout,
-                  geometry_msgs::PoseStamped &robot_pose)
+                  const rclcpp::Duration &timeout,
+                  geometry_msgs::msg::PoseStamped &robot_pose)
 {
-  geometry_msgs::PoseStamped local_pose;
+  geometry_msgs::msg::PoseStamped local_pose;
   local_pose.header.frame_id = robot_frame;
-  local_pose.header.stamp = ros::Time(0); // most recent available
+  local_pose.header.stamp = rclcpp::Time(0, 0, node->get_clock()->get_clock_type());
   local_pose.pose.orientation.w = 1.0;
-  bool success = transformPose(tf,
+  bool success = transformPose(node,
+                               tf,
                                global_frame,
                                timeout,
                                local_pose,
                                robot_pose);
-  if (success && ros::Time::now() - robot_pose.header.stamp > timeout)
+  const rclcpp::Duration transformAge = node->now() - robot_pose.header.stamp;
+  if (success && transformAge > timeout)
   {
-    ROS_WARN("Most recent robot pose is %gs old (tolerance %gs)",
-             (ros::Time::now() - robot_pose.header.stamp).toSec(), timeout.toSec());
+    RCLCPP_WARN(node->get_logger(), "Most recent robot pose is %gs old (tolerance %gs)",
+                transformAge.seconds(), timeout.seconds());
     return false;
   }
   return success;
@@ -82,22 +83,23 @@ bool getRobotPose(const TF &tf,
  * @param _q The quaternion to check.
  * @param _epsilon The epsilon (squared distance to 1).
  */
-static bool isNormalized(const geometry_msgs::Quaternion& _q, double _epsilon)
+static bool isNormalized(const geometry_msgs::msg::Quaternion& _q, double _epsilon)
 {
   const double sq_sum = std::pow(_q.x, 2) + std::pow(_q.y, 2) + std::pow(_q.z, 2) + std::pow(_q.w, 2);
   return std::abs(sq_sum - 1.) <= _epsilon;
 }
 
-bool transformPose(const TF &tf,
+bool transformPose(const rclcpp::Node::ConstSharedPtr node,
+                   TF &tf,
                    const std::string &target_frame,
-                   const ros::Duration &timeout,
-                   const geometry_msgs::PoseStamped &in,
-                   geometry_msgs::PoseStamped &out)
+                   const rclcpp::Duration &timeout,
+                   const geometry_msgs::msg::PoseStamped &in,
+                   geometry_msgs::msg::PoseStamped &out)
 {
   // Note: The tf-library does not check if the input is well formed.
   if (!isNormalized(in.pose.orientation, 0.01))
   {
-    ROS_WARN_STREAM("The given quaterinon " << in.pose.orientation << " is not normalized");
+    RCLCPP_WARN_STREAM(node->get_logger(), "The given quaterinon " << geometry_msgs::msg::to_yaml(in.pose.orientation) << " is not normalized");
     return false;
   }
 
@@ -109,231 +111,206 @@ bool transformPose(const TF &tf,
 
   std::string error_msg;
 
-#ifdef USE_OLD_TF
-  bool success = tf.waitForTransform(target_frame,
-                                     in.header.frame_id,
-                                     in.header.stamp,
-                                     timeout,
-                                     ros::Duration(0.01),
-                                     &error_msg);
-#else
   bool success = tf.canTransform(target_frame,
                                  in.header.frame_id,
                                  in.header.stamp,
                                  timeout,
                                  &error_msg);
-#endif
 
   if (!success)
   {
-    ROS_WARN_STREAM("Failed to look up transform from frame '" << in.header.frame_id << "' into frame '" << target_frame
-                    << "': " << error_msg);
+    RCLCPP_WARN_STREAM(node->get_logger(), "Failed to look up transform from frame '" << in.header.frame_id 
+                                           << "' into frame '" << target_frame << "': " << error_msg);
     return false;
   }
 
   try
   {
-#ifdef USE_OLD_TF
-    tf.transformPose(target_frame, in, out);
-#else
     tf.transform(in, out, target_frame);
-#endif
   }
   catch (const TFException &ex)
   {
-    ROS_WARN_STREAM("Failed to transform pose from frame '" <<  in.header.frame_id << " ' into frame '"
-                    << target_frame << "' with exception: " << ex.what());
+    RCLCPP_WARN_STREAM(node->get_logger(), "Failed to transform pose from frame '" <<  in.header.frame_id << " ' into frame '"
+                                           << target_frame << "' with exception: " << ex.what());
     return false;
   }
   return true;
 }
 
-bool transformPoint(const TF &tf,
+bool transformPoint(const rclcpp::Node::ConstSharedPtr& node,
+                    const TF &tf,
                     const std::string &target_frame,
-                    const ros::Duration &timeout,
-                    const geometry_msgs::PointStamped &in,
-                    geometry_msgs::PointStamped &out)
+                    const rclcpp::Duration &timeout,
+                    const geometry_msgs::msg::PointStamped &in,
+                    geometry_msgs::msg::PointStamped &out)
 {
   std::string error_msg;
 
-#ifdef USE_OLD_TF
-  bool success = tf.waitForTransform(target_frame,
-                                     in.header.frame_id,
-                                     in.header.stamp,
-                                     timeout,
-                                     ros::Duration(0.01),
-                                     &error_msg);
-#else
   bool success = tf.canTransform(target_frame,
                                  in.header.frame_id,
                                  in.header.stamp,
                                  timeout,
                                  &error_msg);
-#endif
 
   if (!success)
   {
-    ROS_WARN_STREAM("Failed to look up transform from frame '" << in.header.frame_id << "' into frame '" << target_frame
-                                                               << "': " << error_msg);
+    RCLCPP_WARN_STREAM(node->get_logger(), "Failed to look up transform from frame '" << in.header.frame_id
+                                           << "' into frame '" << target_frame << "': " << error_msg);
     return false;
   }
 
   try
   {
-#ifdef USE_OLD_TF
-    tf.transformPoint(target_frame, in, out);
-#else
     tf.transform(in, out, target_frame);
-#endif
   }
   catch (const TFException &ex)
   {
-    ROS_WARN_STREAM("Failed to transform point from frame '" <<  in.header.frame_id << " ' into frame '"
-                                                            << target_frame << "' with exception: " << ex.what());
+    RCLCPP_WARN_STREAM(node->get_logger(), "Failed to transform point from frame '" <<  in.header.frame_id 
+                                           << " ' into frame '" << target_frame << "' with exception: " << ex.what());
     return false;
   }
   return true;
 }
 
-double distance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2)
+double distance(const geometry_msgs::msg::PoseStamped &pose1, const geometry_msgs::msg::PoseStamped &pose2)
 {
-  const geometry_msgs::Point &p1 = pose1.pose.position;
-  const geometry_msgs::Point &p2 = pose2.pose.position;
+  const geometry_msgs::msg::Point &p1 = pose1.pose.position;
+  const geometry_msgs::msg::Point &p2 = pose2.pose.position;
   const double dx = p1.x - p2.x;
   const double dy = p1.y - p2.y;
   const double dz = p1.z - p2.z;
   return sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-double angle(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2)
+double angle(const geometry_msgs::msg::PoseStamped &pose1, const geometry_msgs::msg::PoseStamped &pose2)
 {
-  const geometry_msgs::Quaternion &q1 = pose1.pose.orientation;
-  const geometry_msgs::Quaternion &q2 = pose2.pose.orientation;
-  tf::Quaternion rot1, rot2;
-  tf::quaternionMsgToTF(q1, rot1);
-  tf::quaternionMsgToTF(q2, rot2);
+  const geometry_msgs::msg::Quaternion &q1 = pose1.pose.orientation;
+  const geometry_msgs::msg::Quaternion &q2 = pose2.pose.orientation;
+  tf2::Quaternion rot1, rot2;
+  tf2::fromMsg(q1, rot1);
+  tf2::fromMsg(q2, rot2);
   return rot1.angleShortestPath(rot2);
 }
 
 std::string outcome2str(unsigned int outcome)
 {
-  if (outcome == mbf_msgs::MoveBaseResult::SUCCESS)
+  if (outcome == mbf_msgs::action::MoveBase::Result::SUCCESS)
     return "Success";
-  if (outcome == mbf_msgs::MoveBaseResult::FAILURE)
+  if (outcome == mbf_msgs::action::MoveBase::Result::FAILURE)
     return "Failure";
-  if (outcome == mbf_msgs::MoveBaseResult::CANCELED)
+  if (outcome == mbf_msgs::action::MoveBase::Result::CANCELED)
     return "Canceled";
-  if (outcome == mbf_msgs::MoveBaseResult::COLLISION)
+  if (outcome == mbf_msgs::action::MoveBase::Result::COLLISION)
     return "Collision";
-  if (outcome == mbf_msgs::MoveBaseResult::OSCILLATION)
+  if (outcome == mbf_msgs::action::MoveBase::Result::OSCILLATION)
     return "Oscillation";
-  if (outcome == mbf_msgs::MoveBaseResult::START_BLOCKED)
+  if (outcome == mbf_msgs::action::MoveBase::Result::START_BLOCKED)
     return "Start blocked";
-  if (outcome == mbf_msgs::MoveBaseResult::GOAL_BLOCKED)
+  if (outcome == mbf_msgs::action::MoveBase::Result::GOAL_BLOCKED)
     return "Goal blocked";
-  if (outcome == mbf_msgs::MoveBaseResult::TF_ERROR)
+  if (outcome == mbf_msgs::action::MoveBase::Result::TF_ERROR)
     return "TF error";
-  if (outcome == mbf_msgs::MoveBaseResult::INTERNAL_ERROR)
+  if (outcome == mbf_msgs::action::MoveBase::Result::INTERNAL_ERROR)
     return "Internal error";
 
-  if (outcome == mbf_msgs::GetPathResult::FAILURE)
+  if (outcome == mbf_msgs::action::GetPath::Result::FAILURE)
     return "Failure";
-  if (outcome == mbf_msgs::GetPathResult::CANCELED)
+  if (outcome == mbf_msgs::action::GetPath::Result::CANCELED)
     return "Canceled";
-  if (outcome == mbf_msgs::GetPathResult::INVALID_START)
+  if (outcome == mbf_msgs::action::GetPath::Result::INVALID_START)
     return "Invalid start";
-  if (outcome == mbf_msgs::GetPathResult::INVALID_GOAL)
+  if (outcome == mbf_msgs::action::GetPath::Result::INVALID_GOAL)
     return "Invalid goal";
-  if (outcome == mbf_msgs::GetPathResult::BLOCKED_START)
+  if (outcome == mbf_msgs::action::GetPath::Result::BLOCKED_START)
     return "Blocked start";
-  if (outcome == mbf_msgs::GetPathResult::BLOCKED_GOAL)
+  if (outcome == mbf_msgs::action::GetPath::Result::BLOCKED_GOAL)
     return "Blocked goal";
-  if (outcome == mbf_msgs::GetPathResult::NO_PATH_FOUND)
+  if (outcome == mbf_msgs::action::GetPath::Result::NO_PATH_FOUND)
     return "No path found";
-  if (outcome == mbf_msgs::GetPathResult::PAT_EXCEEDED)
+  if (outcome == mbf_msgs::action::GetPath::Result::PAT_EXCEEDED)
     return "Patience exceeded";
-  if (outcome == mbf_msgs::GetPathResult::EMPTY_PATH)
+  if (outcome == mbf_msgs::action::GetPath::Result::EMPTY_PATH)
     return "Empty path";
-  if (outcome == mbf_msgs::GetPathResult::TF_ERROR)
+  if (outcome == mbf_msgs::action::GetPath::Result::TF_ERROR)
     return "TF error";
-  if (outcome == mbf_msgs::GetPathResult::NOT_INITIALIZED)
+  if (outcome == mbf_msgs::action::GetPath::Result::NOT_INITIALIZED)
     return "Not initialized";
-  if (outcome == mbf_msgs::GetPathResult::INVALID_PLUGIN)
+  if (outcome == mbf_msgs::action::GetPath::Result::INVALID_PLUGIN)
     return "Invalid plugin";
-  if (outcome == mbf_msgs::GetPathResult::INTERNAL_ERROR)
+  if (outcome == mbf_msgs::action::GetPath::Result::INTERNAL_ERROR)
     return "Internal error";
-  if (outcome == mbf_msgs::GetPathResult::OUT_OF_MAP)
+  if (outcome == mbf_msgs::action::GetPath::Result::OUT_OF_MAP)
     return "Out of map";
-  if (outcome == mbf_msgs::GetPathResult::MAP_ERROR)
+  if (outcome == mbf_msgs::action::GetPath::Result::MAP_ERROR)
     return "Map error";
-  if (outcome == mbf_msgs::GetPathResult::STOPPED)
+  if (outcome == mbf_msgs::action::GetPath::Result::STOPPED)
     return "Stopped";
-  if (outcome >= mbf_msgs::GetPathResult::PLUGIN_ERROR_RANGE_START &&
-      outcome <= mbf_msgs::GetPathResult::PLUGIN_ERROR_RANGE_END)
+  if (outcome >= mbf_msgs::action::GetPath::Result::PLUGIN_ERROR_RANGE_START &&
+      outcome <= mbf_msgs::action::GetPath::Result::PLUGIN_ERROR_RANGE_END)
     return "Plugin-specific planner error";
 
-  if (outcome == mbf_msgs::ExePathResult::FAILURE)
+  if (outcome == mbf_msgs::action::ExePath::Result::FAILURE)
     return "Failure";
-  if (outcome == mbf_msgs::ExePathResult::CANCELED)
+  if (outcome == mbf_msgs::action::ExePath::Result::CANCELED)
     return "Canceled";
-  if (outcome == mbf_msgs::ExePathResult::NO_VALID_CMD)
+  if (outcome == mbf_msgs::action::ExePath::Result::NO_VALID_CMD)
     return "No valid command";
-  if (outcome == mbf_msgs::ExePathResult::PAT_EXCEEDED)
+  if (outcome == mbf_msgs::action::ExePath::Result::PAT_EXCEEDED)
     return "Patience exceeded";
-  if (outcome == mbf_msgs::ExePathResult::COLLISION)
+  if (outcome == mbf_msgs::action::ExePath::Result::COLLISION)
     return "Collision";
-  if (outcome == mbf_msgs::ExePathResult::OSCILLATION)
+  if (outcome == mbf_msgs::action::ExePath::Result::OSCILLATION)
     return "Oscillation";
-  if (outcome == mbf_msgs::ExePathResult::ROBOT_STUCK)
+  if (outcome == mbf_msgs::action::ExePath::Result::ROBOT_STUCK)
     return "Robot stuck";
-  if (outcome == mbf_msgs::ExePathResult::MISSED_GOAL)
+  if (outcome == mbf_msgs::action::ExePath::Result::MISSED_GOAL)
     return "Missed Goal";
-  if (outcome == mbf_msgs::ExePathResult::MISSED_PATH)
+  if (outcome == mbf_msgs::action::ExePath::Result::MISSED_PATH)
     return "Missed path";
-  if (outcome == mbf_msgs::ExePathResult::BLOCKED_GOAL)
+  if (outcome == mbf_msgs::action::ExePath::Result::BLOCKED_GOAL)
     return "Blocked Goal";
-  if (outcome == mbf_msgs::ExePathResult::BLOCKED_PATH)
+  if (outcome == mbf_msgs::action::ExePath::Result::BLOCKED_PATH)
     return "Blocked path";
-  if (outcome == mbf_msgs::ExePathResult::INVALID_PATH)
+  if (outcome == mbf_msgs::action::ExePath::Result::INVALID_PATH)
     return "Invalid path";
-  if (outcome == mbf_msgs::ExePathResult::TF_ERROR)
+  if (outcome == mbf_msgs::action::ExePath::Result::TF_ERROR)
     return "TF error";
-  if (outcome == mbf_msgs::ExePathResult::NOT_INITIALIZED)
+  if (outcome == mbf_msgs::action::ExePath::Result::NOT_INITIALIZED)
     return "Not initialized";
-  if (outcome == mbf_msgs::ExePathResult::INVALID_PLUGIN)
+  if (outcome == mbf_msgs::action::ExePath::Result::INVALID_PLUGIN)
     return "Invalid plugin";
-  if (outcome == mbf_msgs::ExePathResult::INTERNAL_ERROR)
+  if (outcome == mbf_msgs::action::ExePath::Result::INTERNAL_ERROR)
     return "Internal error";
-  if (outcome == mbf_msgs::ExePathResult::OUT_OF_MAP)
+  if (outcome == mbf_msgs::action::ExePath::Result::OUT_OF_MAP)
     return "Out of map";
-  if (outcome == mbf_msgs::ExePathResult::MAP_ERROR)
+  if (outcome == mbf_msgs::action::ExePath::Result::MAP_ERROR)
     return "Map error";
-  if (outcome == mbf_msgs::ExePathResult::STOPPED)
+  if (outcome == mbf_msgs::action::ExePath::Result::STOPPED)
     return "Stopped";
-  if (outcome >= mbf_msgs::ExePathResult::PLUGIN_ERROR_RANGE_START &&
-      outcome <= mbf_msgs::ExePathResult::PLUGIN_ERROR_RANGE_END)
+  if (outcome >= mbf_msgs::action::ExePath::Result::PLUGIN_ERROR_RANGE_START &&
+      outcome <= mbf_msgs::action::ExePath::Result::PLUGIN_ERROR_RANGE_END)
     return "Plugin-specific controller error";
 
-  if (outcome == mbf_msgs::RecoveryResult::FAILURE)
+  if (outcome == mbf_msgs::action::Recovery::Result::FAILURE)
     return "Failure";
-  if (outcome == mbf_msgs::RecoveryResult::CANCELED)
+  if (outcome == mbf_msgs::action::Recovery::Result::CANCELED)
     return "Canceled";
-  if (outcome == mbf_msgs::RecoveryResult::PAT_EXCEEDED)
+  if (outcome == mbf_msgs::action::Recovery::Result::PAT_EXCEEDED)
     return "Patience exceeded";
-  if (outcome == mbf_msgs::RecoveryResult::TF_ERROR)
+  if (outcome == mbf_msgs::action::Recovery::Result::TF_ERROR)
     return "TF error";
-  if (outcome == mbf_msgs::RecoveryResult::NOT_INITIALIZED)
+  if (outcome == mbf_msgs::action::Recovery::Result::NOT_INITIALIZED)
     return "Not initialized";
-  if (outcome == mbf_msgs::RecoveryResult::INVALID_PLUGIN)
+  if (outcome == mbf_msgs::action::Recovery::Result::INVALID_PLUGIN)
     return "Invalid plugin";
-  if (outcome == mbf_msgs::RecoveryResult::INTERNAL_ERROR)
+  if (outcome == mbf_msgs::action::Recovery::Result::INTERNAL_ERROR)
     return "Internal error";
-  if (outcome == mbf_msgs::RecoveryResult::IMPASSABLE)
+  if (outcome == mbf_msgs::action::Recovery::Result::IMPASSABLE)
     return "Impassable";
-  if (outcome == mbf_msgs::RecoveryResult::STOPPED)
+  if (outcome == mbf_msgs::action::Recovery::Result::STOPPED)
     return "Stopped";
-  if (outcome >= mbf_msgs::RecoveryResult::PLUGIN_ERROR_RANGE_START &&
-      outcome <= mbf_msgs::RecoveryResult::PLUGIN_ERROR_RANGE_END)
+  if (outcome >= mbf_msgs::action::Recovery::Result::PLUGIN_ERROR_RANGE_START &&
+      outcome <= mbf_msgs::action::Recovery::Result::PLUGIN_ERROR_RANGE_END)
     return "Plugin-specific recovery error";
 
   return "Unknown error code";

@@ -41,13 +41,15 @@
 #ifndef MBF_UTILITY__NAVIGATION_UTILITY_H_
 #define MBF_UTILITY__NAVIGATION_UTILITY_H_
 
-#include <geometry_msgs/PoseStamped.h>
-#include <ros/duration.h>
-#include <ros/time.h>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <rclcpp/duration.hpp>
+#include <rclcpp/time.hpp>
+#include <rclcpp/node.hpp>
 #include <string>
 #include <tf2/convert.h>
 #include <tf2_ros/buffer.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "mbf_utility/types.h"
 
@@ -56,6 +58,7 @@ namespace mbf_utility
 
 /**
  * @brief Transforms a point from one frame into another.
+ * @param node Shared pointer to node handle for logging.
  * @param tf_listener TransformListener.
  * @param target_frame Target frame for the point.
  * @param timeout Timeout for looking up the transformation.
@@ -63,14 +66,16 @@ namespace mbf_utility
  * @param out Transformed point.
  * @return true, if the transformation succeeded.
  */
-bool transformPoint(const TF &tf,
+bool transformPoint(const rclcpp::Node::ConstSharedPtr& node,
+                    const TF &tf,
                     const std::string &target_frame,
-                    const ros::Duration &timeout,
-                    const geometry_msgs::PointStamped &in,
-                    geometry_msgs::PointStamped &out);
+                    const rclcpp::Duration &timeout,
+                    const geometry_msgs::msg::PointStamped &in,
+                    geometry_msgs::msg::PointStamped &out);
 
 /**
  * @brief Transforms a pose from one frame into another.
+ * @param node Node shared ptr for logging.
  * @param tf_listener TransformListener.
  * @param target_frame Target frame for the pose.
  * @param timeout Timeout for looking up the transformation.
@@ -78,14 +83,16 @@ bool transformPoint(const TF &tf,
  * @param out Transformed pose.
  * @return true, if the transformation succeeded.
  */
-bool transformPose(const TF &tf,
+bool transformPose(const rclcpp::Node::ConstSharedPtr node,
+                   const TF &tf,
                    const std::string &target_frame,
-                   const ros::Duration &timeout,
-                   const geometry_msgs::PoseStamped &in,
-                   geometry_msgs::PoseStamped &out);
+                   const rclcpp::Duration &timeout,
+                   const geometry_msgs::msg::PoseStamped &in,
+                   geometry_msgs::msg::PoseStamped &out);
 
 /**
  * @brief Computes the robot pose.
+ * @param node Node shared pointer for logging and access to the clock.
  * @param tf_listener TransformListener.
  * @param robot_frame frame of the robot.
  * @param global_frame global frame in which the robot is located.
@@ -93,18 +100,19 @@ bool transformPose(const TF &tf,
  * @param robot_pose the computed rebot pose in the global frame.
  * @return true, if succeeded, false otherwise.
  */
-bool getRobotPose(const TF &tf,
+bool getRobotPose(const rclcpp::Node::ConstSharedPtr& node,
+                  const TF &tf,
                   const std::string &robot_frame,
                   const std::string &global_frame,
-                  const ros::Duration &timeout,
-                  geometry_msgs::PoseStamped &robot_pose);
+                  const rclcpp::Duration &timeout,
+                  geometry_msgs::msg::PoseStamped &robot_pose);
 /**
  * @brief Computes the Euclidean-distance between two poses.
  * @param pose1 pose 1
  * @param pose2 pose 2
  * @return Euclidean distance between pose 1 and pose 2.
  */
-double distance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2);
+double distance(const geometry_msgs::msg::PoseStamped &pose1, const geometry_msgs::msg::PoseStamped &pose2);
 
 /**
  * @brief Computes the smallest angle between two poses.
@@ -112,7 +120,7 @@ double distance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::Po
  * @param pose2 pose 2
  * @return smallest angle between pose 1 and pose 2.
  */
-double angle(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2);
+double angle(const geometry_msgs::msg::PoseStamped &pose1, const geometry_msgs::msg::PoseStamped &pose2);
 
 /**
  * @brief Get a descriptive string for each possible MBF action outcome.

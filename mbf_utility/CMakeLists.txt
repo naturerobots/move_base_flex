@@ -20,7 +20,7 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME} SHARED
-   #src/navigation_utility.cpp
+   src/navigation_utility.cpp
    #src/robot_information.cpp
    src/odometry_helper.cpp
 )
