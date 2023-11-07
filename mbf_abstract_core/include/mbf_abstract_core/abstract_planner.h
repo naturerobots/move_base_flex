@@ -39,11 +39,10 @@
 #ifndef MBF_ABSTRACT_CORE__ABSTRACT_PLANNER_H_
 #define MBF_ABSTRACT_CORE__ABSTRACT_PLANNER_H_
 
-#include <vector>
-#include <string>
 #include <stdint.h>
-#include <boost/shared_ptr.hpp>
-#include <geometry_msgs/PoseStamped.h>
+#include <memory>
+#include <vector>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 namespace mbf_abstract_core
 {
@@ -51,7 +50,7 @@ namespace mbf_abstract_core
   class AbstractPlanner{
 
     public:
-      typedef boost::shared_ptr< ::mbf_abstract_core::AbstractPlanner > Ptr;
+      typedef std::shared_ptr< ::mbf_abstract_core::AbstractPlanner> Ptr;
 
       /**
        * @brief Destructor
@@ -85,9 +84,10 @@ namespace mbf_abstract_core
        *         INTERNAL_ERROR  = 62
        *         71..99 are reserved as plugin specific errors
        */
-      virtual uint32_t makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,
-                                double tolerance, std::vector<geometry_msgs::PoseStamped> &plan, double &cost,
-                                std::string &message) = 0;
+      virtual uint32_t makePlan(const geometry_msgs::msg::PoseStamped& start,
+                                const geometry_msgs::msg::PoseStamped& goal, double tolerance,
+                                std::vector<geometry_msgs::msg::PoseStamped>& plan, double& cost,
+                                std::string& message) = 0;
 
       /**
        * @brief Requests the planner to cancel, e.g. if it takes too much time.

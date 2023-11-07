@@ -1,24 +1,21 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(mbf_abstract_core)
 
-find_package(catkin REQUIRED
-        COMPONENTS
-            std_msgs
-            geometry_msgs
+find_package(ament_cmake REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
-        )
 
-catkin_package(
-    INCLUDE_DIRS
-        include
-    CATKIN_DEPENDS
-            std_msgs
-            geometry_msgs
+ament_export_include_directories(include)
+ament_export_dependencies(
+  std_msgs
+  geometry_msgs
 )
 
-
-## Install project namespaced headers
 install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h"
-  PATTERN ".svn" EXCLUDE)
+DESTINATION include/${PROJECT_NAME}
+FILES_MATCHING PATTERN "*.h"
+PATTERN ".svn" EXCLUDE)
+
+
+ament_package()

@@ -41,7 +41,7 @@
 
 #include <stdint.h>
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 namespace mbf_abstract_core {
   /**
@@ -51,8 +51,8 @@ namespace mbf_abstract_core {
    */
   class AbstractRecovery{
     public:
-
-      typedef boost::shared_ptr< ::mbf_abstract_core::AbstractRecovery > Ptr;
+    
+      typedef std::shared_ptr< ::mbf_abstract_core::AbstractRecovery> Ptr;
 
       /**
        * @brief Runs the AbstractRecovery

@@ -12,11 +12,19 @@
     <author email="spuetz@uos.de">Sebastian Pütz</author>
     <author email="santos@magazino.eu">Jorge Santos</author>
     <license>BSD-3</license>
-    <buildtool_depend>catkin</buildtool_depend>
+    
+    <export>
+      <build_type>ament_cmake</build_type>
+    </export>
+
     <depend>geometry_msgs</depend>
     <depend>std_msgs</depend>
 
-    <export>
+
+    <!-- TODO -->
+    <!-- <export>
       <rosdoc config="rosdoc.yaml" />
-    </export>
+    </export> -->
+
+
 </package>
