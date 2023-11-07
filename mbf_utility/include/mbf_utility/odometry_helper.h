@@ -58,7 +58,7 @@ public:
    *        messages.  If the empty string is given (the default), no
    *        subscription is done.
    */
-  OdometryHelper(const rclcpp::Node::SharedPtr node, const std::string& odom_topic = "");
+  OdometryHelper(const rclcpp::Node::SharedPtr& node, const std::string& odom_topic = "");
   ~OdometryHelper() {}
 
   /**
@@ -85,7 +85,7 @@ public:
   std::string getOdomTopic() const { return odom_topic_; }
 
 private:
-  rclcpp::Node::SharedPtr node;
+  rclcpp::Node::SharedPtr node_;
   // odom topic
   std::string odom_topic_;
 

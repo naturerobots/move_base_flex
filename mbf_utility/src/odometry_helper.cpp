@@ -42,20 +42,20 @@ using std::placeholders::_1;
 namespace mbf_utility
 {
 
-OdometryHelper::OdometryHelper(const rclcpp::Node::SharedPtr node, const std::string& odom_topic) : node(node)
+OdometryHelper::OdometryHelper(const rclcpp::Node::SharedPtr& node, const std::string& odom_topic) : node_(node)
 {
   setOdomTopic(odom_topic);
 }
 
 void OdometryHelper::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
 {
-  RCLCPP_INFO_STREAM_ONCE(node->get_logger(), "Odometry received on topic " << getOdomTopic());
+  RCLCPP_INFO_STREAM_ONCE(node_->get_logger(), "Odometry received on topic " << getOdomTopic());
 
   // we assume that the odometry is published in the frame of the base
   std::lock_guard<std::mutex> lock(odom_mutex_);
   base_odom_ = *msg;
   if (base_odom_.header.stamp == rclcpp::Time(0))
-    base_odom_.header.stamp = node->now();
+    base_odom_.header.stamp = node_->now();
 }
 
 void OdometryHelper::getOdom(nav_msgs::msg::Odometry& base_odom) const
@@ -73,7 +73,7 @@ void OdometryHelper::setOdomTopic(const std::string& odom_topic)
     if (!odom_topic_.empty())
     {
       odom_sub_ =
-          node->create_subscription<nav_msgs::msg::Odometry>(odom_topic_, 1, std::bind(&OdometryHelper::odomCallback, this, _1));
+          node_->create_subscription<nav_msgs::msg::Odometry>(odom_topic_, 1, std::bind(&OdometryHelper::odomCallback, this, _1));
     }
     else
     {

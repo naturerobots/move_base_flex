@@ -39,11 +39,12 @@
 #ifndef MBF_UTILITY__ROBOT_INFORMATION_H_
 #define MBF_UTILITY__ROBOT_INFORMATION_H_
 
-#include <boost/shared_ptr.hpp>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <ros/duration.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <rclcpp/duration.hpp>
+#include <rclcpp/node.hpp>
 #include <string>
+#include <memory>
 
 #include "mbf_utility/odometry_helper.h"
 #include "mbf_utility/types.h"
@@ -55,13 +56,14 @@ class RobotInformation
 {
  public:
 
-  typedef boost::shared_ptr<RobotInformation> Ptr;
+  typedef std::shared_ptr<RobotInformation> Ptr;
 
   RobotInformation(
-      TF &tf_listener,
+      const rclcpp::Node::SharedPtr& node,
+      const TF &tf_listener,
       const std::string &global_frame,
       const std::string &robot_frame,
-      const ros::Duration &tf_timeout,
+      const rclcpp::Duration &tf_timeout,
       const std::string &odom_topic = "odom");
 
   /**
@@ -69,14 +71,14 @@ class RobotInformation
    * @param robot_pose Reference to the robot_pose message object to be filled.
    * @return true, if the current robot pose could be computed, false otherwise.
    */
-  bool getRobotPose(geometry_msgs::PoseStamped &robot_pose) const;
+  bool getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose) const;
 
   /**
    * @brief Returns the current robot velocity, as provided by the odometry helper.
    * @param robot_velocity Reference to the robot_velocity message object to be filled.
    * @return true, if the current robot velocity could be obtained, false otherwise.
    */
-  bool getRobotVelocity(geometry_msgs::TwistStamped &robot_velocity) const;
+  bool getRobotVelocity(geometry_msgs::msg::TwistStamped &robot_velocity) const;
 
   /**
    * @brief Check whether the robot is stopped or not
@@ -92,16 +94,18 @@ class RobotInformation
 
   const TF& getTransformListener() const;
 
-  const ros::Duration& getTfTimeout() const;
+  const rclcpp::Duration& getTfTimeout() const;
 
  private:
+  rclcpp::Node::SharedPtr node_;
+
   const TF& tf_listener_;
 
   const std::string &global_frame_;
 
   const std::string &robot_frame_;
 
-  const ros::Duration &tf_timeout_;
+  const rclcpp::Duration &tf_timeout_;
 
   OdometryHelper odom_helper_;
 

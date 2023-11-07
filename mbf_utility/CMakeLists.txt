@@ -21,7 +21,7 @@ include_directories(
 
 add_library(${PROJECT_NAME} SHARED
    src/navigation_utility.cpp
-   #src/robot_information.cpp
+   src/robot_information.cpp
    src/odometry_helper.cpp
 )
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
