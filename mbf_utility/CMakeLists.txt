@@ -5,7 +5,7 @@ find_package(ament_cmake REQUIRED)
 set(dependencies
   geometry_msgs
   mbf_msgs
-  roscpp
+  rclcpp
   tf2
   tf2_ros
   tf2_geometry_msgs
@@ -20,8 +20,8 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME} SHARED
-   src/navigation_utility.cpp
-   src/robot_information.cpp
+   #src/navigation_utility.cpp
+   #src/robot_information.cpp
    src/odometry_helper.cpp
 )
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
@@ -32,11 +32,11 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include/
-  DESTINATION include/
+install(DIRECTORY include
+  DESTINATION include
 )
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
-ament_packages()
+ament_package()

@@ -44,20 +44,21 @@ OdometryHelper::OdometryHelper(const std::string& odom_topic)
   setOdomTopic(odom_topic);
 }
 
-void OdometryHelper::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
+void OdometryHelper::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
 {
-  ROS_INFO_STREAM_ONCE("Odometry received on topic " << getOdomTopic());
+  // TODO fix logging
+  //ROS_INFO_STREAM_ONCE("Odometry received on topic " << getOdomTopic());
 
   // we assume that the odometry is published in the frame of the base
-  boost::mutex::scoped_lock lock(odom_mutex_);
+  std::lock_guard<std::mutex> lock(odom_mutex_);
   base_odom_ = *msg;
-  if (base_odom_.header.stamp.isZero())
-    base_odom_.header.stamp = ros::Time::now();
+  if (base_odom_.header.stamp == rclcpp::Time(0))
+    base_odom_.header.stamp = rclcpp::Time(0); // node.now(); TODO get node handle
 }
 
-void OdometryHelper::getOdom(nav_msgs::Odometry& base_odom) const
+void OdometryHelper::getOdom(nav_msgs::msg::Odometry& base_odom) const
 {
-  boost::mutex::scoped_lock lock(odom_mutex_);
+  std::lock_guard<std::mutex> lock(odom_mutex_);
   base_odom = base_odom_;
 }
 
@@ -69,13 +70,14 @@ void OdometryHelper::setOdomTopic(const std::string& odom_topic)
 
     if (!odom_topic_.empty())
     {
-      ros::NodeHandle gn;
-      odom_sub_ =
-          gn.subscribe<nav_msgs::Odometry>(odom_topic_, 1, boost::bind(&OdometryHelper::odomCallback, this, _1));
+      // TODO fix subscription - needs node handle
+      //ros::NodeHandle gn;
+      //odom_sub_ =
+      //    gn.subscribe<nav_msgs::Odometry>(odom_topic_, 1, std::bind(&OdometryHelper::odomCallback, this, _1));
     }
     else
     {
-      odom_sub_.shutdown();
+      //odom_sub_.shutdown(); TODO
     }
   }
 }

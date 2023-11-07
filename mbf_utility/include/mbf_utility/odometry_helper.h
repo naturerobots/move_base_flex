@@ -38,10 +38,10 @@
 #ifndef ODOMETRY_HELPER_H_
 #define ODOMETRY_HELPER_H_
 
-#include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
-#include <boost/thread.hpp>
-#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <mutex>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 namespace mbf_utility
 {
@@ -55,20 +55,20 @@ public:
    *        messages.  If the empty string is given (the default), no
    *        subscription is done.
    */
-  OdometryHelper(const std::string& odom_topic = "");
+  OdometryHelper(const rclcpp::Node::SharedPtr& node_ptr, const std::string& odom_topic = "");
   ~OdometryHelper() {}
 
   /**
    * @brief Callback for receiving odometry data
    * @param msg An Odometry message
    */
-  void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
+  void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
 
   /**
    * @brief Copy over the  information
    * @param base_odom Copied odometry msg
    */
-  void getOdom(nav_msgs::Odometry& base_odom) const;
+  void getOdom(nav_msgs::msg::Odometry& base_odom) const;
 
   /** @brief Set the odometry topic.  This overrides what was set in the constructor, if anything.
    *
@@ -86,9 +86,9 @@ private:
   std::string odom_topic_;
 
   // we listen on odometry on the odom topic
-  ros::Subscriber odom_sub_;
-  nav_msgs::Odometry base_odom_;
-  mutable boost::mutex odom_mutex_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  nav_msgs::msg::Odometry base_odom_;
+  mutable std::mutex odom_mutex_;
 };
 
 } /* namespace mbf_utility */
