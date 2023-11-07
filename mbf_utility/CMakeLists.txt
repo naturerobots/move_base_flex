@@ -14,7 +14,6 @@ foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)
 endforeach()
 
-
 include_directories(
   include
 )
@@ -32,7 +31,7 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include
+install(DIRECTORY include/
   DESTINATION include
 )
 
