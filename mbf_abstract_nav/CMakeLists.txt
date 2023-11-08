@@ -16,7 +16,7 @@ find_package(catkin REQUIRED
   std_srvs
   tf
   xmlrpcpp
-  )
+)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -61,6 +61,9 @@ ament_target_dependencies(
   dynamic_reconfigure
 )
 
+include_directories(
+  include
+)
 
 add_library(${MBF_ABSTRACT_SERVER_LIB}
   #src/controller_action.cpp
