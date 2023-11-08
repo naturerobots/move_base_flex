@@ -1,37 +1,21 @@
 cmake_minimum_required(VERSION 3.5)
 project(mbf_abstract_nav)
 
-find_package(catkin REQUIRED
-  COMPONENTS
-  actionlib
-  actionlib_msgs
-  dynamic_reconfigure
+find_package(ament_cmake REQUIRED)
+set(dependencies
   geometry_msgs
-  mbf_msgs
   mbf_abstract_core
+  mbf_msgs
   mbf_utility
   nav_msgs
-  roscpp
+  rclcpp
+  rclcpp_action
   std_msgs
   std_srvs
-  tf
-  xmlrpcpp
 )
-
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(rclcpp_action REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(mbf_msgs REQUIRED)
-find_package(mbf_abstract_core REQUIRED)
-find_package(mbf_utility REQUIRED)
-
+foreach(dep IN LISTS dependencies)
+  find_package(${dep} REQUIRED)
+endforeach()
 
 #maybe needed , maybe include in standard library
 #find_package(Boost COMPONENTS thread chrono REQUIRED)
@@ -45,20 +29,7 @@ ament_export_include_directories(include)
 ament_export_libraries(${MBF_ABSTRACT_SERVER_LIB})
 
 ament_target_dependencies(
-  rclcpp
-  rclcpp_action
-  actionlib_msgs
-  nav_msgs
-  geometry_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-  mbf_msgs
-  mbf_abstract_core
-  mbf_utility
-  std_msgs
-  std_srvs
-  dynamic_reconfigure
+  ${dependencies}
 )
 
 include_directories(
