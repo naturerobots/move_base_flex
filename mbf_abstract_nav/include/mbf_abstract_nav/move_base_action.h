@@ -40,17 +40,16 @@
 #ifndef MBF_ABSTRACT_NAV__MOVE_BASE_ACTION_H_
 #define MBF_ABSTRACT_NAV__MOVE_BASE_ACTION_H_
 
-#include <actionlib/server/action_server.h>
-#include <actionlib/client/simple_action_client.h>
+#include <rclcpp/duration.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 
-#include <mbf_msgs/MoveBaseAction.h>
-#include <mbf_msgs/GetPathAction.h>
-#include <mbf_msgs/ExePathAction.h>
-#include <mbf_msgs/RecoveryAction.h>
+#include <mbf_msgs/action/move_base.hpp>
+#include <mbf_msgs/action/get_path.hpp>
+#include <mbf_msgs/action/exe_path.hpp>
+#include <mbf_msgs/action/recovery.hpp>
 
 #include <mbf_utility/robot_information.h>
-
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 
 
 namespace mbf_abstract_nav
@@ -61,15 +60,16 @@ class MoveBaseAction
  public:
 
   //! Action clients for the MoveBase action
-  typedef actionlib::SimpleActionClient<mbf_msgs::GetPathAction> ActionClientGetPath;
-  typedef actionlib::SimpleActionClient<mbf_msgs::ExePathAction> ActionClientExePath;
-  typedef actionlib::SimpleActionClient<mbf_msgs::RecoveryAction> ActionClientRecovery;
+  typedef mbf_msgs::action::GetPath GetPath;
+  typedef mbf_msgs::action::ExePath ExePath;
+  typedef mbf_msgs::action::Recovery Recovery;
 
-  typedef actionlib::ActionServer<mbf_msgs::MoveBaseAction>::GoalHandle GoalHandle;
+  typedef rclcpp_action::Client<mbf_msgs::action::MoveBase>::GoalHandle GoalHandle;
 
   MoveBaseAction(const std::string &name,
                  const mbf_utility::RobotInformation &robot_info,
-                 const std::vector<std::string> &controllers);
+                 const std::vector<std::string> &controllers,
+                 const rclcpp::Node::ConstSharedPtr &node);
 
   ~MoveBaseAction();
 
@@ -111,7 +111,7 @@ class MoveBaseAction
    * @param move_base_result
    */
   template <typename ResultType>
-  void fillMoveBaseResult(const ResultType& result, mbf_msgs::MoveBaseResult& move_base_result)
+  void fillMoveBaseResult(const ResultType& result, mbf_msgs::action::MoveBase::Result& move_base_result)
   {
     // copy outcome and message from action client result
     move_base_result.outcome = result.outcome;
@@ -121,15 +121,15 @@ class MoveBaseAction
     move_base_result.final_pose = robot_pose_;
   }
 
-  mbf_msgs::ExePathGoal exe_path_goal_;
-  mbf_msgs::GetPathGoal get_path_goal_;
-  mbf_msgs::RecoveryGoal recovery_goal_;
+  mbf_msgs::action::ExePath::Goal exe_path_goal_;
+  mbf_msgs::action::GetPath::Goal get_path_goal_;
+  mbf_msgs::action::Recovery::Goal recovery_goal_;
 
-  geometry_msgs::PoseStamped last_oscillation_pose_;
-  ros::Time last_oscillation_reset_;
+  geometry_msgs::msg::PoseStamped last_oscillation_pose_;
+  rclcpp::Time last_oscillation_reset_;
 
   //! timeout after a oscillation is detected
-  ros::Duration oscillation_timeout_;
+  rclcpp::Duration oscillation_timeout_;
 
   //! minimal move distance to not detect an oscillation
   double oscillation_distance_;
@@ -142,27 +142,27 @@ class MoveBaseAction
   const mbf_utility::RobotInformation &robot_info_;
 
   //! current robot pose; updated with exe_path action feedback
-  geometry_msgs::PoseStamped robot_pose_;
+  geometry_msgs::msg::PoseStamped robot_pose_;
 
   //! current goal pose; used to compute remaining distance and angle
-  geometry_msgs::PoseStamped goal_pose_;
+  geometry_msgs::msg::PoseStamped goal_pose_;
 
-  ros::NodeHandle private_nh_;
-
-  //! Action client used by the move_base action
-  ActionClientExePath action_client_exe_path_;
+  rclcpp::Node::ConstSharedPtr node_;
 
   //! Action client used by the move_base action
-  ActionClientGetPath action_client_get_path_;
+  rclcpp_action::Client<ExePath>::SharedPtr action_client_exe_path_;
 
   //! Action client used by the move_base action
-  ActionClientRecovery action_client_recovery_;
+  rclcpp_action::Client<GetPath>::SharedPtr action_client_get_path_;
+
+  //! Action client used by the move_base action
+  rclcpp_action::Client<Recovery>::SharedPtr action_client_recovery_;
 
   //! current distance to goal (we will stop replanning if very close to avoid destabilizing the controller)
   double dist_to_goal_;
 
   //! Replanning period dynamically reconfigurable
-  ros::Duration replanning_period_;
+  rclcpp::Duration replanning_period_;
 
   //! Replanning thread, running permanently
   boost::thread replanning_thread_;

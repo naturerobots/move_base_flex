@@ -48,13 +48,10 @@
 namespace mbf_abstract_nav
 {
 MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::RobotInformation& robot_info,
-                               const std::vector<std::string>& behaviors)
+                               const std::vector<std::string>& behaviors, const rclcpp::Node::ConstSharedPtr &node)
   : name_(name)
   , robot_info_(robot_info)
-  , private_nh_("~")
-  , action_client_exe_path_(private_nh_, "exe_path")
-  , action_client_get_path_(private_nh_, "get_path")
-  , action_client_recovery_(private_nh_, "recovery")
+  , node_(node)
   , oscillation_timeout_(0)
   , oscillation_distance_(0)
   , replanning_thread_shutdown_(false)
@@ -65,6 +62,10 @@ MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::Robot
   , dist_to_goal_(std::numeric_limits<double>::infinity())
   , replanning_thread_(boost::bind(&MoveBaseAction::replanningThread, this))
 {
+
+  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path")
+  action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path")
+  action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery")
 }
 
 MoveBaseAction::~MoveBaseAction()
@@ -84,7 +85,7 @@ void MoveBaseAction::reconfigure(
     replanning_period_.fromSec(1.0 / config.planner_frequency);
   else
     replanning_period_.fromSec(0.0);
-  oscillation_timeout_ = ros::Duration(config.oscillation_timeout);
+  oscillation_timeout_ = rclcpp::Duration(config.oscillation_timeout);
   oscillation_distance_ = config.oscillation_distance;
   recovery_enabled_ = config.recovery_enabled;
 }
@@ -119,7 +120,7 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
 
   goal_handle_ = goal_handle;
 
-  ROS_DEBUG_STREAM_NAMED("move_base", "Start action \"move_base\"");
+  RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
 
   const mbf_msgs::MoveBaseGoal& goal = *goal_handle.getGoal();
 
@@ -130,9 +131,9 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
   get_path_goal_.planner = goal.planner;
   exe_path_goal_.controller = goal.controller;
 
-  ros::Duration connection_timeout(1.0);
+  rclcpp::Duration connection_timeout(1, 0);
 
-  last_oscillation_reset_ = ros::Time::now();
+  last_oscillation_reset_ = node_->now();
 
   // start recovering with the first behavior, use the recovery behaviors from the action request, if specified,
   // otherwise, use all loaded behaviors.
@@ -143,7 +144,7 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
   // get the current robot pose only at the beginning, as exe_path will keep updating it as we move
   if (!robot_info_.getRobotPose(robot_pose_))
   {
-    ROS_ERROR_STREAM_NAMED("move_base", "Could not get the current robot pose!");
+    RCLCPP_ERROR_STREAM_NAMED(rclcpp::get_logger("move_base"), "Could not get the current robot pose!");
     move_base_result.message = "Could not get the current robot pose!";
     move_base_result.outcome = mbf_msgs::MoveBaseResult::TF_ERROR;
     goal_handle.setAborted(move_base_result, move_base_result.message);
@@ -156,7 +157,7 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
       !action_client_exe_path_.waitForServer(connection_timeout) ||
       !action_client_recovery_.waitForServer(connection_timeout))
   {
-    ROS_ERROR_STREAM_NAMED("move_base", "Could not connect to one or more of move_base_flex actions: "
+    RCLCPP_ERROR_STREAM_NAMED(rclcpp::get_logger("move_base"), "Could not connect to one or more of move_base_flex actions: "
         "\"get_path\", \"exe_path\", \"recovery \"!");
     move_base_result.outcome = mbf_msgs::MoveBaseResult::INTERNAL_ERROR;
     move_base_result.message = "Could not connect to the move_base_flex actions!";
@@ -172,7 +173,7 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
 
 void MoveBaseAction::actionExePathActive()
 {
-  ROS_DEBUG_STREAM_NAMED("move_base", "The \"exe_path\" action is active.");
+  RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "The \"exe_path\" action is active.");
 }
 
 void MoveBaseAction::actionExePathFeedback(
@@ -199,21 +200,21 @@ void MoveBaseAction::actionExePathFeedback(
     // moved more than the minimum oscillation distance
     if (mbf_utility::distance(robot_pose_, last_oscillation_pose_) >= oscillation_distance_)
     {
-      last_oscillation_reset_ = ros::Time::now();
+      last_oscillation_reset_ = node_->now();
       last_oscillation_pose_ = robot_pose_;
 
       if (recovery_trigger_ == OSCILLATING)
       {
-        ROS_INFO_NAMED("move_base", "Recovered from robot oscillation: restart recovery behaviors");
+        RCLCPP_INFO_NAMED(rclcpp::get_logger("move_base"), "Recovered from robot oscillation: restart recovery behaviors");
         current_recovery_behavior_ = recovery_behaviors_.begin();
         recovery_trigger_ = NONE;
       }
     }
-    else if (last_oscillation_reset_ + oscillation_timeout_ < ros::Time::now())
+    else if (last_oscillation_reset_ + oscillation_timeout_ < node_->now())
     {
       std::stringstream oscillation_msgs;
-      oscillation_msgs << "Robot is oscillating for " << (ros::Time::now() - last_oscillation_reset_).toSec() << "s!";
-      ROS_WARN_STREAM_NAMED("move_base", oscillation_msgs.str());
+      oscillation_msgs << "Robot is oscillating for " << (node_->now() - last_oscillation_reset_).toSec() << "s!";
+      RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), oscillation_msgs.str());
       action_client_exe_path_.cancelGoal();
 
       if (attemptRecovery())
@@ -247,22 +248,22 @@ void MoveBaseAction::actionGetPathDone(
   switch (state.state_)
   {
     case actionlib::SimpleClientGoalState::PENDING:
-      ROS_FATAL_STREAM_NAMED("move_base", "get_path PENDING state not implemented, this should not be reachable!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "get_path PENDING state not implemented, this should not be reachable!");
       break;
 
     case actionlib::SimpleClientGoalState::SUCCEEDED:
-      ROS_DEBUG_STREAM_NAMED("move_base", "Action \""
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Action \""
           << "move_base\" received a path from \""
           << "get_path\": " << state.getText());
 
       exe_path_goal_.path = get_path_result.path;
-      ROS_DEBUG_STREAM_NAMED("move_base", "Action \""
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Action \""
           << "move_base\" sends the path to \""
           << "exe_path\".");
 
       if (recovery_trigger_ == GET_PATH)
       {
-        ROS_WARN_NAMED("move_base", "Recovered from planner failure: restart recovery behaviors");
+        RCLCPP_WARN_NAMED(rclcpp::get_logger("move_base"), "Recovered from planner failure: restart recovery behaviors");
         current_recovery_behavior_ = recovery_behaviors_.begin();
         recovery_trigger_ = NONE;
       }
@@ -278,7 +279,7 @@ void MoveBaseAction::actionGetPathDone(
     case actionlib::SimpleClientGoalState::ABORTED:
       if (!action_client_exe_path_.getState().isDone())
       {
-        ROS_WARN_STREAM_NAMED("move_base", "Cancel previous goal, as planning to the new one has failed");
+        RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "Cancel previous goal, as planning to the new one has failed");
         cancel();
       }
       if (attemptRecovery())
@@ -288,7 +289,7 @@ void MoveBaseAction::actionGetPathDone(
       else
       {
         // copy result from get_path action
-        ROS_WARN_STREAM_NAMED("move_base", "Abort the execution of the planner: " << get_path_result.message);
+        RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "Abort the execution of the planner: " << get_path_result.message);
         goal_handle_.setAborted(move_base_result, state.getText());
       }
       action_state_ = FAILED;
@@ -296,29 +297,29 @@ void MoveBaseAction::actionGetPathDone(
 
     case actionlib::SimpleClientGoalState::RECALLED:
     case actionlib::SimpleClientGoalState::PREEMPTED:
-      ROS_INFO_STREAM_NAMED("move_base", "The last action goal to \"get_path\" has been " << state.toString());
+      RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "The last action goal to \"get_path\" has been " << state.toString());
       if (action_state_ == CANCELED)
       {
         // move_base preempted while executing get_path; fill result and report canceled to the client
-        ROS_INFO_STREAM_NAMED("move_base", "move_base preempted while executing get_path");
+        RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "move_base preempted while executing get_path");
         goal_handle_.setCanceled(move_base_result, state.getText());
       }
       break;
 
     case actionlib::SimpleClientGoalState::REJECTED:
-      ROS_ERROR_STREAM_NAMED("move_base", "The last action goal to \"get_path\" has been " << state.toString());
+      RCLCPP_ERROR_STREAM_NAMED(rclcpp::get_logger("move_base"), "The last action goal to \"get_path\" has been " << state.toString());
       goal_handle_.setCanceled(move_base_result, state.getText());
       action_state_ = FAILED;
       break;
 
     case actionlib::SimpleClientGoalState::LOST:
-      ROS_FATAL_STREAM_NAMED("move_base", "Connection lost to the action \"get_path\"!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Connection lost to the action \"get_path\"!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
 
     default:
-      ROS_FATAL_STREAM_NAMED("move_base", "Reached unknown action server state!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Reached unknown action server state!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
@@ -329,7 +330,7 @@ void MoveBaseAction::actionExePathDone(
     const actionlib::SimpleClientGoalState &state,
     const mbf_msgs::ExePathResultConstPtr &result_ptr)
 {
-  ROS_DEBUG_STREAM_NAMED("move_base", "Action \"exe_path\" finished.");
+  RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Action \"exe_path\" finished.");
 
   const mbf_msgs::ExePathResult& exe_path_result = *result_ptr;
   mbf_msgs::MoveBaseResult move_base_result;
@@ -337,14 +338,14 @@ void MoveBaseAction::actionExePathDone(
   // copy result from exe_path action
   fillMoveBaseResult(exe_path_result, move_base_result);
 
-  ROS_DEBUG_STREAM_NAMED("move_base", "Current state: " << state.toString());
+  RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Current state: " << state.toString());
 
   switch (state.state_)
   {
     case actionlib::SimpleClientGoalState::SUCCEEDED:
       move_base_result.outcome = mbf_msgs::MoveBaseResult::SUCCESS;
       move_base_result.message = "Action \"move_base\" succeeded!";
-      ROS_INFO_STREAM_NAMED("move_base", move_base_result.message);
+      RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), move_base_result.message);
       goal_handle_.setSucceeded(move_base_result, move_base_result.message);
       action_state_ = SUCCEEDED;
       break;
@@ -372,7 +373,7 @@ void MoveBaseAction::actionExePathDone(
           }
           else
           {
-            ROS_WARN_STREAM_NAMED("move_base", "Abort the execution of the controller: " << exe_path_result.message);
+            RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "Abort the execution of the controller: " << exe_path_result.message);
             goal_handle_.setAborted(move_base_result, state.getText());
           }
           break;
@@ -381,29 +382,29 @@ void MoveBaseAction::actionExePathDone(
 
     case actionlib::SimpleClientGoalState::RECALLED:
     case actionlib::SimpleClientGoalState::PREEMPTED:
-      ROS_INFO_STREAM_NAMED("move_base", "The last action goal to \"exe_path\" has been " << state.toString());
+      RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "The last action goal to \"exe_path\" has been " << state.toString());
       if (action_state_ == CANCELED)
       {
         // move_base preempted while executing exe_path; fill result and report canceled to the client
-        ROS_INFO_STREAM_NAMED("move_base", "move_base preempted while executing exe_path");
+        RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "move_base preempted while executing exe_path");
         goal_handle_.setCanceled(move_base_result, state.getText());
       }
       break;
 
     case actionlib::SimpleClientGoalState::REJECTED:
-      ROS_ERROR_STREAM_NAMED("move_base", "The last action goal to \"exe_path\" has been " << state.toString());
+      RCLCPP_ERROR_STREAM_NAMED(rclcpp::get_logger("move_base"), "The last action goal to \"exe_path\" has been " << state.toString());
       goal_handle_.setCanceled(move_base_result, state.getText());
       action_state_ = FAILED;
       break;
 
     case actionlib::SimpleClientGoalState::LOST:
-      ROS_FATAL_STREAM_NAMED("move_base", "Connection lost to the action \"exe_path\"!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Connection lost to the action \"exe_path\"!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
 
     default:
-      ROS_FATAL_STREAM_NAMED("move_base", "Reached unreachable case! Unknown SimpleActionServer state!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Reached unreachable case! Unknown SimpleActionServer state!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
@@ -414,7 +415,7 @@ bool MoveBaseAction::attemptRecovery()
 {
   if (!recovery_enabled_)
   {
-    ROS_WARN_STREAM_NAMED("move_base", "Recovery behaviors are disabled!");
+    RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "Recovery behaviors are disabled!");
     return false;
   }
 
@@ -422,17 +423,17 @@ bool MoveBaseAction::attemptRecovery()
   {
     if (recovery_behaviors_.empty())
     {
-      ROS_WARN_STREAM_NAMED("move_base", "No Recovery Behaviors loaded!");
+      RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "No Recovery Behaviors loaded!");
     }
     else
     {
-      ROS_WARN_STREAM_NAMED("move_base", "Executed all available recovery behaviors!");
+      RCLCPP_WARN_STREAM_NAMED(rclcpp::get_logger("move_base"), "Executed all available recovery behaviors!");
     }
     return false;
   }
 
   recovery_goal_.behavior = *current_recovery_behavior_;
-  ROS_DEBUG_STREAM_NAMED("move_base", "Start recovery behavior\""
+  RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Start recovery behavior\""
       << *current_recovery_behavior_ <<"\".");
   action_client_recovery_.sendGoal(
       recovery_goal_,
@@ -447,7 +448,7 @@ void MoveBaseAction::actionRecoveryDone(
     const mbf_msgs::RecoveryResultConstPtr &result_ptr)
 {
   // give the robot some time to stop oscillating after executing the recovery behavior
-  last_oscillation_reset_ = ros::Time::now();
+  last_oscillation_reset_ = node_->now();
 
   const mbf_msgs::RecoveryResult& recovery_result = *result_ptr;
   mbf_msgs::MoveBaseResult move_base_result;
@@ -461,15 +462,15 @@ void MoveBaseAction::actionRecoveryDone(
     case actionlib::SimpleClientGoalState::ABORTED:
       action_state_ = FAILED;
 
-      ROS_DEBUG_STREAM_NAMED("move_base", "The recovery behavior \""
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "The recovery behavior \""
           << *current_recovery_behavior_ << "\" has failed. ");
-      ROS_DEBUG_STREAM("Recovery behavior message: " << recovery_result.message
+      RCLCPP_DEBUG_STREAM("Recovery behavior message: " << recovery_result.message
                                     << ", outcome: " << recovery_result.outcome);
 
       current_recovery_behavior_++; // use next behavior;
       if (current_recovery_behavior_ == recovery_behaviors_.end())
       {
-        ROS_DEBUG_STREAM_NAMED("move_base",
+        RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"),
                                "All recovery behaviors failed. Abort recovering and abort the move_base action");
         goal_handle_.setAborted(move_base_result, "All recovery behaviors failed.");
       }
@@ -477,7 +478,7 @@ void MoveBaseAction::actionRecoveryDone(
       {
         recovery_goal_.behavior = *current_recovery_behavior_;
 
-        ROS_INFO_STREAM_NAMED("move_base", "Run the next recovery behavior \""
+        RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "Run the next recovery behavior \""
             << *current_recovery_behavior_ << "\".");
         action_client_recovery_.sendGoal(
             recovery_goal_,
@@ -487,9 +488,9 @@ void MoveBaseAction::actionRecoveryDone(
       break;
     case actionlib::SimpleClientGoalState::SUCCEEDED:
       //go to planning state
-      ROS_DEBUG_STREAM_NAMED("move_base", "Execution of the recovery behavior \""
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Execution of the recovery behavior \""
           << *current_recovery_behavior_ << "\" succeeded!");
-      ROS_DEBUG_STREAM_NAMED("move_base",
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"),
                              "Try planning again and increment the current recovery behavior in the list.");
       action_state_ = GET_PATH;
       current_recovery_behavior_++; // use next behavior, the next time;
@@ -500,22 +501,22 @@ void MoveBaseAction::actionRecoveryDone(
       break;
     case actionlib::SimpleClientGoalState::RECALLED:
     case actionlib::SimpleClientGoalState::PREEMPTED:
-      ROS_INFO_STREAM_NAMED("move_base", "The last action goal to \"recovery\" has been preempted!");
+      RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "The last action goal to \"recovery\" has been preempted!");
       if (action_state_ == CANCELED)
       {
         // move_base preempted while executing a recovery; fill result and report canceled to the client
-        ROS_INFO_STREAM_NAMED("move_base", "move_base preempted while executing a recovery behavior");
+        RCLCPP_INFO_STREAM_NAMED(rclcpp::get_logger("move_base"), "move_base preempted while executing a recovery behavior");
         goal_handle_.setCanceled(move_base_result, state.getText());
       }
       break;
 
     case actionlib::SimpleClientGoalState::LOST:
-      ROS_FATAL_STREAM_NAMED("move_base", "Connection lost to the action \"recovery\"!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Connection lost to the action \"recovery\"!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
     default:
-      ROS_FATAL_STREAM_NAMED("move_base", "Reached unreachable case! Unknown state!");
+      RCLCPP_FATAL_STREAM_NAMED(rclcpp::get_logger("move_base"), "Reached unreachable case! Unknown state!");
       goal_handle_.setAborted();
       action_state_ = FAILED;
       break;
@@ -530,10 +531,10 @@ bool MoveBaseAction::replanningActive() const
 
 void MoveBaseAction::replanningThread()
 {
-  ros::Duration update_period(0.005);
-  ros::Time last_replan_time(0.0);
+  rclcpp::Duration update_period(0, 5e6);
+  rclcpp::Time last_replan_time(0, 0, node_->get_clock()->get_clock_type());
 
-  while (ros::ok() && !replanning_thread_shutdown_)
+  while (rclcpp::ok() && !replanning_thread_shutdown_)
   {
     if (!action_client_get_path_.getState().isDone())
     {
@@ -543,7 +544,7 @@ void MoveBaseAction::replanningThread()
         mbf_msgs::GetPathResultConstPtr result = action_client_get_path_.getResult();
         if (state == actionlib::SimpleClientGoalState::SUCCEEDED && replanningActive())
         {
-          ROS_DEBUG_STREAM_NAMED("move_base", "Replanning succeeded; sending a goal to \"exe_path\" with the new plan");
+          RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Replanning succeeded; sending a goal to \"exe_path\" with the new plan");
           exe_path_goal_.path = result->path;
           mbf_msgs::ExePathGoal goal(exe_path_goal_);
           action_client_exe_path_.sendGoal(goal, boost::bind(&MoveBaseAction::actionExePathDone, this, _1, _2),
@@ -552,7 +553,7 @@ void MoveBaseAction::replanningThread()
         }
         else
         {
-          ROS_DEBUG_STREAM_NAMED("move_base",
+          RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"),
                                  "Replanning failed with error code " << result->outcome << ": " << result->message);
         }
       }
@@ -562,11 +563,11 @@ void MoveBaseAction::replanningThread()
     {
       update_period.sleep();
     }
-    else if (ros::Time::now() - last_replan_time >= replanning_period_)
+    else if (node_->now() - last_replan_time >= replanning_period_)
     {
-      ROS_DEBUG_STREAM_NAMED("move_base", "Next replanning cycle, using the \"get_path\" action!");
+      RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "Next replanning cycle, using the \"get_path\" action!");
       action_client_get_path_.sendGoal(get_path_goal_);
-      last_replan_time = ros::Time::now();
+      last_replan_time = node_->now();
     }
   }
 }
