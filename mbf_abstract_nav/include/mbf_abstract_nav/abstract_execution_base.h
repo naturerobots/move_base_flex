@@ -39,12 +39,11 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_EXECUTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_EXECUTION_BASE_H_
 
-#include <boost/thread.hpp>
-
+#include <thread>
+#include <chrono>
+#include <condition_variable>
 #include <mbf_utility/robot_information.h>
-
 #include <mbf_abstract_nav/MoveBaseFlexConfig.h>
-
 #include <string>
 
 namespace mbf_abstract_nav
@@ -78,7 +77,7 @@ class AbstractExecutionBase
 
    void join();
 
-   boost::cv_status waitForStateUpdate(boost::chrono::microseconds const& duration);
+   boost::cv_status waitForStateUpdate(std::chrono::microseconds const& duration);
 
    /**
     * @brief Gets the current plugin execution outcome
@@ -116,10 +115,10 @@ protected:
   virtual void run(){};
 
   //! condition variable to wake up control thread
-  boost::condition_variable condition_;
+  std::condition_variable condition_;
 
   //! the controlling thread object
-  boost::thread thread_;
+  std::thread thread_;
 
   //! flag for canceling controlling
   bool cancel_;
