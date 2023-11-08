@@ -39,7 +39,8 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_PLUGIN_MANAGER_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_PLUGIN_MANAGER_H_
 
-#include <boost/function.hpp>
+#include <functional>
+#include <rclcpp/rclcpp.hpp>
 
 namespace mbf_abstract_nav
 {
@@ -49,13 +50,14 @@ class AbstractPluginManager
 {
  public:
 
-  typedef boost::function<typename PluginType::Ptr(const std::string &plugin)> loadPluginFunction;
-  typedef boost::function<bool (const std::string &name, const typename PluginType::Ptr &plugin_ptr)> initPluginFunction;
+  typedef std::function<typename PluginType::Ptr(const std::string &plugin)> loadPluginFunction;
+  typedef std::function<bool(const std::string& name, const typename PluginType::Ptr& plugin_ptr)> initPluginFunction;
 
   AbstractPluginManager(
       const std::string &param_name,
       const loadPluginFunction &loadPlugin,
-      const initPluginFunction &initPlugin
+      const initPluginFunction &initPlugin,
+      const rclcpp::Node::SharedPtr& node_handle
   );
 
   bool loadPlugins();
@@ -77,6 +79,7 @@ class AbstractPluginManager
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;
+  const rclcpp::Node::SharedPtr& node_handle_;
 };
 
 } /* namespace mbf_abstract_nav */

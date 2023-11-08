@@ -40,7 +40,6 @@
 #define MBF_ABSTRACT_NAV__ABSTRACT_PLUGIN_MANAGER_TCC_
 
 #include "mbf_abstract_nav/abstract_plugin_manager.h"
-#include <XmlRpcException.h>
 
 namespace mbf_abstract_nav{
 
@@ -48,22 +47,24 @@ template <typename PluginType>
 AbstractPluginManager<PluginType>::AbstractPluginManager(
     const std::string &param_name,
     const loadPluginFunction &loadPlugin,
-    const initPluginFunction &initPlugin
+    const initPluginFunction &initPlugin,
+    const rclcpp::Node::SharedPtr &node_handle
 )
-  : param_name_(param_name), loadPlugin_(loadPlugin), initPlugin_(initPlugin)
+  : param_name_(param_name), loadPlugin_(loadPlugin), initPlugin_(initPlugin), node_handle_(node_handle)
 {
 }
 
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::loadPlugins()
 {
-  ros::NodeHandle private_nh("~");
+  std::map<std::string, rclcpp::Parameter> plugin_param_list;
 
-  XmlRpc::XmlRpcValue plugin_param_list;
-  if(!private_nh.getParam(param_name_, plugin_param_list))
+  if (!node_handle_->get_parameters(param_name_, plugin_param_list))
   {
-    ROS_WARN_STREAM("No " << param_name_ << " plugins configured! - Use the param \"" << param_name_ << "\", "
-        "which must be a list of tuples with a name and a type.");
+    RCLCPP_WARN(node_handle_->get_logger(),
+                "No %s plugins configured! - Use the param \"%s\", which must be a list of tuples with a name and a "
+                "type.",
+                param_name_.c_str(), param_name_.c_str());
     return false;
   }
 
@@ -71,14 +72,15 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
   {
     for (int i = 0; i < plugin_param_list.size(); i++)
     {
-      XmlRpc::XmlRpcValue elem = plugin_param_list[i];
+      rclcpp::Parameter elem = plugin_param_list[i];
 
-      std::string name = elem["name"];
-      std::string type = elem["type"];
+      std::string name = elem.get_name();
+      std::string type = elem.get_type_name();
 
       if (plugins_.find(name) != plugins_.end())
       {
-        ROS_ERROR_STREAM("The plugin \"" << name << "\" has already been loaded! Names must be unique!");
+        RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
+                     name.c_str());
         return false;
       }
       typename PluginType::Ptr plugin_ptr = loadPlugin_(type);
@@ -91,21 +93,24 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
         plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
         names_.push_back(name);
 
-        ROS_INFO_STREAM("The plugin with the type \"" << type << "\" has been loaded successfully under the name \""
-                                                       << name << "\".");
+        CLCPP_INFO(node_handle_->get_logger(),
+                   "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
+                   name.c_str());
       }
       else
       {
-        ROS_ERROR_STREAM("Could not load the plugin with the name \""
-                             << name << "\" and the type \"" << type << "\"!");
+        RCLCPP_ERROR(node_handle_->get_logger(), "Could not load the plugin with the name \"%s\" and the type \"%s\"!",
+                     name.c_str(), type.c_str());
       }
     }
   }
-  catch (XmlRpc::XmlRpcException &e)
+  catch (const std::exception& e)
   {
-    ROS_ERROR_STREAM("Invalid parameter structure. The \""<< param_name_ << "\" parameter has to be a list of structs "
-                         << "with fields \"name\" and \"type\" of !");
-    ROS_ERROR_STREAM(e.getMessage());
+    RCLCPP_ERROR(node_handle_->get_logger(),
+                 "Invalid parameter structure. The \"%s\" parameter has to be a list of structs with fields \"name\" "
+                 "and \"type\" of !",
+                 param_name_.c_str());
+    RCLCPP_ERROR(node_handle_->get_logger(), "%s", e.what());
     return false;
   }
   // is there any plugin in the map?
