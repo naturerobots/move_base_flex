@@ -20,23 +20,15 @@ endforeach()
 #maybe needed , maybe include in standard library
 #find_package(Boost COMPONENTS thread chrono REQUIRED)
 
-ament_python_install_package(${PROJECT_NAME})
-
-set(MBF_ABSTRACT_SERVER_LIB mbf_abstract_server)
-
-ament_export_include_directories(include) 
-
-ament_export_libraries(${MBF_ABSTRACT_SERVER_LIB})
-
-ament_target_dependencies(
-  ${dependencies}
-)
-
 include_directories(
   include
 )
 
-add_library(${MBF_ABSTRACT_SERVER_LIB}
+# TODO install python via ament_cmake
+#ament_python_install_package(${PROJECT_NAME})
+
+set(MBF_ABSTRACT_SERVER_LIB mbf_abstract_server)
+add_library(${MBF_ABSTRACT_SERVER_LIB} SHARED
   #src/controller_action.cpp
   #src/planner_action.cpp
   #src/recovery_action.cpp
@@ -47,16 +39,16 @@ add_library(${MBF_ABSTRACT_SERVER_LIB}
   #src/abstract_controller_execution.cpp
   #src/abstract_recovery_execution.cpp
 )
+ament_target_dependencies(${MBF_ABSTRACT_SERVER_LIB} ${dependencies})
 
-install(TARGETS
-  ${MBF_ABSTRACT_SERVER_LIB}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(TARGETS ${MBF_ABSTRACT_SERVER_LIB}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION include/${PROJECT_NAME}
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 # TODO!!!
@@ -89,3 +81,8 @@ install(DIRECTORY include/${PROJECT_NAME}/
 #     test/planner_action.cpp)
 #   target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
 # endif()
+
+ament_export_include_directories(include) 
+ament_export_libraries(${MBF_ABSTRACT_SERVER_LIB})
+ament_export_dependencies(${dependencies})
+ament_package()

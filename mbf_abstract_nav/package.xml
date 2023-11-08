@@ -1,4 +1,5 @@
-<package>
+<?xml version="1.0"?>
+<package format="3">
     <name>mbf_abstract_nav</name>
     <version>0.4.0</version>
     <description>
@@ -10,26 +11,19 @@
     <maintainer email="santos@magazino.eu">Jorge Santos</maintainer>
     <license>BSD-3</license>
 
-    <export>
-      <build_type>ament_cmake</build_type>
-    </export>
-
-    <depend>rclcpp</depend>
-    <depend>rclcpp_action</depend>
-    <depend>std_msgs</depend>
-    <depend>std_srvs</depend>
-    <depend>nav_msgs</depend>
     <depend>geometry_msgs</depend>
     <depend>mbf_abstract_core</depend>
     <depend>mbf_msgs</depend>
     <depend>mbf_utility</depend>
-    <depend>tf2</depend>
-    <depend>tf2_ros</depend>
-    <depend>tf2_geometry_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>rclcpp_action</depend>
+    <depend>rclcpp</depend>
+    <depend>std_msgs</depend>
+    <depend>std_srvs</depend>
     
-    
-    <!-- TODO -->
-    <!-- <export>
-      <rosdoc config="rosdoc.yaml" />
-    </export> -->
+    <export>
+      <!-- TODO -->
+      <!--rosdoc config="rosdoc.yaml" /-->
+      <build_type>ament_cmake</build_type>
+    </export>
 </package>
