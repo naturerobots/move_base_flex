@@ -42,14 +42,16 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/bind.hpp>
 
+#include <memory>
 #include <string>
 #include <map>
 #include <utility>
 
-#include <actionlib/server/action_server.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/logger.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <mbf_utility/robot_information.h>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
@@ -73,8 +75,8 @@ template <typename Action, typename Execution>
 class AbstractActionBase
 {
  public:
-  typedef boost::shared_ptr<AbstractActionBase> Ptr;
-  typedef typename actionlib::ActionServer<Action>::GoalHandle GoalHandle;
+  typedef std::shared_ptr<AbstractActionBase> Ptr;
+  typedef typename rclcpp_action::ServerGoalHandle<Action> GoalHandle;
 
   /// @brief POD holding info for one execution
   struct ConcurrencySlot{
@@ -101,6 +103,7 @@ public:
    * the lifetime of name and robot_info exceeds the lifetime of this object.
    */
   AbstractActionBase(
+      const rclcpp::Node::ConstSharedPtr& node,
       const std::string &name,
       const mbf_utility::RobotInformation &robot_info
   ) : name_(name), robot_info_(robot_info){}
@@ -190,9 +193,9 @@ public:
   {
     slot.execution->preRun();
     runImpl(slot.goal_handle, *slot.execution);
-    ROS_DEBUG_STREAM_NAMED(name_, "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
     slot.execution->join();
-    ROS_DEBUG_STREAM_NAMED(name_, "Execution completed with goal status "
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Execution completed with goal status "
                            << (int)slot.goal_handle.getGoalStatus().status << ": "<< slot.goal_handle.getGoalStatus().text);
     slot.execution->postRun();
     slot.in_use = false;
@@ -212,13 +215,14 @@ public:
 
   virtual void cancelAll()
   {
-    ROS_INFO_STREAM_NAMED(name_, "Cancel all goals for \"" << name_ << "\".");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Cancel all goals for \"" << name_ << "\".");
     boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
     typename ConcurrencyMap::iterator iter;
     for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
     {
       iter->second.execution->cancel();
     }
+    rclcpp::get_logger
     threads_.join_all();
   }
 
