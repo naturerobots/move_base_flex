@@ -124,6 +124,8 @@ class MoveBaseAction
   mbf_msgs::action::GetPath::Goal get_path_goal_;
   mbf_msgs::action::Recovery::Goal recovery_goal_;
 
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
+
   geometry_msgs::msg::PoseStamped last_oscillation_pose_;
   rclcpp::Time last_oscillation_reset_;
 

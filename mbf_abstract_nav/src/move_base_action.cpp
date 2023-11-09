@@ -42,7 +42,6 @@
 
 #include <mbf_utility/navigation_utility.h>
 
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/move_base_action.h"
 
 namespace mbf_abstract_nav
@@ -62,10 +61,10 @@ MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::Robot
   , dist_to_goal_(std::numeric_limits<double>::infinity())
   , replanning_thread_(boost::bind(&MoveBaseAction::replanningThread, this))
 {
-
   action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path")
   action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path")
   action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery")
+  dyn_params_handler_ = node_->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, std::placeholders::_1));
 }
 
 MoveBaseAction::~MoveBaseAction()
