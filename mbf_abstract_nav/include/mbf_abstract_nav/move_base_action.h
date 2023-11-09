@@ -121,9 +121,9 @@ class MoveBaseAction
     move_base_result.final_pose = robot_pose_;
   }
 
-  mbf_msgs::action::ExePath::Goal exe_path_goal_;
-  mbf_msgs::action::GetPath::Goal get_path_goal_;
-  mbf_msgs::action::Recovery::Goal recovery_goal_;
+  ExePath::Goal exe_path_goal_;
+  GetPath::Goal get_path_goal_;
+  Recovery::Goal recovery_goal_;
 
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 
