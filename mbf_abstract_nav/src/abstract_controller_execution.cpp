@@ -359,7 +359,7 @@ bool AbstractControllerExecution::cancel()
     }
   }
   return true;
-
+  }
   void AbstractControllerExecution::run()
   {
     start_time_ = rclcpp::Time::now();
