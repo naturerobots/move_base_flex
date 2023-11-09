@@ -65,7 +65,7 @@ class MoveBaseAction
   typedef mbf_msgs::action::ExePath ExePath;
   typedef mbf_msgs::action::Recovery Recovery;
 
-  typedef rclcpp_action::Client<mbf_msgs::action::MoveBase>::GoalHandle GoalHandle;
+  typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> GoalHandle;
 
   MoveBaseAction(const std::string &name,
                  const mbf_utility::RobotInformation &robot_info,
@@ -74,7 +74,7 @@ class MoveBaseAction
 
   ~MoveBaseAction();
 
-  void start(GoalHandle &goal_handle);
+  void start(std::shared_ptr<GoalHandle> goal_handle);
 
   void cancel();
 
@@ -136,7 +136,8 @@ class MoveBaseAction
   //! minimal move distance to not detect an oscillation
   double oscillation_distance_;
 
-  GoalHandle goal_handle_;
+  //! handle of the active MoveBase action goal, if one exists
+  std::shared_ptr<GoalHandle> goal_handle_;
 
   std::string name_;
 
