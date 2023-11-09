@@ -44,14 +44,17 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <rate.hpp>
 
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include <mbf_utility/navigation_utility.h>
 #include <mbf_abstract_core/abstract_controller.h>
 
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/abstract_execution_base.h"
 
 namespace mbf_abstract_nav
@@ -77,7 +80,7 @@ namespace mbf_abstract_nav
 
     static const double DEFAULT_CONTROLLER_FREQUENCY;
 
-    typedef boost::shared_ptr<AbstractControllerExecution > Ptr;
+    typedef std::shared_ptr<AbstractControllerExecution > Ptr;
 
     /**
      * @brief Constructor
@@ -88,13 +91,12 @@ namespace mbf_abstract_nav
      * @param goal_pub Current goal publisher
      * @param config Initial configuration for this execution
      */
-    AbstractControllerExecution(
-        const std::string &name,
-        const mbf_abstract_core::AbstractController::Ptr &controller_ptr,
-        const mbf_utility::RobotInformation &robot_info,
-        const ros::Publisher &vel_pub,
-        const ros::Publisher &goal_pub,
-        const MoveBaseFlexConfig &config);
+    AbstractControllerExecution(const std::string& name,
+                                const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
+                                const mbf_utility::RobotInformation& robot_info,
+                                const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
+                                const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
+                                const rclcpp::Node::SharedPtr& node_handle);
 
     /**
      * @brief Destructor
@@ -115,7 +117,7 @@ namespace mbf_abstract_nav
      * @param action_angle_tolerance angle to goal tolerance specific for this new plan (action)
      */
     void setNewPlan(
-      const std::vector<geometry_msgs::PoseStamped> &plan,
+      const std::vector<geometry_msgs::msg::PoseStamped> &plan,
       bool tolerance_from_action = false,
       double action_dist_tolerance = 1.0,
       double action_angle_tolerance = 3.1415);
@@ -170,7 +172,7 @@ namespace mbf_abstract_nav
      * to the plugin on controller action feedback.
      * @return The last valid velocity command.
      */
-    geometry_msgs::TwistStamped getVelocityCmd() const;
+    geometry_msgs::msg::TwistStamped getVelocityCmd() const;
 
     /**
      * @brief Checks whether the patience duration time has been exceeded, ot not
@@ -188,9 +190,9 @@ namespace mbf_abstract_nav
     /**
      * @brief Is called by the server thread to reconfigure the controller execution,
      *        if a user uses dynamic reconfigure to reconfigure the current state.
-     * @param config MoveBaseFlexConfig object
+     * @param config The dynamic reconfigure config.
      */
-    void reconfigure(const MoveBaseFlexConfig &config);
+    void reconfigure(std::vector<rclcpp::Parameter> parameters);
 
     /**
      * @brief Returns whether the robot should normally move or not. True if the controller seems to work properly.
@@ -210,22 +212,22 @@ namespace mbf_abstract_nav
      * @param message Optional more detailed outcome as a string.
      * @return Result code as described on ExePath action result and plugin's header.
      */
-    virtual uint32_t computeVelocityCmd(const geometry_msgs::PoseStamped &pose,
-                                        const geometry_msgs::TwistStamped &velocity,
-                                        geometry_msgs::TwistStamped &vel_cmd, std::string &message);
+    virtual uint32_t computeVelocityCmd(const geometry_msgs::msg::PoseStamped &pose,
+                                        const geometry_msgs::msg::TwistStamped &velocity,
+                                        geometry_msgs:msg::TwistStamped &vel_cmd, std::string &message);
 
     /**
      * @brief Sets the velocity command, to make it available for another thread
      * @param vel_cmd_stamped current velocity command
      */
-    void setVelocityCmd(const geometry_msgs::TwistStamped &vel_cmd_stamped);
+    void setVelocityCmd(const geometry_msgs::msg::TwistStamped &vel_cmd_stamped);
 
     /**
      * @brief Check if the robot is ignoring the cmd_vel longer than threshold time
      * @param cmd_vel the latest cmd_vel being published by the controller
      * @return true if cmd_vel is being ignored by the robot longer than tolerance time, false otherwise
      */
-    bool checkCmdVelIgnored(const geometry_msgs::Twist& cmd_vel);
+    bool checkCmdVelIgnored(const geometry_msgs::msg::Twist& cmd_vel);
 
     //! the name of the loaded plugin
     std::string plugin_name_;
@@ -234,22 +236,22 @@ namespace mbf_abstract_nav
     mbf_abstract_core::AbstractController::Ptr controller_;
 
     //! The current cycle start time of the last cycle run. Will by updated each cycle.
-    ros::Time last_call_time_;
+    rclcpp::Time last_call_time_;
 
     //! The time the controller has been started.
-    ros::Time start_time_;
+    rclcpp::Time start_time_;
 
     //! The time the controller responded with a success output (output < 10).
-    ros::Time last_valid_cmd_time_;
+    rclcpp::Time last_valid_cmd_time_;
 
     //! The time when the robot started ignoring velocity commands
-    ros::Time first_ignored_time_;
+    rclcpp::Time first_ignored_time_;
 
     //! The maximum number of retries
     int max_retries_;
 
     //! The time / duration of patience, before changing the state.
-    ros::Duration patience_;
+    rclcpp::Duration patience_;
 
     //! the frame of the robot, which will be used to determine its position.
     std::string robot_frame_;
@@ -292,16 +294,16 @@ namespace mbf_abstract_nav
     void setState(ControllerState state);
 
     //! mutex to handle safe thread communication for the current value of the state
-    mutable boost::mutex state_mtx_;
+    mutable std::mutex state_mtx_;
 
     //! mutex to handle safe thread communication for the current plan
-    mutable boost::mutex plan_mtx_;
+    mutable std::mutex plan_mtx_;
 
     //! mutex to handle safe thread communication for the current velocity command
-    mutable boost::mutex vel_cmd_mtx_;
+    mutable std::mutex vel_cmd_mtx_;
 
     //! mutex to handle safe thread communication for the last plugin call time
-    mutable boost::mutex lct_mtx_;
+    mutable std::mutex lct_mtx_;
 
     //! true, if a new plan is available. See hasNewPlan()!
     bool new_plan_;
@@ -316,22 +318,22 @@ namespace mbf_abstract_nav
      * @brief Gets the new available plan. This method is thread safe.
      * @return The plan
      */
-    std::vector<geometry_msgs::PoseStamped> getNewPlan();
+    std::vector<geometry_msgs::msg::PoseStamped> getNewPlan();
 
     //! the last calculated velocity command
-    geometry_msgs::TwistStamped vel_cmd_stamped_;
+    geometry_msgs::msg::TwistStamped vel_cmd_stamped_;
 
     //! the last set plan which is currently processed by the controller
-    std::vector<geometry_msgs::PoseStamped> plan_;
+    std::vector<geometry_msgs::msg::PoseStamped> plan_;
 
     //! the loop_rate which corresponds with the controller frequency.
-    ros::Rate loop_rate_;
+    rclcpp::Rate loop_rate_;
 
     //! publisher for the current velocity command
-    ros::Publisher vel_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
 
     //! publisher for the current goal
-    ros::Publisher current_goal_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
 
     //! the current controller state
     AbstractControllerExecution::ControllerState state_;
@@ -340,7 +342,7 @@ namespace mbf_abstract_nav
     double tf_timeout_;
 
     //! dynamic reconfigure config mutex, thread safe param reading and writing
-    boost::mutex configuration_mutex_;
+    std::mutex configuration_mutex_;
 
     //! main controller loop variable, true if the controller is running, false otherwise
     bool moving_;
@@ -365,7 +367,7 @@ namespace mbf_abstract_nav
     double angle_tolerance_;
 
     //! current robot pose;
-    geometry_msgs::PoseStamped robot_pose_;
+    geometry_msgs::msg::PoseStamped robot_pose_;
 
     //! whether check for action specific tolerance
     bool tolerance_from_action_;
@@ -379,6 +381,11 @@ namespace mbf_abstract_nav
     //! time tolerance for checking if the robot is ignoring cmd_vel
     double cmd_vel_ignored_tolerance_;
 
+    //dynamic configuration
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
+
+    //node handle
+    const rclcpp::Node::SharedPtr& node_handle_;
   };
 
 } /* namespace mbf_abstract_nav */
