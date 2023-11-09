@@ -43,6 +43,7 @@
 #include <rclcpp/duration.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <boost/thread.hpp> // TODO std thread?
 
 #include <mbf_msgs/action/move_base.hpp>
 #include <mbf_msgs/action/get_path.hpp>
@@ -69,7 +70,7 @@ class MoveBaseAction
   MoveBaseAction(const std::string &name,
                  const mbf_utility::RobotInformation &robot_info,
                  const std::vector<std::string> &controllers,
-                 const rclcpp::Node::ConstSharedPtr &node);
+                 const rclcpp::Node::WeakPtr &node);
 
   ~MoveBaseAction();
 
@@ -81,7 +82,7 @@ class MoveBaseAction
 
  protected:
 
-  void actionExePathFeedback(const mbf_msgs::ExePathFeedbackConstPtr &feedback);
+  void actionExePathFeedback(const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr &feedback);
 
   void actionGetPathDone(
       const actionlib::SimpleClientGoalState &state,
@@ -148,7 +149,7 @@ class MoveBaseAction
   //! current goal pose; used to compute remaining distance and angle
   geometry_msgs::msg::PoseStamped goal_pose_;
 
-  rclcpp::Node::ConstSharedPtr node_;
+  rclcpp::Node::WeakPtr node_;
 
   //! Action client used by the move_base action
   rclcpp_action::Client<ExePath>::SharedPtr action_client_exe_path_;

@@ -47,11 +47,11 @@
 namespace mbf_abstract_nav
 {
 MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::RobotInformation& robot_info,
-                               const std::vector<std::string>& behaviors, const rclcpp::Node::ConstSharedPtr &node)
+                               const std::vector<std::string>& behaviors, const rclcpp::Node::WeakPtr &node)
   : name_(name)
   , robot_info_(robot_info)
   , node_(node)
-  , oscillation_timeout_(0)
+  , oscillation_timeout_(0, 0)
   , oscillation_distance_(0)
   , replanning_thread_shutdown_(false)
   , recovery_enabled_(true)
@@ -61,10 +61,11 @@ MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::Robot
   , dist_to_goal_(std::numeric_limits<double>::infinity())
   , replanning_thread_(boost::bind(&MoveBaseAction::replanningThread, this))
 {
-  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path")
-  action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path")
-  action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery")
-  dyn_params_handler_ = node_->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, std::placeholders::_1));
+  auto nodeActive = node_.lock();
+  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(nodeActive, "exe_path");
+  action_client_get_path_ = rclcpp_action::create_client<GetPath>(nodeActive, "get_path");
+  action_client_recovery_ = rclcpp_action::create_client<Recovery>(nodeActive, "recovery");
+  dyn_params_handler_ = nodeActive->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, std::placeholders::_1));
 }
 
 MoveBaseAction::~MoveBaseAction()
@@ -194,17 +195,16 @@ void MoveBaseAction::actionExePathActive()
   RCLCPP_DEBUG_STREAM_NAMED(rclcpp::get_logger("move_base"), "The \"exe_path\" action is active.");
 }
 
-void MoveBaseAction::actionExePathFeedback(
-    const mbf_msgs::ExePathFeedbackConstPtr &feedback)
+void MoveBaseAction::actionExePathFeedback(const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr &feedback)
 {
-  mbf_msgs::MoveBaseFeedback move_base_feedback;
+  mbf_msgs::action::MoveBase::Feedback move_base_feedback;
   move_base_feedback.outcome = feedback->outcome;
   move_base_feedback.message = feedback->message;
   move_base_feedback.angle_to_goal = feedback->angle_to_goal;
   move_base_feedback.dist_to_goal = feedback->dist_to_goal;
   move_base_feedback.current_pose = feedback->current_pose;
   move_base_feedback.last_cmd_vel = feedback->last_cmd_vel;
-  goal_handle_.publishFeedback(move_base_feedback);
+  goal_handle_.publishFeedback(move_base_feedback); // TODO update action
   dist_to_goal_ = feedback->dist_to_goal;
   robot_pose_ = feedback->current_pose;
 
