@@ -78,16 +78,35 @@ MoveBaseAction::~MoveBaseAction()
   }
 }
 
-void MoveBaseAction::reconfigure(
-    mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
+rcl_interfaces::msg::SetParametersResult reconfigure(const std::vector<rclcpp::Parameter> &parameters);
 {
-  if (config.planner_frequency > 0.0)
-    replanning_period_.fromSec(1.0 / config.planner_frequency);
-  else
-    replanning_period_.fromSec(0.0);
-  oscillation_timeout_ = rclcpp::Duration(config.oscillation_timeout);
-  oscillation_distance_ = config.oscillation_distance;
-  recovery_enabled_ = config.recovery_enabled;
+  rcl_interfaces::msg::SetParametersResult result;
+  for (const rclcpp::Parameter &param : parameters) 
+  {
+    const auto &param_name = param.get_name();
+    if (param_name == "planner_frequency") 
+    {
+      const double new_planner_frequency = param.get_value();
+      if (new_planner_frequency > 0.0)
+        replanning_period_.fromSec(1.0 / new_planner_frequency);
+      else
+        replanning_period_.fromSec(0.0);
+    }
+    else if (param_name == "oscillation_timeout") 
+    {
+      oscillation_timeout_ = rclcpp::Duration::from_seconds(param.get_value());
+    }
+    else if (param_name == "oscillation_distance") 
+    {
+      oscillation_distance_ = param.get_value();
+    }
+    else if (param_name == "recovery_enabled") 
+    {
+      recovery_enabled_ = param.get_value();
+    }
+  }
+  result.success = true;
+  return result;
 }
 
 void MoveBaseAction::cancel()

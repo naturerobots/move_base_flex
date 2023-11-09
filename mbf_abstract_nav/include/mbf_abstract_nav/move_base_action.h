@@ -77,8 +77,7 @@ class MoveBaseAction
 
   void cancel();
 
-  void reconfigure(
-      mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
+  rcl_interfaces::msg::SetParametersResult reconfigure(const std::vector<rclcpp::Parameter> &parameters);
 
  protected:
 
