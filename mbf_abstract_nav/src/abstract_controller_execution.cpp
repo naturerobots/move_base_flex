@@ -110,7 +110,7 @@ AbstractControllerExecution::AbstractControllerExecution(
   
 
   // dynamically reconfigurable parameters
-  dyn_params_handler_ = node->add_on_set_parameters_callback(
+  dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
       std::bind(&AbstractControllerExecution::reconfigure, this, std::placeholders::_1));
 }
 
