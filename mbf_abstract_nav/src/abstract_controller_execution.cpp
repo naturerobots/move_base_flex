@@ -133,8 +133,7 @@ bool AbstractControllerExecution::setControllerFrequency(double frequency)
 
 void AbstractControllerExecution::reconfigure(const MoveBaseFlexConfig &config)
 {
-
-
+  std::lock_guard<std::mutex> guard(configuration_mutex_);
   rcl_interfaces::msg::SetParametersResult result;
 
   for (const rclcpp::Parameter& param : parameters)
