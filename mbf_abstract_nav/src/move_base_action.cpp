@@ -150,7 +150,7 @@ void MoveBaseAction::start(GoalHandle &goal_handle)
   get_path_goal_.planner = goal.planner;
   exe_path_goal_.controller = goal.controller;
 
-  rclcpp::Duration connection_timeout(1, 0);
+  rclcpp::Duration connection_timeout = rclcpp::Duration::from_seconds(1.0);
 
   last_oscillation_reset_ = node_->now();
 
@@ -550,7 +550,7 @@ bool MoveBaseAction::replanningActive() const
 
 void MoveBaseAction::replanningThread()
 {
-  rclcpp::Duration update_period(0, 5e6);
+  rclcpp::Duration update_period = rclcpp::Duration::from_seconds(0.005);
   rclcpp::Time last_replan_time(0, 0, node_->get_clock()->get_clock_type());
 
   while (rclcpp::ok() && !replanning_thread_shutdown_)
