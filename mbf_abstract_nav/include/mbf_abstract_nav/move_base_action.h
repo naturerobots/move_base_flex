@@ -82,21 +82,21 @@ class MoveBaseAction
 
  protected:
 
-  void actionExePathFeedback(const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr &feedback);
+  void actionExePathFeedback(const ExePath::Feedback::ConstSharedPtr &feedback);
 
   void actionGetPathDone(
       const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::GetPathResultConstPtr &result);
+      const mbf_msgs::GetPath::Result::ConstSharedPtr &result);
 
   void actionExePathActive();
 
   void actionExePathDone(
       const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::ExePathResultConstPtr &result);
+      const mbf_msgs::ExePath::Result::ConstSharedPtr &result);
 
   void actionRecoveryDone(
       const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::RecoveryResultConstPtr &result);
+      const mbf_msgs::Recovery::Result::ConstSharedPtr &result);
 
   bool attemptRecovery();
 

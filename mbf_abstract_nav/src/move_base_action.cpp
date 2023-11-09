@@ -39,6 +39,7 @@
  */
 
 #include <limits>
+#include <chrono>
 
 #include <mbf_utility/navigation_utility.h>
 
@@ -46,6 +47,9 @@
 
 namespace mbf_abstract_nav
 {
+
+using namespace std::placeholders;
+
 MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::RobotInformation& robot_info,
                                const std::vector<std::string>& behaviors, const rclcpp::Node::WeakPtr &node)
   : name_(name)
@@ -65,7 +69,7 @@ MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::Robot
   action_client_exe_path_ = rclcpp_action::create_client<ExePath>(nodeActive, "exe_path");
   action_client_get_path_ = rclcpp_action::create_client<GetPath>(nodeActive, "get_path");
   action_client_recovery_ = rclcpp_action::create_client<Recovery>(nodeActive, "recovery");
-  dyn_params_handler_ = nodeActive->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, std::placeholders::_1));
+  dyn_params_handler_ = nodeActive->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, _1));
 }
 
 MoveBaseAction::~MoveBaseAction()
@@ -136,23 +140,28 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   action_state_ = GET_PATH;
 
   goal_handle_ = goal_handle;
-  //goal_handle_.setAccepted(); // TODO change abstract_navigation_server to always accept goals (which is what we do here, afaik)
+  // TODO 
+  // Accepting goals needs a separate callback now.
+  // Smallest change would be to adapt abstract_navigation_server to always accept goals.
+  // Current implementation (based on ROS1) aborts the goal handle in this method.
+  // Better (with ROS2): Move logic for aborting goal into new accept check method.
+  //goal_handle_.setAccepted();
 
 
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
 
-  const mbf_msgs::MoveBaseGoal& goal = *goal_handle.getGoal();
+  const mbf_msgs::action::MoveBase::Goal& goal = *(goal_handle->get_goal());
 
-  mbf_msgs::MoveBaseResult move_base_result;
+  mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
 
   get_path_goal_.target_pose = goal.target_pose;
   get_path_goal_.use_start_pose = false; // use the robot pose
   get_path_goal_.planner = goal.planner;
   exe_path_goal_.controller = goal.controller;
 
-  rclcpp::Duration connection_timeout = rclcpp::Duration::from_seconds(1.0);
+  const auto connection_timeout = std::chrono::seconds(1);
 
-  last_oscillation_reset_ = node_->now();
+  last_oscillation_reset_ = node_.lock()->now();
 
   // start recovering with the first behavior, use the recovery behaviors from the action request, if specified,
   // otherwise, use all loaded behaviors.
@@ -164,30 +173,31 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   if (!robot_info_.getRobotPose(robot_pose_))
   {
     RCLCPP_ERROR_STREAM(rclcpp::get_logger("move_base"), "Could not get the current robot pose!");
-    move_base_result.message = "Could not get the current robot pose!";
-    move_base_result.outcome = mbf_msgs::MoveBaseResult::TF_ERROR;
-    goal_handle.setAborted(move_base_result, move_base_result.message);
+    move_base_result->message = "Could not get the current robot pose!";
+    move_base_result->outcome = mbf_msgs::action::MoveBase::Result::TF_ERROR;
+    goal_handle->abort(move_base_result);
     return;
   }
   goal_pose_ = goal.target_pose;
 
   // wait for server connections
-  if (!action_client_get_path_.waitForServer(connection_timeout) ||
-      !action_client_exe_path_.waitForServer(connection_timeout) ||
-      !action_client_recovery_.waitForServer(connection_timeout))
+  if (!action_client_get_path_->wait_for_action_server(connection_timeout) ||
+      !action_client_exe_path_->wait_for_action_server(connection_timeout) ||
+      !action_client_recovery_->wait_for_action_server(connection_timeout))
   {
     RCLCPP_ERROR_STREAM(rclcpp::get_logger("move_base"), "Could not connect to one or more of move_base_flex actions: "
         "\"get_path\", \"exe_path\", \"recovery \"!");
-    move_base_result.outcome = mbf_msgs::MoveBaseResult::INTERNAL_ERROR;
-    move_base_result.message = "Could not connect to the move_base_flex actions!";
-    goal_handle.setAborted(move_base_result, move_base_result.message);
+    move_base_result->outcome = mbf_msgs::action::MoveBase::Result::INTERNAL_ERROR;
+    move_base_result->message = "Could not connect to the move_base_flex actions!";
+    goal_handle->abort(move_base_result);
     return;
   }
 
   // call get_path action server to get a first plan
-  action_client_get_path_.sendGoal(
-      get_path_goal_,
-      boost::bind(&MoveBaseAction::actionGetPathDone, this, _1, _2));
+  auto get_path_send_goal_options = rclcpp_action::Client<GetPath>::SendGoalOptions();
+  get_path_send_goal_options.result_callback = std::bind(&MoveBaseAction::actionGetPathDone, this, _1, _2);
+  // TODO what about goal response (accept/reject) and feedback callbacks?
+  action_client_get_path_->async_send_goal(get_path_goal_, get_path_send_goal_options);
 }
 
 void MoveBaseAction::actionExePathActive()
@@ -241,8 +251,8 @@ void MoveBaseAction::actionExePathFeedback(const mbf_msgs::action::ExePath::Feed
       }
       else
       {
-        mbf_msgs::MoveBaseResult move_base_result;
-        move_base_result.outcome = mbf_msgs::MoveBaseResult::OSCILLATION;
+        mbf_msgs::action::MoveBase::Result move_base_result;
+        move_base_result.outcome = mbf_msgs::action::MoveBase::Result::OSCILLATION;
         move_base_result.message = oscillation_msgs.str();
         move_base_result.final_pose = robot_pose_;
         move_base_result.angle_to_goal = move_base_feedback.angle_to_goal;
@@ -255,10 +265,10 @@ void MoveBaseAction::actionExePathFeedback(const mbf_msgs::action::ExePath::Feed
 
 void MoveBaseAction::actionGetPathDone(
     const actionlib::SimpleClientGoalState &state,
-    const mbf_msgs::GetPathResultConstPtr &result_ptr)
+    const mbf_msgs::action::GetPath::Result::ConstSharedPtr &result_ptr)
 {
-  const mbf_msgs::GetPathResult &get_path_result = *result_ptr;
-  mbf_msgs::MoveBaseResult move_base_result;
+  const mbf_msgs::action::GetPath::Result &get_path_result = *result_ptr;
+  mbf_msgs::action::MoveBase::Result move_base_result;
 
   // copy result from get_path action
   fillMoveBaseResult(get_path_result, move_base_result);
@@ -346,12 +356,12 @@ void MoveBaseAction::actionGetPathDone(
 
 void MoveBaseAction::actionExePathDone(
     const actionlib::SimpleClientGoalState &state,
-    const mbf_msgs::ExePathResultConstPtr &result_ptr)
+    const mbf_msgs::action::ExePath::Result::ConstSharedPtr &result_ptr)
 {
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Action \"exe_path\" finished.");
 
-  const mbf_msgs::ExePathResult& exe_path_result = *result_ptr;
-  mbf_msgs::MoveBaseResult move_base_result;
+  const mbf_msgs::action::ExePath::Result& exe_path_result = *result_ptr;
+  mbf_msgs::action::MoveBase::Result move_base_result;
 
   // copy result from exe_path action
   fillMoveBaseResult(exe_path_result, move_base_result);
@@ -361,7 +371,7 @@ void MoveBaseAction::actionExePathDone(
   switch (state.state_)
   {
     case actionlib::SimpleClientGoalState::SUCCEEDED:
-      move_base_result.outcome = mbf_msgs::MoveBaseResult::SUCCESS;
+      move_base_result.outcome = mbf_msgs::action::MoveBase::Result::SUCCESS;
       move_base_result.message = "Action \"move_base\" succeeded!";
       RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), move_base_result.message);
       goal_handle_.setSucceeded(move_base_result, move_base_result.message);
@@ -373,11 +383,11 @@ void MoveBaseAction::actionExePathDone(
 
       switch (exe_path_result.outcome)
       {
-        case mbf_msgs::ExePathResult::INVALID_PATH:
-        case mbf_msgs::ExePathResult::TF_ERROR:
-        case mbf_msgs::ExePathResult::NOT_INITIALIZED:
-        case mbf_msgs::ExePathResult::INVALID_PLUGIN:
-        case mbf_msgs::ExePathResult::INTERNAL_ERROR:
+        case mbf_msgs::action::ExePath::Result::INVALID_PATH:
+        case mbf_msgs::action::ExePath::Result::TF_ERROR:
+        case mbf_msgs::action::ExePath::Result::NOT_INITIALIZED:
+        case mbf_msgs::action::ExePath::Result::INVALID_PLUGIN:
+        case mbf_msgs::action::ExePath::Result::INTERNAL_ERROR:
           // none of these errors is recoverable
           goal_handle_.setAborted(move_base_result, state.getText());
           break;
@@ -463,13 +473,13 @@ bool MoveBaseAction::attemptRecovery()
 
 void MoveBaseAction::actionRecoveryDone(
     const actionlib::SimpleClientGoalState &state,
-    const mbf_msgs::RecoveryResultConstPtr &result_ptr)
+    const mbf_msgs::action::Recovery::Result::ConstSharedPtr &result_ptr)
 {
   // give the robot some time to stop oscillating after executing the recovery behavior
   last_oscillation_reset_ = node_->now();
 
-  const mbf_msgs::RecoveryResult& recovery_result = *result_ptr;
-  mbf_msgs::MoveBaseResult move_base_result;
+  const mbf_msgs::action::Recovery::Result& recovery_result = *result_ptr;
+  mbf_msgs::action::MoveBase::Result move_base_result;
 
   // copy result from recovery action
   fillMoveBaseResult(recovery_result, move_base_result);
@@ -559,12 +569,12 @@ void MoveBaseAction::replanningThread()
       if (action_client_get_path_.waitForResult(update_period))
       {
         actionlib::SimpleClientGoalState state = action_client_get_path_.getState();
-        mbf_msgs::GetPathResultConstPtr result = action_client_get_path_.getResult();
+        mbf_msgs::action::GetPath::Result::ConstSharedPtr result = action_client_get_path_.getResult();
         if (state == actionlib::SimpleClientGoalState::SUCCEEDED && replanningActive())
         {
           RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Replanning succeeded; sending a goal to \"exe_path\" with the new plan");
           exe_path_goal_.path = result->path;
-          mbf_msgs::ExePathGoal goal(exe_path_goal_);
+          mbf_msgs::action::ExePath::Goal goal(exe_path_goal_);
           action_client_exe_path_.sendGoal(goal, boost::bind(&MoveBaseAction::actionExePathDone, this, _1, _2),
                                            boost::bind(&MoveBaseAction::actionExePathActive, this),
                                            boost::bind(&MoveBaseAction::actionExePathFeedback, this, _1));
