@@ -531,10 +531,10 @@ bool AbstractControllerExecution::cancel()
           std::this_thread::interruption_point();
           if (!loop_rate_.sleep())
           {
-            // TODO: find ROS2 equivalent or port for r.cycletime() 
-            RCLCPP_WARN_THROTTLE(rclcpp::get_logger("some_logger_name"), std::chrono::seconds(1),
-                                 "Calculation needs too much time to stay in the moving frequency! (%.4fs > %.4fs)",
-                                 tf2::durationFromSec(loop_rate), 1 / loop_rate_.period().toSec());         }
+            // TODO: find ROS2 equivalent or port for r.cycletime()
+            // ROS_WARN_THROTTLE(1.0, "Calculation needs too much time to stay in the moving frequency! (%.4fs > %.4fs)",
+            //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
+          }
           std::this_thread::interruption_point();
         }
       }
