@@ -88,7 +88,7 @@ rcl_interfaces::msg::SetParametersResult MoveBaseAction::reconfigure(const std::
     {
       const double new_planner_frequency = param.as_double();
       if (new_planner_frequency > 0.0)
-        replanning_period_= rclcpp::Duration::from_seconds(1.0 / new_planner_frequency);
+        replanning_period_ = rclcpp::Duration::from_seconds(1.0 / new_planner_frequency);
       else
         replanning_period_ = rclcpp::Duration::from_seconds(0.0);
     }
