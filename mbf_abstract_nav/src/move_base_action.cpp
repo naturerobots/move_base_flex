@@ -77,7 +77,7 @@ MoveBaseAction::~MoveBaseAction()
   }
 }
 
-rcl_interfaces::msg::SetParametersResult reconfigure(const std::vector<rclcpp::Parameter> &parameters);
+rcl_interfaces::msg::SetParametersResult MoveBaseAction::reconfigure(const std::vector<rclcpp::Parameter> &parameters)
 {
   rcl_interfaces::msg::SetParametersResult result;
   for (const rclcpp::Parameter &param : parameters) 
@@ -85,26 +85,26 @@ rcl_interfaces::msg::SetParametersResult reconfigure(const std::vector<rclcpp::P
     const auto &param_name = param.get_name();
     if (param_name == "planner_frequency") 
     {
-      const double new_planner_frequency = param.get_value();
+      const double new_planner_frequency = param.as_double();
       if (new_planner_frequency > 0.0)
-        replanning_period_.fromSec(1.0 / new_planner_frequency);
+        replanning_period_= rclcpp::Duration::from_seconds(1.0 / new_planner_frequency);
       else
-        replanning_period_.fromSec(0.0);
+        replanning_period_ = rclcpp::Duration::from_seconds(0.0);
     }
     else if (param_name == "oscillation_timeout") 
     {
-      oscillation_timeout_ = rclcpp::Duration::from_seconds(param.get_value());
+      oscillation_timeout_ = rclcpp::Duration::from_seconds(param.as_double());
     }
     else if (param_name == "oscillation_distance") 
     {
-      oscillation_distance_ = param.get_value();
+      oscillation_distance_ = param.as_double();
     }
     else if (param_name == "recovery_enabled") 
     {
-      recovery_enabled_ = param.get_value();
+      recovery_enabled_ = param.as_bool();
     }
   }
-  result.success = true;
+  result.successful = true;
   return result;
 }
 
