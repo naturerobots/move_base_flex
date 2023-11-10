@@ -38,12 +38,12 @@
  *
  */
 
-#include <mbf_msgs/ExePathResult.h>
+#include <mbf_msgs/action/exe_path.hpp>
 
 #include "mbf_abstract_nav/abstract_controller_execution.h"
 
 #include <tf2/utils.h>
-#include <parameter_value.hpp>
+#include <rclcpp/parameter_value.hpp>
 
 namespace mbf_abstract_nav
 {
@@ -61,10 +61,10 @@ AbstractControllerExecution::AbstractControllerExecution(
   , state_(INITIALIZED)
   , moving_(false)
   , max_retries_(0)
-  , patience_(0)
+  , patience_(0,0)
   , vel_pub_(vel_pub)
   , current_goal_pub_(goal_pub)
-  , loop_rate_(DEFAULT_CONTROLLER_FREQUENCY)
+  , loop_rate_(std::make_shared<rclcpp::Rate>(DEFAULT_CONTROLLER_FREQUENCY))
   , node_handle_(node_handle)
 {
 
@@ -75,7 +75,7 @@ AbstractControllerExecution::AbstractControllerExecution(
   node_handle_->declare_parameter("force_stop_on_retry", true);
   node_handle_->declare_parameter("force_stop_on_cancel",false);
   node_handle_->declare_parameter("mbf_tolerance_check", false);
-  node_handle_->declare_parameter("dist_tolerance", 0.1));
+  node_handle_->declare_parameter("dist_tolerance", 0.1);
   node_handle_->declare_parameter("angle_tolerance", M_PI / 18.0);
   node_handle_->declare_parameter("tf_timeout", 1.0);
   node_handle_->declare_parameter("cmd_vel_ignored_tolerance", 5.0);
@@ -127,11 +127,12 @@ bool AbstractControllerExecution::setControllerFrequency(double frequency)
                                                                     "change of the frequency!");
     return false;
   }
-  loop_rate_ = rclcpp::Rate(frequency);
+  loop_rate_ = std::make_shared<rclcpp::Rate>(frequency);
   return true;
 }
 
-void AbstractControllerExecution::reconfigure(const MoveBaseFlexConfig &config)
+rcl_interfaces::msg::SetParametersResult
+AbstractControllerExecution::reconfigure(std::vector<rclcpp::Parameter> parameters)
 {
   std::lock_guard<std::mutex> guard(configuration_mutex_);
   rcl_interfaces::msg::SetParametersResult result;
@@ -190,7 +191,7 @@ void AbstractControllerExecution::setNewPlan(
   if (moving_)
   {
     // This is fine on continuous replanning
-    ROS_DEBUG("Setting new plan while moving");
+    RCLCPP_DEBUG(rclcpp::get_logger("AbstractControllerExecution"), "Setting new plan while moving");
   }
   std::lock_guard<std::mutex> guard(plan_mtx_);
   new_plan_ = true;
@@ -209,7 +210,7 @@ bool AbstractControllerExecution::hasNewPlan()
 }
 
 
-std::vector<geometry_msgs::PoseStamped> AbstractControllerExecution::getNewPlan()
+std::vector<geometry_msgs::msg::PoseStamped> AbstractControllerExecution::getNewPlan()
 {
   std::lock_guard<std::mutex> guard(plan_mtx_);
   new_plan_ = false;
@@ -228,8 +229,8 @@ void AbstractControllerExecution::setVelocityCmd(const geometry_msgs::msg::Twist
 {
   std::lock_guard<std::mutex> guard(vel_cmd_mtx_);
   vel_cmd_stamped_ = vel_cmd;
-  if (vel_cmd_stamped_.header.stamp.isZero())
-    vel_cmd_stamped_.header.stamp = ros::Time::now();
+  if (vel_cmd_stamped_.header.stamp.sec == 0 && vel_cmd_stamped_.header.stamp.nanosec == 0)
+    vel_cmd_stamped_.header.stamp =  node_handle_->now();
   // TODO what happen with frame id?
   // TODO Add a queue here for handling the outcome, message and cmd_vel values bundled,
   // TODO so there should be no loss of information in the feedback stream
@@ -254,29 +255,32 @@ bool AbstractControllerExecution::checkCmdVelIgnored(const geometry_msgs::msg::T
   if (!robot_stopped || cmd_is_zero)
   {
     // velocity is not being ignored
-    first_ignored_time_ = ros::Time();
+    first_ignored_time_ =  node_handle_->now();
     return false;
   }
 
-  if (first_ignored_time_.is_zero())
+  if (first_ignored_time_.seconds() == 0.0)
   {
     // set first_ignored_time_ to now if it was zero
-    first_ignored_time_ = ros::Time::now();
+    first_ignored_time_ =  node_handle_->now();
   }
 
-  const double ignored_duration = (rclcpp::Time::now() - first_ignored_time_).toSec();
+  const double ignored_duration = ( node_handle_->now() - first_ignored_time_).seconds();
 
   if (ignored_duration > cmd_vel_ignored_tolerance_)
   {
-    ROS_ERROR("Robot is ignoring velocity commands for more than %.2f seconds. Tolerance exceeded!",
-              cmd_vel_ignored_tolerance_);
+    RCLCPP_ERROR(rclcpp::get_logger("AbstractControllerExecution"),
+                 "Robot is ignoring velocity commands for more than %.2f seconds. Tolerance exceeded!",
+                 cmd_vel_ignored_tolerance_);
     return true;
   }
   else if (ignored_duration > 1.0)
   {
-    ROS_WARN_THROTTLE(1,
-                      "Robot is ignoring velocity commands for %.2f seconds (last command: vx=%.2f, vy=%.2f, w=%.2f)",
-                      ignored_duration, cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+    auto clock = node_handle_->get_clock();
+    RCLCPP_WARN_THROTTLE(rclcpp::get_logger("AbstractControllerExecution"), *clock, 1.0,
+                         "Robot is ignoring velocity commands for %.2f seconds (last command: vx=%.2f, vy=%.2f, "
+                         "w=%.2f)",
+                         ignored_duration, cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
   }
 
   return false;
@@ -297,16 +301,22 @@ rclcpp::Time AbstractControllerExecution::getLastPluginCallTime() const
 bool AbstractControllerExecution::isPatienceExceeded() const
 {
   std::lock_guard<std::mutex> guard(lct_mtx_);
-  if(!patience_.isZero() && rclcpp::Time::now() - start_time_ > patience_) // not zero -> activated, start_time handles init case
+  if(!(patience_== rclcpp::Duration(0,0)) &&  node_handle_->now() - start_time_ > patience_) // not zero -> activated, start_time handles init case
   {
-    if (rclcpp::Time::now() - last_call_time_ > patience_)
+    if ( node_handle_->now() - last_call_time_ > patience_)
     {
-      ROS_WARN_STREAM_THROTTLE(3, "The controller plugin \"" << name_ << "\" needs more time to compute in one run than the patience time!");
+      auto clock = node_handle_->get_clock();
+      RCLCPP_WARN_THROTTLE(rclcpp::get_logger("some_logger_name"), *clock, 1.0,
+                           "The controller plugin \"%s\" needs more time to compute in one run than the patience time!",
+                           name_.c_str());
       return true;
     }
-    if (rclcpp::Time::now() - last_valid_cmd_time_ > patience_)
+    if ( node_handle_->now() - last_valid_cmd_time_ > patience_)
     {
-      ROS_DEBUG_STREAM("The controller plugin \"" << name_ << "\" does not return a success state (outcome < 10) for more than the patience time in multiple runs!");
+      RCLCPP_DEBUG(rclcpp::get_logger("some_logger_name"),
+                   "The controller plugin \"%s\" does not return a success state (outcome < 10) for more than the "
+                   "patience time in multiple runs!",
+                   name_.c_str());
       return true;
     }
   }
@@ -362,7 +372,7 @@ bool AbstractControllerExecution::cancel()
   }
   void AbstractControllerExecution::run()
   {
-    start_time_ = rclcpp::Time::now();
+    start_time_ = node_handle_->now();
 
     // init plan
     std::vector<geometry_msgs::msg::PoseStamped> plan;
@@ -373,14 +383,14 @@ bool AbstractControllerExecution::cancel()
       RCLCPP_ERROR_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "robot navigation moving has no plan!");
     }
 
-    last_valid_cmd_time_ = ros::Time();
+    last_valid_cmd_time_ =  node_handle_->now();
     int retries = 0;
     int seq = 0;
-    first_ignored_time_ = ros::Time();
+    first_ignored_time_ =  node_handle_->now();
 
     try
     {
-      while (moving_ && ros::ok())
+      while (moving_ && rclcpp::ok())
       {
         if (cancel_)
         {
@@ -399,7 +409,7 @@ bool AbstractControllerExecution::cancel()
           // the specific implementation must have detected a risk situation; at this abstract level, we
           // cannot tell what the problem is, but anyway we command the robot to stop to avoid crashes
           publishZeroVelocity();
-          loop_rate_.sleep();
+          loop_rate_->sleep();
           continue;
         }
 
@@ -425,14 +435,14 @@ bool AbstractControllerExecution::cancel()
             condition_.notify_all();
             return;
           }
-          current_goal_pub_.publish(plan.back());
+          current_goal_pub_->publish(plan.back());
         }
 
         // compute robot pose and store it in robot_pose_
         if (!robot_info_.getRobotPose(robot_pose_))
         {
           message_ = "Could not get the robot pose";
-          outcome_ = mbf_msgs::ExePathResult::TF_ERROR;
+          outcome_ = mbf_msgs::action::ExePath::Result::TF_ERROR;
           publishZeroVelocity();
           setState(INTERNAL_ERROR);
           moving_ = false;
@@ -460,7 +470,7 @@ bool AbstractControllerExecution::cancel()
 
           // save time and call the plugin
           lct_mtx_.lock();
-          last_call_time_ = ros::Time::now();
+          last_call_time_ =  node_handle_->now();
           lct_mtx_.unlock();
 
           // call plugin to compute the next velocity command
@@ -472,8 +482,8 @@ bool AbstractControllerExecution::cancel()
           if (outcome_ < 10)
           {
             setState(GOT_LOCAL_CMD);
-            vel_pub_.publish(cmd_vel_stamped.twist);
-            last_valid_cmd_time_ = rclcpp::Time::now();
+            vel_pub_->publish(cmd_vel_stamped.twist);
+            last_valid_cmd_time_ =  node_handle_->now();
             retries = 0;
             // check if robot is ignoring velocity command
             if (checkCmdVelIgnored(cmd_vel_stamped.twist))
@@ -482,7 +492,7 @@ bool AbstractControllerExecution::cancel()
               moving_ = false;
             }
           }
-          else if (outcome_ == mbf_msgs::ExePathResult::CANCELED)
+          else if (outcome_ == mbf_msgs::action::ExePath::Result::CANCELED)
           {
             RCLCPP_INFO(rclcpp::get_logger("AbstractControllerExecution"), "Controller-handled cancel completed");
             cancel_ = true;
@@ -518,12 +528,12 @@ bool AbstractControllerExecution::cancel()
             {
               // we are retrying compute velocity commands; we keep sending the command calculated by the plugin
               // with the expectation that it's a sensible one (e.g. slow down while respecting acceleration limits)
-              vel_pub_.publish(cmd_vel_stamped.twist);
+              vel_pub_->publish(cmd_vel_stamped.twist);
             }
           }
 
           // set stamped values; timestamp and frame_id should be set by the plugin; otherwise setVelocityCmd will do
-          cmd_vel_stamped.header.seq = seq++;  // sequence number
+          //cmd_vel_stamped.header.seq = seq++;  // sequence number
           setVelocityCmd(cmd_vel_stamped);
           condition_.notify_all();
         }
@@ -532,18 +542,31 @@ bool AbstractControllerExecution::cancel()
         {
           // The nanosleep used by ROS time is not interruptable, therefore providing an interrupt point before and
           // after
-          std::this_thread::interruption_point();
-          if (!loop_rate_.sleep())
+          // The nanosleep used by ROS time is not interruptable, therefore providing an interrupt point before and
+          // after
+          // Simulate boost::this_thread::interruption_point()
+          if (shouldExit)
+          {
+            // Early exit if shouldExit is set
+            break;
+          }
+          if (!loop_rate_->sleep())
           {
             // TODO: find ROS2 equivalent or port for r.cycletime()
-            // ROS_WARN_THROTTLE(1.0, "Calculation needs too much time to stay in the moving frequency! (%.4fs > %.4fs)",
+            // ROS_WARN_THROTTLE(1.0, "Calculation needs too much time to stay in the moving frequency! (%.4fs >
+            // %.4fs)",
             //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
           }
-          std::this_thread::interruption_point();
+          // Simulate boost::this_thread::interruption_point()
+          if (shouldExit)
+          {
+            // Early exit if shouldExit is set
+            break;
+          }
         }
       }
     }
-    catch (const std::thread_interrupted& ex)
+    catch (const std::exception& ex)
     {
       // Controller thread interrupted; in most cases we have started a new plan
       // Can also be that robot is oscillating or we have exceeded planner patience
@@ -555,7 +578,7 @@ bool AbstractControllerExecution::cancel()
     }
     catch (...)
     {
-      message_ = "Unknown error occurred: " + std::current_exception_diagnostic_information();
+      message_ = "Unknown error occurred";
       RCLCPP_FATAL(rclcpp::get_logger("some_logger_name"), "%s", message_);
       setState(INTERNAL_ERROR);
       moving_ = false;
@@ -573,7 +596,7 @@ void AbstractControllerExecution::publishZeroVelocity()
   cmd_vel.angular.x = 0;
   cmd_vel.angular.y = 0;
   cmd_vel.angular.z = 0;
-  vel_pub_.publish(cmd_vel);
+  vel_pub_->publish(cmd_vel);
 }
 
 } /* namespace mbf_abstract_nav */

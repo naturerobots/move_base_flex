@@ -47,7 +47,8 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <rate.hpp>
+#include <functional>
+#include <rclcpp/rate.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -164,7 +165,7 @@ namespace mbf_abstract_nav
      * @brief Returns the time of the last plugin call
      * @return Time of the last plugin call
      */
-    ros::Time getLastPluginCallTime() const;
+    rclcpp::Time getLastPluginCallTime() const;
 
     /**
      * @brief Returns the last velocity command calculated by the plugin. Set by setVelocityCmd method.
@@ -192,7 +193,7 @@ namespace mbf_abstract_nav
      *        if a user uses dynamic reconfigure to reconfigure the current state.
      * @param config The dynamic reconfigure config.
      */
-    void reconfigure(std::vector<rclcpp::Parameter> parameters);
+    rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters);
 
     /**
      * @brief Returns whether the robot should normally move or not. True if the controller seems to work properly.
@@ -214,7 +215,7 @@ namespace mbf_abstract_nav
      */
     virtual uint32_t computeVelocityCmd(const geometry_msgs::msg::PoseStamped &pose,
                                         const geometry_msgs::msg::TwistStamped &velocity,
-                                        geometry_msgs:msg::TwistStamped &vel_cmd, std::string &message);
+                                        geometry_msgs::msg::TwistStamped &vel_cmd, std::string &message);
 
     /**
      * @brief Sets the velocity command, to make it available for another thread
@@ -327,13 +328,16 @@ namespace mbf_abstract_nav
     std::vector<geometry_msgs::msg::PoseStamped> plan_;
 
     //! the loop_rate which corresponds with the controller frequency.
-    rclcpp::Rate loop_rate_;
+    std::shared_ptr<rclcpp::Rate> loop_rate_;
 
     //! publisher for the current velocity command
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
 
     //! publisher for the current goal
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
+
+    //! publisher for the current goal
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr current_goal_pub_;
 
     //! the current controller state
     AbstractControllerExecution::ControllerState state_;
