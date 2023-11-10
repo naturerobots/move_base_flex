@@ -43,6 +43,7 @@ namespace mbf_abstract_nav
 AbstractExecutionBase::AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info)
   : outcome_(255), cancel_(false), name_(name), robot_info_(robot_info)
 {
+  shouldExit = false;
 }
 
 AbstractExecutionBase::~AbstractExecutionBase()
@@ -62,28 +63,52 @@ bool AbstractExecutionBase::start()
     // if the user forgets to call stop(), we have to kill it
     stop();
     thread_.join();
+    shouldExit = false;
   }
 
-  thread_ = boost::thread(&AbstractExecutionBase::run, this);
+  thread_ = std::thread(&AbstractExecutionBase::runWrapper, this);
   return true;
 }
 
 void AbstractExecutionBase::stop()
 {
-  ROS_WARN_STREAM("Try to stop the plugin \"" << name_ << "\" rigorously by interrupting the thread!");
-  thread_.interrupt();
+  RCLCPP_WARN_STREAM(rclcpp::get_logger("some_logger_name"),
+                     "Try to stop the plugin \"" << name_ << "\" rigorously by notifying the thread!");
+
+  {
+    // Set the exit flag in a critical section
+    std::unique_lock<std::mutex> lock(mutex_);
+    shouldExit = true;
+
+    // Notify the thread that it should check the exit flag
+    cv_.notify_one();
+  }
+
+  // Wait for the thread to finish
+  if (thread_.joinable())
+  {
+    thread_.join();
+  }
 }
 
-void AbstractExecutionBase::join()
+void AbstractExecutionBase::runWrapper(){
+  std::unique_lock<std::mutex> lock(mutex_);
+  // Wait for the notification and check the exit flag
+  cv_.wait(lock, [this] { return shouldExit; });
+  run();
+}
+
+    void
+    AbstractExecutionBase::join()
 {
   if (thread_.joinable())
     thread_.join();
 }
 
-boost::cv_status AbstractExecutionBase::waitForStateUpdate(boost::chrono::microseconds const& duration)
+std::cv_status AbstractExecutionBase::waitForStateUpdate(std::chrono::microseconds const& duration)
 {
-  boost::mutex mutex;
-  boost::unique_lock<boost::mutex> lock(mutex);
+  std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
   return condition_.wait_for(lock, duration);
 }
 

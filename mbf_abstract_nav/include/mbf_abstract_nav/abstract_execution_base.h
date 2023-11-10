@@ -43,8 +43,8 @@
 #include <chrono>
 #include <condition_variable>
 #include <mbf_utility/robot_information.h>
-#include <mbf_abstract_nav/MoveBaseFlexConfig.h>
 #include <string>
+
 
 namespace mbf_abstract_nav
 {
@@ -77,7 +77,7 @@ class AbstractExecutionBase
 
    void join();
 
-   boost::cv_status waitForStateUpdate(std::chrono::microseconds const& duration);
+   std::cv_status waitForStateUpdate(std::chrono::microseconds const& duration);
 
    /**
     * @brief Gets the current plugin execution outcome
@@ -107,7 +107,7 @@ class AbstractExecutionBase
    /**
     * @brief Optional implementaiton-specific configuration function.
     */
-   virtual void reconfigure(MoveBaseFlexConfig& _cfg)
+   virtual rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters)
    {
    }
 
@@ -119,6 +119,16 @@ protected:
 
   //! the controlling thread object
   std::thread thread_;
+
+  //! mutex for locking the condition variable
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool shouldExit;
+
+  //! mutex for locking the condition variable
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool shouldExit = false;
 
   //! flag for canceling controlling
   bool cancel_;
@@ -134,6 +144,9 @@ protected:
 
   //! Reference to the current robot state
   const mbf_utility::RobotInformation& robot_info_;
+
+private:
+  void runWrapper();
 };
 
 } /* namespace mbf_abstract_nav */
