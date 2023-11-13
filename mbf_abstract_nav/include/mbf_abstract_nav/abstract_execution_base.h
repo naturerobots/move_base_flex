@@ -44,7 +44,7 @@
 #include <condition_variable>
 #include <mbf_utility/robot_information.h>
 #include <string>
-
+#include "rclcpp/rclcpp.hpp"
 
 namespace mbf_abstract_nav
 {
@@ -109,6 +109,8 @@ class AbstractExecutionBase
     */
    virtual rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters)
    {
+      (void)parameters;
+      return rcl_interfaces::msg::SetParametersResult();
    }
 
 protected:
@@ -124,11 +126,6 @@ protected:
   std::mutex mutex_;
   std::condition_variable cv_;
   bool shouldExit;
-
-  //! mutex for locking the condition variable
-  std::mutex mutex;
-  std::condition_variable cv;
-  bool shouldExit = false;
 
   //! flag for canceling controlling
   bool cancel_;
