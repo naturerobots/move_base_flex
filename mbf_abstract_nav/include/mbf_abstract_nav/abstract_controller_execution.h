@@ -334,7 +334,7 @@ namespace mbf_abstract_nav
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
 
     //! publisher for the current goal
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr goal_pub_;
 
     //! publisher for the current goal
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr current_goal_pub_;

@@ -82,12 +82,12 @@ AbstractControllerExecution::AbstractControllerExecution(
 
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
   param_desc.description = "The rate in Hz at which to run the control loop and send velocity commands to the base";
-  node_handle->declare_parameter("controller_frequency", rclcpp::ParameterValue(20), param_desc);
+  node_handle_->declare_parameter("controller_frequency", rclcpp::ParameterValue(20), param_desc);
   param_desc.description = "How long the controller will wait in seconds without receiving a valid control before "
                            "giving up";
-  node_handle->declare_parameter("controller_patience", rclcpp::ParameterValue(5.0), param_desc);
+  node_handle_->declare_parameter("controller_patience", rclcpp::ParameterValue(5.0), param_desc);
   param_desc.description ="How many times we will recall the controller in an attempt to find a valid command before giving up";
-      node_handle->declare_parameter("controller_max_retries", rclcpp::ParameterValue(-1), param_desc);
+      node_handle_->declare_parameter("controller_max_retries", rclcpp::ParameterValue(-1), param_desc);
 
   node_handle_->get_parameter("robot_frame", robot_frame_);
   node_handle_->get_parameter("map_frame", global_frame_);
@@ -104,10 +104,10 @@ AbstractControllerExecution::AbstractControllerExecution(
   node_handle_->get_parameter("controller_frequency", frequency);
   setControllerFrequency(frequency);
 
-  node_handle_->get_parameter("controller_patience", patience_);
-  node_handle_->get_parameter("controller_max_retries", max_retries_);
-
-  
+  double patience;
+  node_handle_->get_parameter("controller_patience", patience);
+  patience_ = rclcpp::Duration::from_seconds(patience);
+  node_handle_->get_parameter("controller_frequency", max_retries_);
 
   // dynamically reconfigurable parameters
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
@@ -579,7 +579,7 @@ bool AbstractControllerExecution::cancel()
     catch (...)
     {
       message_ = "Unknown error occurred";
-      RCLCPP_FATAL(rclcpp::get_logger("some_logger_name"), "%s", message_);
+      RCLCPP_FATAL(rclcpp::get_logger("some_logger_name"), "%s", message_.c_str());
       setState(INTERNAL_ERROR);
       moving_ = false;
       condition_.notify_all();
