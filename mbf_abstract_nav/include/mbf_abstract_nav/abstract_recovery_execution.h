@@ -44,13 +44,18 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <functional>
+#include <rclcpp/parameter.hpp>
+#include "rclcpp/rclcpp.hpp"
 
 #include <mbf_abstract_core/abstract_recovery.h>
 
 #include <mbf_utility/robot_information.h>
 #include <mbf_utility/navigation_utility.h>
 
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/abstract_execution_base.h"
 
 
@@ -84,10 +89,9 @@ namespace mbf_abstract_nav
      * @param robot_info Current robot state
      * @param config Initial configuration for this execution
      */
-    AbstractRecoveryExecution(const std::string &name,
-                              const mbf_abstract_core::AbstractRecovery::Ptr &recovery_ptr,
-                              const mbf_utility::RobotInformation &robot_info,
-                              const MoveBaseFlexConfig &config);
+    AbstractRecoveryExecution(const std::string& name, const mbf_abstract_core::AbstractRecovery::Ptr& recovery_ptr,
+                              const mbf_utility::RobotInformation& robot_info,
+                              const rclcpp::Node::SharedPtr& node_handle);
 
     /**
      * @brief Destructor
@@ -131,9 +135,9 @@ namespace mbf_abstract_nav
     /**
      * @brief Reconfigures the current configuration and reloads all parameters. This method is called from a dynamic
      *        reconfigure tool.
-     * @param config Current MoveBaseFlexConfig object. See the MoveBaseFlex.cfg definition.
+     * @param parameters Current config parameters.
      */
-    void reconfigure(const MoveBaseFlexConfig &config);
+    rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters);
 
   protected:
 
@@ -154,20 +158,23 @@ namespace mbf_abstract_nav
     void setState(RecoveryState state);
 
     //! mutex to handle safe thread communication for the current state
-    boost::mutex state_mtx_;
+    std::mutex state_mtx_;
 
     //! dynamic reconfigure and start time mutexes to mutually exclude read/write configuration
-    boost::mutex conf_mtx_;
-    boost::mutex time_mtx_;
+    std::mutex conf_mtx_;
+    std::mutex time_mtx_;
 
     //! recovery behavior allowed time
-    ros::Duration patience_;
+    rclcpp::Duration patience_;
 
     //! recovery behavior start time
-    ros::Time start_time_;
+    rclcpp::Time start_time_;
 
     //! current internal state
     RecoveryState state_;
+
+    //! the node handle ptr
+    rclcpp::Node::SharedPtr node_handle_;
   };
 
 } /* namespace mbf_abstract_nav */

@@ -45,45 +45,69 @@
 namespace mbf_abstract_nav
 {
 
-AbstractRecoveryExecution::AbstractRecoveryExecution(
-    const std::string &name,
-    const mbf_abstract_core::AbstractRecovery::Ptr &recovery_ptr,
-    const mbf_utility::RobotInformation &robot_info,
-    const MoveBaseFlexConfig &config) :
-  AbstractExecutionBase(name, robot_info),
-    behavior_(recovery_ptr), state_(INITIALIZED)
+AbstractRecoveryExecution::AbstractRecoveryExecution(const std::string& name,
+                                                     const mbf_abstract_core::AbstractRecovery::Ptr& recovery_ptr,
+                                                     const mbf_utility::RobotInformation& robot_info,
+                                                     const rclcpp::Node::SharedPtr& node_handle)
+  : AbstractExecutionBase(name, robot_info),
+    behavior_(recovery_ptr),
+    state_(INITIALIZED),
+    node_handle_(node_handle),
+    patience_(0, 0)
 {
   // dynamically reconfigurable parameters
-  reconfigure(config);
+  auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
+  param_desc.description = "How much time we allow recovery behaviors to complete before canceling (or stopping if "
+                           "cancel fails";
+  node_handle_->declare_parameter("recovery_patience", rclcpp::ParameterValue(15.0), param_desc);
+
+  double patience;
+  node_handle_->get_parameter("recovery_patience", patience);
+  patience_ = rclcpp::Duration::from_seconds(patience);
 }
 
 AbstractRecoveryExecution::~AbstractRecoveryExecution()
 {
 }
 
-
-void AbstractRecoveryExecution::reconfigure(const MoveBaseFlexConfig &config)
+rcl_interfaces::msg::SetParametersResult
+AbstractRecoveryExecution::reconfigure(std::vector<rclcpp::Parameter> parameters)
 {
-  boost::lock_guard<boost::mutex> guard(conf_mtx_);
+  std::lock_guard<std::mutex> guard(conf_mtx_);
 
-  // Maximum time allowed to recovery behaviors. Intended as a safeward for the case a behavior hangs.
-  // If it doesn't return within time, the navigator will cancel it and abort the corresponding action.
-  patience_ = ros::Duration(config.recovery_patience);
+  rcl_interfaces::msg::SetParametersResult result;
 
-  // Nothing else to do here, as recovery_enabled is loaded and used in the navigation server
+  for (const rclcpp::Parameter& param : parameters)
+  {
+    const auto& param_name = param.get_name();
+    if (param_name == "recovery_patience")
+    {
+      try
+      {
+        patience_ = rclcpp::Duration::from_seconds(param.as_double());
+      }
+      catch (std::exception& ex)
+      {
+        RCLCPP_ERROR(rclcpp::get_logger("AbstractRecoveryExecution"), "Failed to set recovery_patience: %s", ex.what());
+        patience_ = rclcpp::Duration(0, 0);
+      }
+    }
+  }
+  result.successful = true;
+  return result;
 }
 
 
 void AbstractRecoveryExecution::setState(RecoveryState state)
 {
-  boost::lock_guard<boost::mutex> guard(state_mtx_);
+  std::lock_guard<std::mutex> guard(state_mtx_);
   state_ = state;
 }
 
 
 typename AbstractRecoveryExecution::RecoveryState AbstractRecoveryExecution::getState()
 {
-  boost::lock_guard<boost::mutex> guard(state_mtx_);
+  std::lock_guard<std::mutex> guard(state_mtx_);
   return state_;
 }
 
@@ -93,7 +117,7 @@ bool AbstractRecoveryExecution::cancel()
   // returns false if cancel is not implemented or rejected by the recovery behavior (will run until completion)
   if (!behavior_->cancel())
   {
-    ROS_WARN_STREAM("Cancel recovery behavior \"" << name_ << "\" failed or is not supported by the plugin. "
+    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"),"Cancel recovery behavior \"" << name_ << "\" failed or is not supported by the plugin. "
                         << "Wait until the current recovery behavior finished!");
     return false;
   }
@@ -102,10 +126,11 @@ bool AbstractRecoveryExecution::cancel()
 
 bool AbstractRecoveryExecution::isPatienceExceeded()
 {
-  boost::lock_guard<boost::mutex> guard1(conf_mtx_);
-  boost::lock_guard<boost::mutex> guard2(time_mtx_);
-  ROS_DEBUG_STREAM("Patience: " << patience_ << ", start time: " << start_time_ << " now: " << ros::Time::now());
-  return !patience_.isZero() && (ros::Time::now() - start_time_ > patience_);
+  std::lock_guard<std::mutex> guard1(conf_mtx_);
+  std::lock_guard<std::mutex> guard2(time_mtx_);
+  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Patience: " << patience_.seconds() << ", start time: " << start_time_.seconds()
+                                                                                    <<  " now: " << node_handle_->now().seconds());
+  return !(patience_ == rclcpp::Duration(0, 0)) && (node_handle_->now() - start_time_ > patience_);
 }
 
 void AbstractRecoveryExecution::run()
@@ -113,7 +138,7 @@ void AbstractRecoveryExecution::run()
   cancel_ = false; // reset the canceled state
 
   time_mtx_.lock();
-  start_time_ = ros::Time::now();
+  start_time_ = node_handle_->now();
   time_mtx_.unlock();
   setState(RECOVERING);
   try
@@ -128,14 +153,15 @@ void AbstractRecoveryExecution::run()
       setState(RECOVERY_DONE);
     }
   }
-  catch (boost::thread_interrupted &ex)
+  catch (const std::exception& ex)
   {
-    ROS_WARN_STREAM("Recovery \"" << name_ << "\" interrupted!");
+    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Recovery \"" << name_ << "\" interrupted!");
     setState(STOPPED);
   }
   catch (...)
   {
-    ROS_FATAL_STREAM("Unknown error occurred in recovery behavior \"" << name_ << "\": " << boost::current_exception_diagnostic_information());
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"),
+                       "Unknown error occurred in recovery behavior");
     setState(INTERNAL_ERROR);
   }
   condition_.notify_one();
