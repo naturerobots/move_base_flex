@@ -73,13 +73,12 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
                            "up";
   node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
 
-  node_handle_->get_parameter("controller_frequency", frequency_);
-
+  node_handle_->get_parameter("planner_frequency", frequency_);
 
   double patience;
-  node_handle_->get_parameter("controller_patience", patience);
+  node_handle_->get_parameter("planner_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
-  node_handle_->get_parameter("controller_max_retries", max_retries_);
+  node_handle_->get_parameter("planner_frequency", max_retries_);
 
   // dynamically reconfigurable parameters
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
