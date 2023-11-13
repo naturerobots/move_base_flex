@@ -45,8 +45,8 @@ namespace mbf_abstract_nav
 
 AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
                                                    const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr,
-                                                   const mbf_utility::RobotInformation &robot_info,
-                                                   const MoveBaseFlexConfig& config)
+                                                   const mbf_utility::RobotInformation& robot_info,
+                                                   const rclcpp::Node::SharedPtr& node_handle)
   : AbstractExecutionBase(name, robot_info)
   , planner_(planner_ptr)
   , state_(INITIALIZED)
@@ -54,15 +54,23 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   , planning_(false)
   , has_new_start_(false)
   , has_new_goal_(false)
+  , node_handle_(node_handle)
+  , patience_(0, 0)
 {
-  ros::NodeHandle private_nh("~");
+  //reconfigurable parameters
+  // private_nh.param("robot_frame", robot_frame_, std::string("base_footprint"));
+  // private_nh.param("map_frame", global_frame_, std::string("map"));
+  node_handle_->declare_parameter("robot_frame", std::string("base_footprint"));
+  node_handle_->declare_parameter("map_frame", std::string("map"));
 
-  // non-dynamically reconfigurable parameters
-  private_nh.param("robot_frame", robot_frame_, std::string("base_footprint"));
-  private_nh.param("map_frame", global_frame_, std::string("map"));
 
+  node_handle_->declare_parameter("planner_frequency", 0.0);
+  node_handle_->declare_parameter("planner_patience", 5.0);
+  node_handle_->declare_parameter("planner_max_retries", -1);
+  
   // dynamically reconfigurable parameters
-  reconfigure(config);
+  dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
+      std::bind(&AbstractPlannerExecution::reconfigure, this, std::placeholders::_1));
 }
 
 AbstractPlannerExecution::~AbstractPlannerExecution()
@@ -92,36 +100,51 @@ double AbstractPlannerExecution::getCost() const
   return cost_;
 }
 
-void AbstractPlannerExecution::reconfigure(const MoveBaseFlexConfig &config)
+rcl_interfaces::msg::SetParametersResult
+AbstractPlannerExecution::reconfigure(std::vector<rclcpp::Parameter> parameters)
 {
-  boost::lock_guard<boost::mutex> guard(configuration_mutex_);
+  std::lock_guard<std::mutex> guard(configuration_mutex_);
+  rcl_interfaces::msg::SetParametersResult result;
 
-  max_retries_ = config.planner_max_retries;
-  frequency_ = config.planner_frequency;
-
-  // Timeout granted to the global planner. We keep calling it up to this time or up to max_retries times
-  // If it doesn't return within time, the navigator will cancel it and abort the corresponding action
-  try
+  for (const rclcpp::Parameter& param : parameters)
   {
-    patience_ = ros::Duration(config.planner_patience);
+    const auto& param_name = param.get_name();
+    if (param_name == "planner_frequency")
+    {
+      frequency_= param.as_double();
+    }
+    else if (param_name == "planner_patience")
+    {
+      try
+      {
+          patience_ = rclcpp::Duration::from_seconds(param.as_double());
+      }
+      catch (std::exception& ex)
+      {
+        RCLCPP_ERROR(rclcpp::get_logger("AbstractPlannerExecution"), "Failed to set planner_patience: %s",
+                     ex.what());
+        patience_ = rclcpp::Duration(0,0);
+      }
+    }
+    else if (param_name == "planner_max_retries")
+    {
+      max_retries_ = param.as_int();
+    }
   }
-  catch (std::exception& ex)
-  {
-    ROS_ERROR_STREAM("Failed to set planner_patience: " << ex.what());
-    patience_ = ros::Duration(0);
-  }
+  result.successful = true;
+  return result;
 }
 
 
 typename AbstractPlannerExecution::PlanningState AbstractPlannerExecution::getState() const
 {
-  boost::lock_guard<boost::mutex> guard(state_mtx_);
+  std::lock_guard<std::mutex> guard(state_mtx_);
   return state_;
 }
 
 void AbstractPlannerExecution::setState(PlanningState state, bool signalling)
 {
-  boost::lock_guard<boost::mutex> guard(state_mtx_);
+  std::lock_guard<std::mutex> guard(state_mtx_);
   state_ = state;
 
   // we exit planning if we are signalling.
@@ -133,49 +156,48 @@ void AbstractPlannerExecution::setState(PlanningState state, bool signalling)
 }
 
 
-ros::Time AbstractPlannerExecution::getLastValidPlanTime() const
+rclcpp::Time AbstractPlannerExecution::getLastValidPlanTime() const
 {
-  boost::lock_guard<boost::mutex> guard(plan_mtx_);
+  std::lock_guard<std::mutex> guard(plan_mtx_);
   return last_valid_plan_time_;
 }
 
 
 bool AbstractPlannerExecution::isPatienceExceeded() const
 {
-  return !patience_.isZero() && (ros::Time::now() - last_call_start_time_ > patience_);
+  return !(patience_ == rclcpp::Duration(0, 0)) && (node_handle_->now() - last_call_start_time_ > patience_);
 }
 
 
-std::vector<geometry_msgs::PoseStamped> AbstractPlannerExecution::getPlan() const
+std::vector<geometry_msgs::msg::PoseStamped> AbstractPlannerExecution::getPlan() const
 {
-  boost::lock_guard<boost::mutex> guard(plan_mtx_);
+  std::lock_guard<std::mutex> guard(plan_mtx_);
   // copy plan and costs to output
   return plan_;
 }
 
 
-void AbstractPlannerExecution::setNewGoal(const geometry_msgs::PoseStamped &goal, double tolerance)
+void AbstractPlannerExecution::setNewGoal(const geometry_msgs::msg::PoseStamped &goal, double tolerance)
 {
-  boost::lock_guard<boost::mutex> guard(goal_start_mtx_);
+  std::lock_guard<std::mutex> guard(goal_start_mtx_);
   goal_ = goal;
   tolerance_ = tolerance;
   has_new_goal_ = true;
 }
 
 
-void AbstractPlannerExecution::setNewStart(const geometry_msgs::PoseStamped &start)
+void AbstractPlannerExecution::setNewStart(const geometry_msgs::msg::PoseStamped &start)
 {
-  boost::lock_guard<boost::mutex> guard(goal_start_mtx_);
+  std::lock_guard<std::mutex> guard(goal_start_mtx_);
   start_ = start;
   has_new_start_ = true;
 }
 
-
-void AbstractPlannerExecution::setNewStartAndGoal(const geometry_msgs::PoseStamped &start,
-                                                  const geometry_msgs::PoseStamped &goal,
+void AbstractPlannerExecution::setNewStartAndGoal(const geometry_msgs::msg::PoseStamped& start,
+                                                  const geometry_msgs::msg::PoseStamped& goal,
                                                   double tolerance)
 {
-  boost::lock_guard<boost::mutex> guard(goal_start_mtx_);
+  std::lock_guard<std::mutex> guard(goal_start_mtx_);
   start_ = start;
   goal_ = goal;
   tolerance_ = tolerance;
@@ -183,26 +205,25 @@ void AbstractPlannerExecution::setNewStartAndGoal(const geometry_msgs::PoseStamp
   has_new_goal_ = true;
 }
 
-
-bool AbstractPlannerExecution::start(const geometry_msgs::PoseStamped &start,
-                                     const geometry_msgs::PoseStamped &goal,
-                                     double tolerance)
+bool AbstractPlannerExecution::start(const geometry_msgs::msg::PoseStamped& start,
+                                     const geometry_msgs::msg::PoseStamped& goal, double tolerance)
 {
   if (planning_)
   {
     return false;
   }
-  boost::lock_guard<boost::mutex> guard(planning_mtx_);
+  std::lock_guard<std::mutex> guard(planning_mtx_);
   planning_ = true;
   start_ = start;
   goal_ = goal;
   tolerance_ = tolerance;
 
-  const geometry_msgs::Point& s = start.pose.position;
-  const geometry_msgs::Point& g = goal.pose.position;
+  const geometry_msgs::msg::Point& s = start.pose.position;
+  const geometry_msgs::msg::Point& g = goal.pose.position;
 
-  ROS_DEBUG_STREAM("Start planning from the start pose: (" << s.x << ", " << s.y << ", " << s.z << ")"
-                                 << " to the goal pose: ("<< g.x << ", " << g.y << ", " << g.z << ")");
+  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution") ,"Start planning from the start pose: ("
+                   << s.x << ", " << s.y << ", " << s.z << ")"
+                   << " to the goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
 
   return AbstractExecutionBase::start();
 }
@@ -215,20 +236,21 @@ bool AbstractPlannerExecution::cancel()
   // returns false if cancel is not implemented or rejected by the planner (will run until completion)
   if (!planner_->cancel())
   {
-    ROS_WARN_STREAM("Cancel planning failed or is not supported by the plugin. "
-        << "Wait until the current planning finished!");
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                        "Cancel planning failed or is not supported by the plugin. "
+                            << "Wait until the current planning finished!");
 
     return false;
   }
   return true;
 }
 
-uint32_t AbstractPlannerExecution::makePlan(const geometry_msgs::PoseStamped &start,
-                                            const geometry_msgs::PoseStamped &goal,
+uint32_t AbstractPlannerExecution::makePlan(const geometry_msgs::msg::PoseStamped& start,
+                                            const geometry_msgs::msg::PoseStamped& goal, 
                                             double tolerance,
-                                            std::vector<geometry_msgs::PoseStamped> &plan,
-                                            double &cost,
-                                            std::string &message)
+                                            std::vector<geometry_msgs::msg::PoseStamped>& plan, 
+                                            double& cost,
+                                            std::string& message)
 {
   return planner_->makePlan(start, goal, tolerance, plan, cost, message);
 }
@@ -236,21 +258,21 @@ uint32_t AbstractPlannerExecution::makePlan(const geometry_msgs::PoseStamped &st
 void AbstractPlannerExecution::run()
 {
   setState(STARTED, false);
-  boost::lock_guard<boost::mutex> guard(planning_mtx_);
+  std::lock_guard<std::mutex> guard(planning_mtx_);
   int retries = 0;
-  geometry_msgs::PoseStamped current_start = start_;
-  geometry_msgs::PoseStamped current_goal = goal_;
+  geometry_msgs::msg::PoseStamped current_start = start_;
+  geometry_msgs::msg::PoseStamped current_goal = goal_;
   double current_tolerance = tolerance_;
 
-  last_call_start_time_ = ros::Time::now();
-  last_valid_plan_time_ = ros::Time::now();
+  last_call_start_time_ = node_handle_->now();
+  last_valid_plan_time_ = node_handle_->now();
 
   try
   {
-    while (planning_ && ros::ok())
+    while (planning_ && rclcpp::ok())
     {
       // call the planner
-      std::vector<geometry_msgs::PoseStamped> plan;
+      std::vector<geometry_msgs::msg::PoseStamped> plan;
       double cost = 0.0;
 
       // lock goal start mutex
@@ -259,26 +281,30 @@ void AbstractPlannerExecution::run()
       {
         has_new_start_ = false;
         current_start = start_;
-        ROS_INFO_STREAM("A new start pose is available. Planning with the new start pose!");
-        const geometry_msgs::Point& s = start_.pose.position;
-        ROS_INFO_STREAM("New planning start pose: (" << s.x << ", " << s.y << ", " << s.z << ")");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "A new start pose is available. Planning "
+                                                                           "with the new start pose!");
+        const geometry_msgs::msg::Point& s = start_.pose.position;
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                           "New planning start pose: (" << s.x << ", " << s.y << ", " << s.z << ")");
       }
       if (has_new_goal_)
       {
         has_new_goal_ = false;
         current_goal = goal_;
         current_tolerance = tolerance_;
-        ROS_INFO_STREAM("A new goal pose is available. Planning with the new goal pose and the tolerance: "
-                        << current_tolerance);
-        const geometry_msgs::Point& g = goal_.pose.position;
-        ROS_INFO_STREAM("New goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
+        RCLCPP_INFO_STREAM(
+            rclcpp::get_logger("AbstractControllerExecution"),
+            "A new goal pose is available. Planning with the new goal pose and the tolerance: " << current_tolerance);
+        const geometry_msgs::msg::Point& g = goal_.pose.position;
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                           "New goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
       }
 
       // unlock goal
       goal_start_mtx_.unlock();
       if (cancel_)
       {
-        ROS_INFO_STREAM("The global planner has been canceled!");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "The global planner has been canceled!");
         setState(CANCELED, true);
       }
       else
@@ -288,30 +314,32 @@ void AbstractPlannerExecution::run()
         outcome_ = makePlan(current_start, current_goal, current_tolerance, plan, cost, message_);
         bool success = outcome_ < 10;
 
-        boost::lock_guard<boost::mutex> guard(configuration_mutex_);
+        std::lock_guard<std::mutex> guard(configuration_mutex_);
 
         if (cancel_ && !isPatienceExceeded())
         {
-          ROS_INFO_STREAM("The planner \"" << name_ << "\" has been canceled!"); // but not due to patience exceeded
+          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                             "The planner \"" << name_ << "\" has been canceled!");  // but not due to patience exceeded
           setState(CANCELED, true);
         }
         else if (success)
         {
-          ROS_DEBUG_STREAM("Successfully found a plan.");
+          RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Successfully found a plan.");
 
-          boost::lock_guard<boost::mutex> plan_mtx_guard(plan_mtx_);
+          std::lock_guard<std::mutex> plan_mtx_guard(plan_mtx_);
           plan_ = plan;
           cost_ = cost;
           // estimate the cost based on the distance if its zero.
           if (cost_ == 0)
             cost_ = sumDistance(plan_.begin(), plan_.end());
 
-          last_valid_plan_time_ = ros::Time::now();
+          last_valid_plan_time_ = node_handle_->now();
           setState(FOUND_PLAN, true);
         }
         else if (max_retries_ > 0 && ++retries > max_retries_)
         {
-          ROS_INFO_STREAM("Planning reached max retries! (" << max_retries_ << ")");
+          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                             "Planning reached max retries! (" << max_retries_ << ")");
           setState(MAX_RETRIES, true);
         }
         else if (isPatienceExceeded())
@@ -320,31 +348,33 @@ void AbstractPlannerExecution::run()
           // disabled, and on the navigation server when the planner doesn't return for more that patience seconds.
           // In the second case, the navigation server has tried to cancel planning (possibly without success, as
           // old nav_core-based planners do not support canceling), and we add here the fact to the log for info
-          ROS_INFO_STREAM("Planning patience (" << patience_.toSec() << "s) has been exceeded"
-                                                << (cancel_ ? "; planner canceled!" : ""));
+          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+                             "Planning patience (" << patience_.seconds() << "s) has been exceeded"
+                                                   << (cancel_ ? "; planner canceled!" : ""));
           setState(PAT_EXCEEDED, true);
         }
         else if (max_retries_ == 0)
         {
-          ROS_INFO_STREAM("Planning could not find a plan!");
+          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),"Planning could not find a plan!");
           setState(NO_PLAN_FOUND, true);
         }
         else
         {
-          ROS_DEBUG_STREAM("Planning could not find a plan! Trying again...");
+          RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planning could not find a plan! "
+                                                                                "Trying again...");
         }
       }
     } // while (planning_ && ros::ok())
   }
-  catch (const boost::thread_interrupted &ex)
+  catch (const std::exception &ex)
   {
     // Planner thread interrupted; probably we have exceeded planner patience
-    ROS_WARN_STREAM("Planner thread interrupted!");
+    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planner thread interrupted!");
     setState(STOPPED, true);
   }
   catch (...)
   {
-    ROS_ERROR_STREAM("Unknown error occurred: " << boost::current_exception_diagnostic_information());
+    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Unknown error occurred.");
     setState(INTERNAL_ERROR, true);
   }
 }

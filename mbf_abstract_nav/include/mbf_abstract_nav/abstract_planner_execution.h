@@ -44,8 +44,12 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <mutex>
+#include <memory>
+#include <rclcpp/parameter.hpp>
+#include "rclcpp/rclcpp.hpp"
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <mbf_abstract_core/abstract_planner.h>
 
@@ -76,7 +80,7 @@ namespace mbf_abstract_nav
   public:
 
     //! shared pointer type to the @ref planner_execution "planner execution".
-    typedef boost::shared_ptr<AbstractPlannerExecution > Ptr;
+    typedef std::shared_ptr<AbstractPlannerExecution > Ptr;
 
     /**
      * @brief Constructor
@@ -85,26 +89,25 @@ namespace mbf_abstract_nav
      * @param robot_info Current robot state
      * @param config Initial configuration for this execution
      */
-    AbstractPlannerExecution(const std::string& name,
-                             const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr,
-                             const mbf_utility::RobotInformation &robot_info,
-                             const MoveBaseFlexConfig& config);
+    AbstractPlannerExecution(const std::string& name, const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr,
+                             const mbf_utility::RobotInformation& robot_info,
+                             const rclcpp::Node::SharedPtr& node_handle);
 
     /**
      * @brief Destructor
      */
     virtual ~AbstractPlannerExecution();
-
+    
     /**
      * @brief Returns a new plan, if one is available.
      */
-    std::vector<geometry_msgs::PoseStamped> getPlan() const;
+    std::vector<geometry_msgs::msg::PoseStamped> getPlan() const;
 
     /**
      * @brief Returns the last time a valid plan was available.
      * @return time, the last valid plan was available.
      */
-    ros::Time getLastValidPlanTime() const;
+    rclcpp::Time getLastValidPlanTime() const;
 
     /**
      * @brief Checks whether the patience was exceeded.
@@ -158,13 +161,13 @@ namespace mbf_abstract_nav
      * @param goal the new goal pose
      * @param tolerance tolerance to the goal for the planning
      */
-    void setNewGoal(const geometry_msgs::PoseStamped &goal, double tolerance);
+    void setNewGoal(const geometry_msgs::msg::PoseStamped &goal, double tolerance);
 
     /**
      * @brief Sets a new start pose for the planner execution
      * @param start new start pose
      */
-    void setNewStart(const geometry_msgs::PoseStamped &start);
+    void setNewStart(const geometry_msgs::msg::PoseStamped &start);
 
     /**
      * @brief Sets a new star and goal pose for the planner execution
@@ -172,7 +175,7 @@ namespace mbf_abstract_nav
      * @param goal new goal pose
      * @param tolerance tolerance to the new goal for the planning
      */
-    void setNewStartAndGoal(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,
+    void setNewStartAndGoal(const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal,
                             double tolerance);
 
     /**
@@ -182,7 +185,7 @@ namespace mbf_abstract_nav
      * @param tolerance tolerance to the goal pose for the planning
      * @return true, if the planner thread has been started, false if the thread is already running.
      */
-    bool start(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,
+    bool start(const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal,
                double tolerance);
 
     /**
@@ -190,7 +193,7 @@ namespace mbf_abstract_nav
      *        to reconfigure the current state.
      * @param config MoveBaseFlexConfig object
      */
-    void reconfigure(const MoveBaseFlexConfig &config);
+    rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters);
 
   protected:
 
@@ -219,10 +222,10 @@ namespace mbf_abstract_nav
      * @return An outcome number, see also the action definition in the GetPath.action file
      */
     virtual uint32_t makePlan(
-        const geometry_msgs::PoseStamped &start,
-        const geometry_msgs::PoseStamped &goal,
+        const geometry_msgs::msg::PoseStamped &start,
+        const geometry_msgs::msg::PoseStamped &goal,
         double tolerance,
-        std::vector<geometry_msgs::PoseStamped> &plan,
+        std::vector<geometry_msgs::msg::PoseStamped> &plan,
         double &cost,
         std::string &message);
 
@@ -233,20 +236,21 @@ namespace mbf_abstract_nav
      */
     void setState(PlanningState state, bool signalling);
 
+
     //! mutex to handle safe thread communication for the current state
-    mutable boost::mutex state_mtx_;
+    mutable std::mutex state_mtx_;
 
     //! mutex to handle safe thread communication for the plan and plan-costs
-    mutable boost::mutex plan_mtx_;
+    mutable std::mutex plan_mtx_;
 
     //! mutex to handle safe thread communication for the goal and start pose.
-    mutable boost::mutex goal_start_mtx_;
+    mutable std::mutex goal_start_mtx_;
 
     //! mutex to handle safe thread communication for the planning_ flag.
-    mutable boost::mutex planning_mtx_;
+    mutable std::mutex planning_mtx_;
 
     //! dynamic reconfigure mutex for a thread safe communication
-    mutable boost::mutex configuration_mutex_;
+    mutable std::mutex configuration_mutex_;
 
     //! true, if a new goal pose has been set, until it is used.
     bool has_new_goal_;
@@ -255,22 +259,23 @@ namespace mbf_abstract_nav
     bool has_new_start_;
 
     //! the last call start time, updated each cycle.
-    ros::Time last_call_start_time_;
+    rclcpp::Time last_call_start_time_;
 
     //! the last time a valid plan has been computed.
-    ros::Time last_valid_plan_time_;
+    rclcpp::Time last_valid_plan_time_;
 
     //! current global plan
-    std::vector<geometry_msgs::PoseStamped> plan_;
+    std::vector<geometry_msgs::msg::PoseStamped> plan_;
 
     //! current global plan cost
     double cost_;
 
     //! the current start pose used for planning
-    geometry_msgs::PoseStamped start_;
+    geometry_msgs::msg::PoseStamped start_;
+    
 
     //! the current goal pose used for planning
-    geometry_msgs::PoseStamped goal_;
+    geometry_msgs::msg::PoseStamped goal_;
 
     //! optional goal tolerance, in meters
     double tolerance_;
@@ -279,7 +284,7 @@ namespace mbf_abstract_nav
     double frequency_;
 
     //! planning patience duration time
-    ros::Duration patience_;
+    rclcpp::Duration patience_;
 
     //! planning max retries
     int max_retries_;
@@ -296,6 +301,11 @@ namespace mbf_abstract_nav
     //! current internal state
     PlanningState state_;
 
+    //! the node handle ptr
+    rclcpp::Node::SharedPtr node_handle_;
+
+    // dynamic configuration
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
   };
 
 } /* namespace mbf_abstract_nav */
