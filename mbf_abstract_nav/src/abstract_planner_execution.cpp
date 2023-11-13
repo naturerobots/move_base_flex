@@ -63,11 +63,24 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   node_handle_->declare_parameter("robot_frame", std::string("base_footprint"));
   node_handle_->declare_parameter("map_frame", std::string("map"));
 
+  auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
+  param_desc.description = "The rate in Hz at which to run the planning loop";
+  node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0), param_desc);
+  param_desc.description = "How long the planner will wait in seconds in an attempt to find a valid plan before giving "
+                           "up";
+  node_handle_->declare_parameter("planner_patience", rclcpp::ParameterValue(5.0), param_desc);
+  param_desc.description = "How many times we will recall the planner in an attempt to find a valid plan before giving "
+                           "up";
+  node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
 
-  node_handle_->declare_parameter("planner_frequency", 0.0);
-  node_handle_->declare_parameter("planner_patience", 5.0);
-  node_handle_->declare_parameter("planner_max_retries", -1);
-  
+  node_handle_->get_parameter("controller_frequency", frequency_);
+
+
+  double patience;
+  node_handle_->get_parameter("controller_patience", patience);
+  patience_ = rclcpp::Duration::from_seconds(patience);
+  node_handle_->get_parameter("controller_max_retries", max_retries_);
+
   // dynamically reconfigurable parameters
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
       std::bind(&AbstractPlannerExecution::reconfigure, this, std::placeholders::_1));
