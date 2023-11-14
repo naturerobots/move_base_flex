@@ -82,21 +82,16 @@ class MoveBaseAction
 
  protected:
 
-  void actionExePathFeedback(const ExePath::Feedback::ConstSharedPtr &feedback);
+  void actionGetPathGoalResponse(const rclcpp_action::ClientGoalHandle<GetPath>::ConstSharedPtr& get_path_goal_handle);
+  void actionGetPathResult(const rclcpp_action::ClientGoalHandle<GetPath>::WrappedResult &result);
 
-  void actionGetPathDone(
-      const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::GetPath::Result::ConstSharedPtr &result);
+  void actionExePathGoalResponse(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& exe_path_goal_handle);
+  void actionExePathFeedback(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& goal_handle, const ExePath::Feedback::ConstSharedPtr &feedback);
+  void actionExePathResult(const rclcpp_action::ClientGoalHandle<ExePath>::WrappedResult &result);
 
-  void actionExePathActive();
-
-  void actionExePathDone(
-      const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::ExePath::Result::ConstSharedPtr &result);
-
-  void actionRecoveryDone(
-      const actionlib::SimpleClientGoalState &state,
-      const mbf_msgs::Recovery::Result::ConstSharedPtr &result);
+  void actionRecoveryGoalResponse(const rclcpp_action::ClientGoalHandle<Recovery>::ConstSharedPtr& recovery_goal_handle);
+  void actionRecoveryResult(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result);
+  void recoveryRejectedOrAborted(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result); // TODO keep?
 
   bool attemptRecovery();
 
@@ -122,8 +117,12 @@ class MoveBaseAction
   }
 
   ExePath::Goal exe_path_goal_;
+  rclcpp_action::Client<ExePath>::SendGoalOptions exe_path_send_goal_options_;
   GetPath::Goal get_path_goal_;
+  std::shared_future<rclcpp_action::ClientGoalHandle<GetPath>::SharedPtr> get_path_goal_handle_;
+  rclcpp_action::Client<GetPath>::SendGoalOptions get_path_send_goal_options_;
   Recovery::Goal recovery_goal_;
+  rclcpp_action::Client<Recovery>::SendGoalOptions recovery_send_goal_options_;
 
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 
