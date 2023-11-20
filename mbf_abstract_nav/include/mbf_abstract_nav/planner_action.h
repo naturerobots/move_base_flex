@@ -41,25 +41,29 @@
 #ifndef MBF_ABSTRACT_NAV__PLANNER_ACTION_H_
 #define MBF_ABSTRACT_NAV__PLANNER_ACTION_H_
 
-#include <actionlib/server/action_server.h>
+#include <memory>
 
-#include <mbf_msgs/GetPathAction.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/server.hpp>
+
+#include <mbf_msgs/action/get_path.hpp>
 #include <mbf_utility/robot_information.h>
 
 #include "mbf_abstract_nav/abstract_action_base.hpp"
 #include "mbf_abstract_nav/abstract_planner_execution.h"
 
 
-namespace mbf_abstract_nav{
+namespace mbf_abstract_nav {
 
 
-class PlannerAction : public AbstractActionBase<mbf_msgs::GetPathAction, AbstractPlannerExecution>
+class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath::Action, AbstractPlannerExecution>
 {
  public:
 
-  typedef boost::shared_ptr<PlannerAction> Ptr;
+  typedef std::shared_ptr<PlannerAction> Ptr;
 
   PlannerAction(
+      const rclcpp::Node::SharedPtr& node,
       const std::string &name,
       const mbf_utility::RobotInformation &robot_info
   );
@@ -74,13 +78,13 @@ class PlannerAction : public AbstractActionBase<mbf_msgs::GetPathAction, Abstrac
    * @param global_plan Output plan, which is then transformed to the global frame.
    * @return true, if the transformation succeeded, false otherwise
    */
-   bool transformPlanToGlobalFrame(const std::vector<geometry_msgs::PoseStamped>& plan,
-                                   std::vector<geometry_msgs::PoseStamped>& global_plan);
+   bool transformPlanToGlobalFrame(const std::vector<geometry_msgs::msg::PoseStamped>& plan,
+                                   std::vector<geometry_msgs::msg::PoseStamped>& global_plan);
 
  private:
 
   //! Publisher to publish the current goal pose, which is used for path planning
-  ros::Publisher current_goal_pub_;
+  rclcpp::Publisher current_goal_pub_;
 
   //! Path sequence counter
   unsigned int path_seq_count_;

@@ -43,12 +43,11 @@
 
 #include <string>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread/recursive_mutex.hpp>
 
-#include <actionlib/server/action_server.h>
-#include <dynamic_reconfigure/server.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <rclcpp_action/server.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <mbf_utility/navigation_utility.h>
 
@@ -61,8 +60,6 @@
 #include "mbf_abstract_nav/controller_action.h"
 #include "mbf_abstract_nav/recovery_action.h"
 #include "mbf_abstract_nav/move_base_action.h"
-
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 
 namespace mbf_abstract_nav
 {
@@ -79,20 +76,20 @@ namespace mbf_abstract_nav
 
 
 //! GetPath action server
-typedef actionlib::ActionServer<mbf_msgs::GetPathAction> ActionServerGetPath;
-typedef boost::shared_ptr<ActionServerGetPath> ActionServerGetPathPtr;
+typedef rclcpp_action::ActionServer<mbf_msgs::action::GetPath> ActionServerGetPath;
+typedef std::shared_ptr<ActionServerGetPath> ActionServerGetPathPtr;
 
 //! ExePath action server
-typedef actionlib::ActionServer<mbf_msgs::ExePathAction> ActionServerExePath;
-typedef boost::shared_ptr<ActionServerExePath> ActionServerExePathPtr;
+typedef rclcpp_action::ActionServer<mbf_msgs::action::ExePath> ActionServerExePath;
+typedef std::shared_ptr<ActionServerExePath> ActionServerExePathPtr;
 
 //! Recovery action server
-typedef actionlib::ActionServer<mbf_msgs::RecoveryAction> ActionServerRecovery;
-typedef boost::shared_ptr<ActionServerRecovery> ActionServerRecoveryPtr;
+typedef rclcpp_action::ActionServer<mbf_msgs::action::Recovery> ActionServerRecovery;
+typedef std::shared_ptr<ActionServerRecovery> ActionServerRecoveryPtr;
 
 //! MoveBase action server
-typedef actionlib::ActionServer<mbf_msgs::MoveBaseAction> ActionServerMoveBase;
-typedef boost::shared_ptr<ActionServerMoveBase> ActionServerMoveBasePtr;
+typedef rclcpp_action::ActionServer<mbf_msgs::action::MoveBase> ActionServerMoveBase;
+typedef std::shared_ptr<ActionServerMoveBase> ActionServerMoveBasePtr;
 
 //! ExePath action topic name
 const std::string name_action_exe_path = "exe_path";
@@ -103,8 +100,6 @@ const std::string name_action_recovery = "recovery";
 //! MoveBase action topic name
 const std::string name_action_move_base = "move_base";
 
-
-typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBaseFlexConfig> > DynamicReconfigureServer;
 
 /**
  * @brief The AbstractNavigationServer is the abstract base class for all navigation servers in move_base_flex
@@ -124,7 +119,7 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
      *        Parameters are the concrete implementations of the abstract classes.
      * @param tf_listener_ptr shared pointer to the common TransformListener buffering transformations
      */
-    AbstractNavigationServer(const TFPtr &tf_listener_ptr);
+    AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node);
 
     /**
      * @brief Destructor
@@ -277,24 +272,18 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
      * @param global_plan Output plan, which is then transformed to the global frame.
      * @return true, if the transformation succeeded, false otherwise
      */
-    bool transformPlanToGlobalFrame(std::vector<geometry_msgs::PoseStamped> &plan,
-                                    std::vector<geometry_msgs::PoseStamped> &global_plan);
-
-    /**
-     * @brief Start a dynamic reconfigure server.
-     * This must be called only if the extending doesn't create its own.
-     */
-    virtual void startDynamicReconfigureServer();
+    bool transformPlanToGlobalFrame(std::vector<geometry_msgs::msg::PoseStamped> &plan,
+                                    std::vector<geometry_msgs::msg::PoseStamped> &global_plan);
 
     /**
      * @brief Reconfiguration method called by dynamic reconfigure
      * @param config Configuration parameters. See the MoveBaseFlexConfig definition.
      * @param level bit mask, which parameters are set.
      */
-    virtual void reconfigure(mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
+    void reconfigure(mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
 
-    //! Private node handle
-    ros::NodeHandle private_nh_;
+    //! Ptr to node for logging, params and communication with other nodes
+    rclcpp::Node::SharedPtr node_;
 
     AbstractPluginManager<mbf_abstract_core::AbstractPlanner> planner_plugin_manager_;
     AbstractPluginManager<mbf_abstract_core::AbstractController> controller_plugin_manager_;
@@ -334,16 +323,16 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
     std::string global_frame_;
 
     //! timeout after tf returns without a result
-    ros::Duration tf_timeout_;
+    rclcpp::Duration tf_timeout_;
 
     //! shared pointer to the common TransformListener
     const TFPtr tf_listener_ptr_;
 
     //! cmd_vel publisher for all controller execution objects
-    ros::Publisher vel_pub_;
+    rclcpp::Publisher vel_pub_;
 
     //! current_goal publisher for all controller execution objects
-    ros::Publisher goal_pub_;
+    rclcpp::Publisher goal_pub_;
 
     //! current robot state
     mbf_utility::RobotInformation robot_info_;

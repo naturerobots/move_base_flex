@@ -54,7 +54,6 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <mbf_utility/robot_information.h>
 
-#include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/abstract_execution_base.h"
 
 namespace mbf_abstract_nav
