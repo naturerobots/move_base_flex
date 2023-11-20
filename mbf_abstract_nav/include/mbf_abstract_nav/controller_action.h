@@ -41,9 +41,9 @@
 #ifndef MBF_ABSTRACT_NAV__CONTROLLER_ACTION_H_
 #define MBF_ABSTRACT_NAV__CONTROLLER_ACTION_H_
 
-#include <actionlib/server/action_server.h>
+#include <rclcpp_action/server.hpp>
 
-#include <mbf_msgs/ExePathAction.h>
+#include <mbf_msgs/action/exe_path.hpp>
 #include <mbf_utility/robot_information.h>
 
 #include "mbf_abstract_nav/abstract_action_base.hpp"
@@ -53,7 +53,7 @@ namespace mbf_abstract_nav
 {
 
 class ControllerAction :
-    public AbstractActionBase<mbf_msgs::ExePathAction, AbstractControllerExecution>
+    public AbstractActionBase<mbf_msgs::action::ExePath, AbstractControllerExecution>
 {
  public:
 
@@ -79,7 +79,7 @@ protected:
   void publishExePathFeedback(
           GoalHandle &goal_handle,
           uint32_t outcome, const std::string &message,
-          const geometry_msgs::TwistStamped &current_twist);
+          const geometry_msgs::msg::TwistStamped &current_twist);
 
   /**
    * @brief Utility method to fill the ExePath action result in a single line
@@ -89,11 +89,11 @@ protected:
    */
   void fillExePathResult(
         uint32_t outcome, const std::string &message,
-        mbf_msgs::ExePathResult &result);
+        mbf_msgs::action::ExePath::Result &result);
 
   boost::mutex goal_mtx_; ///< lock goal handle for updating it while running
-  geometry_msgs::PoseStamped robot_pose_; ///< Current robot pose
-  geometry_msgs::PoseStamped goal_pose_;  ///< Current goal pose
+  geometry_msgs::msg::PoseStamped robot_pose_; ///< Current robot pose
+  geometry_msgs::msg::PoseStamped goal_pose_;  ///< Current goal pose
 
 };
 }
