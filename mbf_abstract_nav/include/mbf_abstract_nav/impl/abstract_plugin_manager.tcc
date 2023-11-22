@@ -93,7 +93,7 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
         plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
         names_.push_back(name);
 
-        CLCPP_INFO(node_handle_->get_logger(),
+        RCLCPP_INFO(node_handle_->get_logger(),
                    "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
                    name.c_str());
       }
@@ -144,12 +144,12 @@ typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std:
       = plugins_.find(name);
   if(new_plugin != plugins_.end())
   {
-    ROS_DEBUG_STREAM("Found plugin with the name \"" << name << "\".");
+    RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Found plugin with the name \"" << name << "\".");
     return new_plugin->second;
   }
   else
   {
-    ROS_WARN_STREAM("The plugin with the name \"" << name << "\" has not yet been loaded!");
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "The plugin with the name \"" << name << "\" has not yet been loaded!");
     return typename PluginType::Ptr(); // return null ptr
   }
 }
