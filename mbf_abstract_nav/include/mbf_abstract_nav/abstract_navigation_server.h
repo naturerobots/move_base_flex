@@ -76,19 +76,19 @@ namespace mbf_abstract_nav
 
 
 //! GetPath action server
-typedef rclcpp_action::ActionServer<mbf_msgs::action::GetPath> ActionServerGetPath;
+typedef rclcpp_action::Server<mbf_msgs::action::GetPath> ActionServerGetPath;
 typedef std::shared_ptr<ActionServerGetPath> ActionServerGetPathPtr;
 
 //! ExePath action server
-typedef rclcpp_action::ActionServer<mbf_msgs::action::ExePath> ActionServerExePath;
+typedef rclcpp_action::Server<mbf_msgs::action::ExePath> ActionServerExePath;
 typedef std::shared_ptr<ActionServerExePath> ActionServerExePathPtr;
 
 //! Recovery action server
-typedef rclcpp_action::ActionServer<mbf_msgs::action::Recovery> ActionServerRecovery;
+typedef rclcpp_action::Server<mbf_msgs::action::Recovery> ActionServerRecovery;
 typedef std::shared_ptr<ActionServerRecovery> ActionServerRecoveryPtr;
 
 //! MoveBase action server
-typedef rclcpp_action::ActionServer<mbf_msgs::action::MoveBase> ActionServerMoveBase;
+typedef rclcpp_action::Server<mbf_msgs::action::MoveBase> ActionServerMoveBase;
 typedef std::shared_ptr<ActionServerMoveBase> ActionServerMoveBasePtr;
 
 //! ExePath action topic name
