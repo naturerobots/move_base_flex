@@ -40,97 +40,99 @@
 
 #include "mbf_abstract_nav/recovery_action.h"
 
+#include <rclcpp/rclcpp.hpp>
+
 namespace mbf_abstract_nav
 {
 
-RecoveryAction::RecoveryAction(const std::string &name, const mbf_utility::RobotInformation &robot_info)
-  : AbstractActionBase(name, robot_info){}
+RecoveryAction::RecoveryAction(const rclcpp::Node::ConstSharedPtr& node, const std::string &name, const mbf_utility::RobotInformation &robot_info)
+  : AbstractActionBase(node, name, robot_info){}
 
 void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution &execution)
 {
-  ROS_DEBUG_STREAM_NAMED(name_, "Start action "  << name_);
+  RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Start action "  << name_);
 
-  const mbf_msgs::RecoveryGoal &goal = *goal_handle.getGoal();
-  mbf_msgs::RecoveryResult result;
-  result.used_plugin = goal.behavior;
+  const mbf_msgs::action::Recovery::Goal &goal = *goal_handle.get_goal();
+  mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
+  result->used_plugin = goal.behavior;
   bool recovery_active = true;
 
   typename AbstractRecoveryExecution::RecoveryState state_recovery_input;
 
-  while (recovery_active && ros::ok())
+  while (recovery_active && rclcpp::ok())
   {
     state_recovery_input = execution.getState();
     switch (state_recovery_input)
     {
       case AbstractRecoveryExecution::INITIALIZED:
-        ROS_DEBUG_STREAM_NAMED(name_, "Recovery behavior \"" << goal.behavior << "\" initialized.");
+        RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Recovery behavior \"" << goal.behavior << "\" initialized.");
         execution.start();
         break;
 
       case AbstractRecoveryExecution::STOPPED:
-        ROS_DEBUG_STREAM_NAMED(name_, "Recovery behavior stopped rigorously");
-        result.outcome = mbf_msgs::RecoveryResult::STOPPED;
-        result.message = "Recovery has been stopped!";
-        goal_handle.setAborted(result, result.message);
+        RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Recovery behavior stopped rigorously");
+        result->outcome = mbf_msgs::action::Recovery::Result::STOPPED;
+        result->message = "Recovery has been stopped!";
+        goal_handle.setAborted(result, result->message);
         recovery_active = false;
         break;
 
       case AbstractRecoveryExecution::STARTED:
-        ROS_DEBUG_STREAM_NAMED(name_, "Recovery behavior \"" << goal.behavior << "\" was started");
+        RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Recovery behavior \"" << goal.behavior << "\" was started");
         break;
 
       case AbstractRecoveryExecution::RECOVERING:
 
         if (execution.isPatienceExceeded())
         {
-          ROS_INFO_STREAM("Recovery behavior \"" << goal.behavior << "\" patience exceeded! Cancel recovering...");
+          RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Recovery behavior \"" << goal.behavior << "\" patience exceeded! Cancel recovering...");
           execution.cancel();
         }
 
-        ROS_DEBUG_STREAM_THROTTLE_NAMED(3, name_, "Recovering with: " << goal.behavior);
+        //RCLCPP_DEBUG_STREAM_THROTTLE(rclcpp::get_logger(name_), clock, 3seconds , "Recovering with: " << goal.behavior); // TODO no node -> no clock? :(
         break;
 
       case AbstractRecoveryExecution::CANCELED:
         // Recovery behavior supports cancel and it worked
         recovery_active = false; // stopping the action
-        result.outcome = mbf_msgs::RecoveryResult::CANCELED;
-        result.message = "Recovery behaviour \"" + goal.behavior + "\" canceled!";
-        goal_handle.setCanceled(result, result.message);
-        ROS_DEBUG_STREAM_NAMED(name_, result.message);
+        result->outcome = mbf_msgs::action::Recovery::Result::CANCELED;
+        result->message = "Recovery behaviour \"" + goal.behavior + "\" canceled!";
+        goal_handle.canceled(result);
+        RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), result->message);
         break;
 
       case AbstractRecoveryExecution::RECOVERY_DONE:
         recovery_active = false; // stopping the action
-        result.outcome = execution.getOutcome();
-        result.message = execution.getMessage();
-        if (result.message.empty())
+        result->outcome = execution.getOutcome();
+        result->message = execution.getMessage();
+        if (result->message.empty())
         {
-          if (result.outcome < 10)
-            result.message = "Recovery \"" + goal.behavior + "\" done";
+          if (result->outcome < 10)
+            result->message = "Recovery \"" + goal.behavior + "\" done";
           else
-            result.message = "Recovery \"" + goal.behavior + "\" FAILED";
+            result->message = "Recovery \"" + goal.behavior + "\" FAILED";
         }
 
-        ROS_DEBUG_STREAM_NAMED(name_, result.message);
-        goal_handle.setSucceeded(result, result.message);
+        RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), result->message);
+        goal_handle.succeed(result);
         break;
 
       case AbstractRecoveryExecution::INTERNAL_ERROR:
-        ROS_FATAL_STREAM_NAMED(name_, "Internal error: Unknown error thrown by the plugin!"); // TODO getMessage from recovery
+        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), "Internal error: Unknown error thrown by the plugin!"); // TODO getMessage from recovery
         recovery_active = false;
-        result.outcome = mbf_msgs::RecoveryResult::INTERNAL_ERROR;
-        result.message = "Internal error: Unknown error thrown by the plugin!";
-        goal_handle.setAborted(result, result.message);
+        result->outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
+        result->message = "Internal error: Unknown error thrown by the plugin!";
+        goal_handle.abort(result);
         break;
 
       default:
-        result.outcome = mbf_msgs::RecoveryResult::INTERNAL_ERROR;
+        result->outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
         std::stringstream ss;
         ss << "Internal error: Unknown state in a move base flex recovery execution with the number: "
            << static_cast<int>(state_recovery_input);
-        result.message = ss.str();
-        ROS_FATAL_STREAM_NAMED(name_, result.message);
-        goal_handle.setAborted(result, result.message);
+        result->message = ss.str();
+        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result->message);
+        goal_handle.abort(result);
         recovery_active = false;
     }
 
@@ -139,17 +141,17 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
       // try to sleep a bit
       // normally the thread should be woken up from the recovery unit
       // in order to transfer the results to the controller
-      execution.waitForStateUpdate(boost::chrono::milliseconds(500));
+      execution.waitForStateUpdate(std::chrono::milliseconds(500));
     }
   }  // while (recovery_active && ros::ok())
 
   if (!recovery_active)
   {
-    ROS_DEBUG_STREAM_NAMED(name_, "\"" << name_ << "\" action ended properly.");
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "\"" << name_ << "\" action ended properly.");
   }
   else
   {
-    ROS_ERROR_STREAM_NAMED(name_, "\"" << name_ << "\" action has been stopped!");
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), "\"" << name_ << "\" action has been stopped!");
   }
 }
 
