@@ -56,7 +56,7 @@
 namespace mbf_abstract_nav {
 
 
-class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath::Action, AbstractPlannerExecution>
+class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath, AbstractPlannerExecution>
 {
  public:
 
