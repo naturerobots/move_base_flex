@@ -79,7 +79,7 @@ class AbstractPluginManager
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;
-  const rclcpp::Node::SharedPtr& node_handle_;
+  rclcpp::Node::SharedPtr node_handle_;
 };
 
 } /* namespace mbf_abstract_nav */
