@@ -58,7 +58,7 @@ ControllerAction::ControllerAction(
   oscillation_timeout_range.step = 0.0;
   oscillation_timeout_description.description = "How long in seconds to allow for oscillation before executing recovery behaviors";
   oscillation_timeout_description.floating_point_range.push_back(oscillation_timeout_range);
-  node->declare_parameter<double>("oscillation_timeout", 0.0, oscillation_timeout_description);
+  node_->declare_parameter<double>("oscillation_timeout", 0.0, oscillation_timeout_description);
 
   rcl_interfaces::msg::ParameterDescriptor oscillation_distance_description;
   rcl_interfaces::msg::FloatingPointRange oscillation_distance_range;
@@ -67,7 +67,9 @@ ControllerAction::ControllerAction(
   oscillation_distance_range.step = 0.0;
   oscillation_distance_description.description = "How far in meters the robot must move to be considered not to be oscillating";
   oscillation_distance_description.floating_point_range.push_back(oscillation_distance_range);
-  node->declare_parameter<double>("oscillation_distance", 0.5, oscillation_distance_description);
+  node_->declare_parameter<double>("oscillation_distance", 0.5, oscillation_distance_description);
+
+  node_->declare_parameter<double>("oscillation_angle", M_PI);
 }
 
 void ControllerAction::start(
