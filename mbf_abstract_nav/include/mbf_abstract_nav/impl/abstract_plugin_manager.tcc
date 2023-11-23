@@ -61,21 +61,16 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
 
   if (!node_handle_->get_parameters(param_name_, plugin_param_list))
   {
-    RCLCPP_WARN(node_handle_->get_logger(),
-                "No %s plugins configured! - Use the param \"%s\", which must be a list of tuples with a name and a "
-                "type.",
-                param_name_.c_str(), param_name_.c_str());
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured! - Use the param \"" 
+        << param_name_ << "\", which must be a list of tuples with a name and a type.");
     return false;
   }
 
   try
   {
-    for (int i = 0; i < plugin_param_list.size(); i++)
+    for (const auto &[name, param] : plugin_param_list)
     {
-      rclcpp::Parameter elem = plugin_param_list[i];
-
-      std::string name = elem.get_name();
-      std::string type = elem.get_type_name();
+      std::string type = param.get_type_name();
 
       if (plugins_.find(name) != plugins_.end())
       {
