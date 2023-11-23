@@ -200,17 +200,18 @@ public:
     slot.in_use = false;
   }
 
-  virtual void reconfigureAll(
-      mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
-  {
-    boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
+  // TODO remove if not needed for restore defaults feature
+  // virtual void reconfigureAll(
+  //     mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
+  // {
+  //   boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
 
-    typename ConcurrencyMap::iterator iter;
-    for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
-    {
-      iter->second.execution->reconfigure(config);
-    }
-  }
+  //   typename ConcurrencyMap::iterator iter;
+  //   for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
+  //   {
+  //     iter->second.execution->reconfigure(config);
+  //   }
+  // }
 
   virtual void cancelAll()
   {

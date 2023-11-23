@@ -222,7 +222,7 @@ const std::string name_action_move_base = "move_base";
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionGetPath(ActionServerGetPath::GoalHandle goal_handle);
+    virtual void callActionGetPath(ActionServerGetPath:GoalHandle goal_handle);
 
     virtual void cancelActionGetPath(ActionServerGetPath::GoalHandle goal_handle);
 
@@ -280,7 +280,8 @@ const std::string name_action_move_base = "move_base";
      * @param config Configuration parameters. See the MoveBaseFlexConfig definition.
      * @param level bit mask, which parameters are set.
      */
-    void reconfigure(mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
+    //void reconfigure(mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
+    // TODO restore defaults feature
 
     //! Ptr to node for logging, params and communication with other nodes
     rclcpp::Node::SharedPtr node_;
@@ -301,17 +302,14 @@ const std::string name_action_move_base = "move_base";
     //! shared pointer to the MoveBase action server
     ActionServerMoveBasePtr action_server_move_base_ptr_;
 
-    //! dynamic reconfigure server
-    DynamicReconfigureServer dsrv_;
-
     //! configuration mutex for derived classes and other threads.
     boost::mutex configuration_mutex_;
 
-    //! last configuration save
-    mbf_abstract_nav::MoveBaseFlexConfig last_config_;
+    ////! last configuration save
+    //mbf_abstract_nav::MoveBaseFlexConfig last_config_;
 
-    //! the default parameter configuration save
-    mbf_abstract_nav::MoveBaseFlexConfig default_config_;
+    ////! the default parameter configuration save
+    //mbf_abstract_nav::MoveBaseFlexConfig default_config_;
 
     //! true, if the dynamic reconfigure has been setup.
     bool setup_reconfigure_;

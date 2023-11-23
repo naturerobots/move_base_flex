@@ -348,38 +348,34 @@ void AbstractNavigationServer::startActionServers()
   action_server_move_base_ptr_->start();
 }
 
-void AbstractNavigationServer::startDynamicReconfigureServer()
-{
-  // dynamic reconfigure server
-  dsrv_ = boost::make_shared<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBaseFlexConfig> >(private_nh_);
-  dsrv_->setCallback(boost::bind(&AbstractNavigationServer::reconfigure, this, _1, _2));
-}
-
-void AbstractNavigationServer::reconfigure(
-  mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
-{
-  boost::lock_guard<boost::mutex> guard(configuration_mutex_);
-
-  // Make sure we have the original configuration the first time we're called, so we can restore it if needed
-  if (!setup_reconfigure_)
-  {
-    default_config_ = config;
-    setup_reconfigure_ = true;
-  }
-
-  if (config.restore_defaults)
-  {
-    config = default_config_;
-    // if someone sets restore defaults on the parameter server, prevent looping
-    config.restore_defaults = false;
-  }
-  planner_action_.reconfigureAll(config, level);
-  controller_action_.reconfigureAll(config, level);
-  recovery_action_.reconfigureAll(config, level);
-  move_base_action_.reconfigure(config, level);
-
-  last_config_ = config;
-}
+// TODO add restore_defaults functionality again
+// void AbstractNavigationServer::reconfigure(
+//   mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
+// {
+//   boost::lock_guard<boost::mutex> guard(configuration_mutex_);
+// 
+//   // Make sure we have the original configuration the first time we're called, so we can restore it if needed
+//   if (!setup_reconfigure_)
+//   {
+//     default_config_ = config;
+//     setup_reconfigure_ = true;
+//   }
+// 
+//   
+//   if (config.restore_defaults)
+//   {
+//     config = default_config_;
+//     // if someone sets restore defaults on the parameter server, prevent looping
+//     config.restore_defaults = false;
+//   }
+// TODO can probably be removed - composite classes can use node handle to register callbacks for reacting on param changes themselves.
+//   planner_action_.reconfigureAll(config, level);
+//   controller_action_.reconfigureAll(config, level);
+//   recovery_action_.reconfigureAll(config, level);
+//   move_base_action_.reconfigure(config, level);
+// 
+//   last_config_ = config;
+// }
 
 void AbstractNavigationServer::stop(){
   planner_action_.cancelAll();

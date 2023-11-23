@@ -191,7 +191,7 @@ namespace mbf_abstract_nav
     /**
      * @brief Is called by the server thread to reconfigure the controller execution, if a user uses dynamic reconfigure
      *        to reconfigure the current state.
-     * @param config MoveBaseFlexConfig object
+     * @param parameters Vector parameters that are being reconfigured.
      */
     rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters);
 
