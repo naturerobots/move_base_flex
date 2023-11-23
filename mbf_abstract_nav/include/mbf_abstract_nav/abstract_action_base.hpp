@@ -163,7 +163,7 @@ public:
       {
         // create a new map object in order to avoid costly lookups
         // note: currently unchecked
-        slot_it = concurrency_slots_.emplace(slot).first;
+        slot_it = concurrency_slots_.insert(std::make_pair(slot, ConcurrencySlot())).first;
       }
 
       // fill concurrency slot with the new goal handle, execution, and working thread
@@ -176,7 +176,7 @@ public:
     }
   }
 
-  virtual void cancel(GoalHandle &goal_handle)
+  virtual void cancel(GoalHandlePtr goal_handle)
   {
     uint8_t slot = goal_handle->get_goal()->concurrency_slot;
 
@@ -196,8 +196,9 @@ public:
     runImpl(*slot.goal_handle, *slot.execution);
     RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
     slot.execution->join();
-    RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Execution completed with goal status "
-                           << (int)slot.goal_handle->getGoalStatus().status << ": "<< slot.goal_handle->getGoalStatus().text);
+    // TODO reenable debug output, if possible. how do we get the state from ROS2 Action Server GoalHandle?
+    //RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Execution completed with goal status "
+    //                       << (int)slot.goal_handle->getGoalStatus().status << ": "<< slot.goal_handle->getGoalStatus().text);
     slot.execution->postRun();
     slot.in_use = false;
   }
