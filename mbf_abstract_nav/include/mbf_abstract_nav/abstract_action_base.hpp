@@ -178,7 +178,7 @@ public:
 
   virtual void cancel(GoalHandle &goal_handle)
   {
-    uint8_t slot = goal_handle->getGoal()->concurrency_slot;
+    uint8_t slot = goal_handle->get_goal()->concurrency_slot;
 
     boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
     typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
