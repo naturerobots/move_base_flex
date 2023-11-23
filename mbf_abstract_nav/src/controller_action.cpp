@@ -79,7 +79,7 @@ void ControllerAction::start(
 {
   if(goal_handle->is_canceling())
   {
-    Action::Result::SharedPtr result = std::make_shared<Action::Result>();
+    mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
     goal_handle->canceled(result); // TODO why trigger cancel if the goal is already being canceled?
   }
 
@@ -107,11 +107,11 @@ void ControllerAction::start(
                                 goal_handle->get_goal()->angle_tolerance);
       // Update also goal pose, so the feedback remains consistent
       goal_pose_ = goal_handle->get_goal()->path.poses.back();
-      mbf_msgs::action::ExePath::Result result;
-      fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Goal preempted by a new plan", result);
-      concurrency_slots_[slot].goal_handle->setCanceled(result, result.message);
+      mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
+      fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Goal preempted by a new plan", *result);
+      concurrency_slots_[slot].goal_handle->canceled(result);
       concurrency_slots_[slot].goal_handle = goal_handle;
-      concurrency_slots_[slot].goal_handle->setAccepted();
+      //concurrency_slots_[slot].goal_handle->setAccepted(); // TODO acceptence/rejection needs to be moved into another callback
     }
   }
   slot_map_mtx_.unlock();
@@ -126,7 +126,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
 {
   goal_mtx_.lock();
   // Note that we always use the goal handle stored on the concurrency slots map, as it can change when replanning
-  uint8_t slot = goal_handle->get_goal()->concurrency_slot;
+  uint8_t slot = goal_handle.get_goal()->concurrency_slot;
   goal_mtx_.unlock();
 
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Start action "  << name_);
@@ -135,33 +135,31 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
   goal_pose_ = geometry_msgs::msg::PoseStamped();
   robot_pose_ = geometry_msgs::msg::PoseStamped();
 
-  ros::NodeHandle private_nh("~");
-
   double oscillation_timeout_tmp;
-  private_nh.param("oscillation_timeout", oscillation_timeout_tmp, 0.0);
-  ros::Duration oscillation_timeout(oscillation_timeout_tmp);
+  node_->get_parameter("oscillation_timeout", oscillation_timeout_tmp);
+  const rclcpp::Duration oscillation_timeout = rclcpp::Duration::from_seconds(oscillation_timeout_tmp);
 
   double oscillation_distance;
-  private_nh.param("oscillation_distance", oscillation_distance, 0.03);
+  node_->get_parameter("oscillation_distance", oscillation_distance);
 
   double oscillation_angle;
-  private_nh.param("oscillation_angle", oscillation_angle, M_PI);
+  node_->get_parameter("oscillation_angle", oscillation_angle);
 
-  mbf_msgs::action::ExePath::Result result;
+  mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
   mbf_msgs::action::ExePath::Feedback feedback;
 
   typename AbstractControllerExecution::ControllerState state_moving_input;
   bool controller_active = true;
 
   goal_mtx_.lock();
-  const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle->get_goal().get());
+  const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle.get_goal().get());
 
   const std::vector<geometry_msgs::msg::PoseStamped> &plan = goal.path.poses;
   if (plan.empty())
   {
-    fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an empty plan!", result);
-    goal_handle->setAborted(result, result.message);
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message << " Canceling the action call.");
+    fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an empty plan!", *result);
+    goal_handle.abort(result);
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
     controller_active = false;
     goal_mtx_.unlock();
     return;
@@ -181,22 +179,22 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
 
 
   geometry_msgs::msg::PoseStamped oscillation_pose;
-  ros::Time last_oscillation_reset = ros::Time::now();
+  rclcpp::Time last_oscillation_reset = node_->now();
 
   bool first_cycle = true;
 
-  while (controller_active && ros::ok())
+  while (controller_active && rclcpp::ok())
   {
     // goal_handle could change between the loop cycles due to adapting the plan
     // with a new goal received for the same concurrency slot
     if (!robot_info_.getRobotPose(robot_pose_))
     {
       controller_active = false;
-      fillExePathResult(mbf_msgs::action::ExePath::Result::TF_ERROR, "Could not get the robot pose!", result);
+      fillExePathResult(mbf_msgs::action::ExePath::Result::TF_ERROR, "Could not get the robot pose!", *result);
       goal_mtx_.lock();
-      goal_handle->setAborted(result, result.message);
+      goal_handle.abort(result);
       goal_mtx_.unlock();
-      RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message << " Canceling the action call.");
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
       break;
     }
 
@@ -219,15 +217,15 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       case AbstractControllerExecution::STOPPED:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has been stopped rigorously!");
         controller_active = false;
-        result.outcome = mbf_msgs::action::ExePath::Result::STOPPED;
-        result.message = "Controller has been stopped!";
-        goal_handle->setAborted(result, result.message);
+        result->outcome = mbf_msgs::action::ExePath::Result::STOPPED;
+        result->message = "Controller has been stopped!";
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::CANCELED:
-        RCLCPP_INFO_STREAM("Action \"exe_path\" canceled");
-        fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Controller canceled", result);
-        goal_handle->setCanceled(result, result.message);
+        RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Action \"exe_path\" canceled");
+        fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Controller canceled", *result);
+        goal_handle.canceled(result);
         controller_active = false;
         break;
 
@@ -238,10 +236,10 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       case AbstractControllerExecution::PLANNING:
         if (execution.isPatienceExceeded())
         {
-          RCLCPP_INFO_STREAM("Try to cancel the plugin \"" << name_ << "\" after the patience time has been exceeded!");
+          RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Try to cancel the plugin \"" << name_ << "\" after the patience time has been exceeded!");
           if (execution.cancel())
           {
-            RCLCPP_INFO_STREAM("Successfully canceled the plugin \"" << name_ << "\" after the patience time has been exceeded!");
+            RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Successfully canceled the plugin \"" << name_ << "\" after the patience time has been exceeded!");
           }
         }
         break;
@@ -249,47 +247,47 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       case AbstractControllerExecution::MAX_RETRIES:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has been aborted after it exceeded the maximum number of retries!");
         controller_active = false;
-        fillExePathResult(execution.getOutcome(), execution.getMessage(), result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(execution.getOutcome(), execution.getMessage(), *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::PAT_EXCEEDED:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has been aborted after it exceeded the patience time");
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::PAT_EXCEEDED, execution.getMessage(), result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::PAT_EXCEEDED, execution.getMessage(), *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::NO_PLAN:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has been started without a plan!");
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started without a path", result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started without a path", *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::EMPTY_PLAN:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has received an empty plan");
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an empty plan", result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an empty plan", *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::INVALID_PLAN:
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller has received an invalid plan");
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an invalid plan", result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::INVALID_PATH, "Controller started with an invalid plan", *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::NO_LOCAL_CMD:
-        RCLCPP_WARN_STREAM_THROTTLE(rclcpp::get_logger(name_), node_->get_clock(), 3000, 
+        RCLCPP_WARN_STREAM_THROTTLE(rclcpp::get_logger(name_), *node_->get_clock(), 3000, 
                                     "No velocity command received from controller! " 
                                     << execution.getMessage());
         controller_active = execution.isMoving();
         if (!controller_active)
         {
-          fillExePathResult(execution.getOutcome(), execution.getMessage(), result);
-          goal_handle->setAborted(result, result.message);
+          fillExePathResult(execution.getOutcome(), execution.getMessage(), *result);
+          goal_handle.abort(result);
         }
         else
         {
@@ -299,24 +297,25 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
         break;
 
       case AbstractControllerExecution::GOT_LOCAL_CMD:
-        if (!oscillation_timeout.isZero())
+        if (oscillation_timeout != rclcpp::Duration(0, 0))
         {
           // check if oscillating
+          const rclcpp::Time now = node_->now();
           if (mbf_utility::distance(robot_pose_, oscillation_pose) >= oscillation_distance ||
               mbf_utility::angle(robot_pose_, oscillation_pose) >= oscillation_angle)
           {
-            last_oscillation_reset = ros::Time::now();
+            last_oscillation_reset = now;
             oscillation_pose = robot_pose_;
           }
-          else if (last_oscillation_reset + oscillation_timeout < ros::Time::now())
+          else if (last_oscillation_reset + oscillation_timeout < now)
           {
             RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "The controller is oscillating for "
-                << (ros::Time::now() - last_oscillation_reset).toSec() << "s");
+                << (now - last_oscillation_reset).seconds() << "s");
 
             execution.cancel();
             controller_active = false;
-            fillExePathResult(mbf_msgs::action::ExePath::Result::OSCILLATION, "Oscillation detected!", result);
-            goal_handle->setAborted(result, result.message);
+            fillExePathResult(mbf_msgs::action::ExePath::Result::OSCILLATION, "Oscillation detected!", *result);
+            goal_handle.abort(result);
             break;
           }
         }
@@ -326,31 +325,31 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       case AbstractControllerExecution::ARRIVED_GOAL:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Controller succeeded; arrived at goal");
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::SUCCESS, "Controller succeeded; arrived at goal!", result);
-        goal_handle->setSucceeded(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::SUCCESS, "Controller succeeded; arrived at goal!", *result);
+        goal_handle.succeed(result);
         break;
 
       case AbstractControllerExecution::INTERNAL_ERROR:
         RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), "Internal error: Unknown error thrown by the plugin: " << execution.getMessage());
         controller_active = false;
-        fillExePathResult(mbf_msgs::action::ExePath::Result::INTERNAL_ERROR, "Internal error: Unknown error thrown by the plugin!", result);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::INTERNAL_ERROR, "Internal error: Unknown error thrown by the plugin!", *result);
+        goal_handle.abort(result);
         break;
 
       case AbstractControllerExecution::ROBOT_DISABLED:
         controller_active = false;
         fillExePathResult(mbf_msgs::action::ExePath::Result::ROBOT_STUCK,
-                          "Robot ignored velocity commands for more than tolerance time!", result);
-        goal_handle->setAborted(result, result.message);
+                          "Robot ignored velocity commands for more than tolerance time!", *result);
+        goal_handle.abort(result);
         break;
 
       default:
         std::stringstream ss;
         ss << "Internal error: Unknown state in a move base flex controller execution with the number: "
            << static_cast<int>(state_moving_input);
-        fillExePathResult(mbf_msgs::action::ExePath::Result::INTERNAL_ERROR, ss.str(), result);
-        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result.message);
-        goal_handle->setAborted(result, result.message);
+        fillExePathResult(mbf_msgs::action::ExePath::Result::INTERNAL_ERROR, ss.str(), *result);
+        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result->message);
+        goal_handle.abort(result);
         controller_active = false;
     }
     goal_mtx_.unlock();
@@ -360,7 +359,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       // try to sleep a bit
       // normally this thread should be woken up from the controller execution thread
       // in order to transfer the results to the controller
-      execution.waitForStateUpdate(boost::chrono::milliseconds(500));
+      execution.waitForStateUpdate(std::chrono::milliseconds(500));
     }
 
     first_cycle = false;
