@@ -131,11 +131,12 @@ public:
       typename Execution::Ptr execution_ptr
   )
   {
-    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
+    uint8_t slot = goal_handle.get_goal()->concurrency_slot;
 
-    if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
+    if(goal_handle.is_canceling())
     {
-      goal_handle.setCanceled();
+      typename Action::Result::SharedPtr result = std::make_shared<Action::Result>();
+      goal_handle.canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
     }
     else
     {
@@ -222,7 +223,6 @@ public:
     {
       iter->second.execution->cancel();
     }
-    rclcpp::get_logger
     threads_.join_all();
   }
 
