@@ -44,9 +44,10 @@ namespace mbf_abstract_nav
 {
 
 ControllerAction::ControllerAction(
+    const rclcpp::Node::ConstSharedPtr &node,
     const std::string &action_name,
     const mbf_utility::RobotInformation &robot_info)
-    : AbstractActionBase(action_name, robot_info)
+    : AbstractActionBase(node, action_name, robot_info)
 {
 }
 
@@ -260,8 +261,9 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
         break;
 
       case AbstractControllerExecution::NO_LOCAL_CMD:
-        RCLCPP_WARN_STREAM_THROTTLE_NAMED(3, name_, "No velocity command received from controller! "
-            << execution.getMessage());
+        RCLCPP_WARN_STREAM_THROTTLE(rclcpp::get_logger(name_), node_->get_clock(), 3000, 
+                                    "No velocity command received from controller! " 
+                                    << execution.getMessage());
         controller_active = execution.isMoving();
         if (!controller_active)
         {

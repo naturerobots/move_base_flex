@@ -106,7 +106,7 @@ public:
       const rclcpp::Node::ConstSharedPtr& node,
       const std::string &name,
       const mbf_utility::RobotInformation &robot_info
-  ) : name_(name), robot_info_(robot_info){}
+  ) : node_(node), name_(name), robot_info_(robot_info){}
 
   virtual ~AbstractActionBase()
   {
@@ -229,6 +229,7 @@ public:
   }
 
 protected:
+  rclcpp::Node::ConstSharedPtr node_;
   const std::string &name_;
   const mbf_utility::RobotInformation &robot_info_;
 

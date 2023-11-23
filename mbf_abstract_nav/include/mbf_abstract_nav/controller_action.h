@@ -59,7 +59,8 @@ class ControllerAction :
 
   typedef boost::shared_ptr<ControllerAction> Ptr;
 
-  ControllerAction(const std::string &name,
+    
+  ControllerAction(const rclcpp::Node::ConstSharedPtr &node, const std::string &name,
                    const mbf_utility::RobotInformation &robot_info);
 
   /**
