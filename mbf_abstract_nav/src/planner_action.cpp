@@ -49,7 +49,7 @@ PlannerAction::PlannerAction(
     const rclcpp::Node::SharedPtr& node,
     const std::string &name,
     const mbf_utility::RobotInformation &robot_info)
-  : AbstractActionBase(name, robot_info), path_seq_count_(0)
+  : AbstractActionBase(node, name, robot_info)
 {
   // informative topics: current navigation goal
   current_goal_pub_ = node->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
@@ -57,17 +57,16 @@ PlannerAction::PlannerAction(
 
 void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &execution)
 {
-  const mbf_msgs::action::GetPath::Goal& goal = *(goal_handle.getGoal().get());
+  const mbf_msgs::action::GetPath::Goal& goal = *(goal_handle.get_goal().get());
 
-  mbf_msgs::action::GetPath::Result result;
+  mbf_msgs::action::GetPath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::GetPath::Result>();
   geometry_msgs::msg::PoseStamped start_pose;
 
-  result.path.header.seq = path_seq_count_++;
-  result.path.header.frame_id = robot_info_.getGlobalFrame();
+  result->path.header.frame_id = robot_info_.getGlobalFrame();
 
   double tolerance = goal.tolerance;
   bool use_start_pose = goal.use_start_pose;
-  current_goal_pub_.publish(goal.target_pose);
+  current_goal_pub_->publish(goal.target_pose);
 
   bool planner_active = true;
 
@@ -82,10 +81,10 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
     // get the current robot pose
     if (!robot_info_.getRobotPose(start_pose))
     {
-      result.outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
-      result.message = "Could not get the current robot pose!";
-      goal_handle.setAborted(result, result.message);
-      RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message << " Canceling the action call.");
+      result->outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
+      result->message = "Could not get the current robot pose!";
+      goal_handle.abort(result);
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
       return;
     }
     else
@@ -100,7 +99,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
 
   std::vector<geometry_msgs::msg::PoseStamped> plan, global_plan;
 
-  while (planner_active && ros::ok())
+  while (planner_active && rclcpp::ok())
   {
     // get the current state of the planning thread
     state_planning_input = execution.getState();
@@ -111,10 +110,10 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: initialized");
         if (!execution.start(start_pose, goal.target_pose, tolerance))
         {
-          result.outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
-          result.message = "Another thread is still planning!";
-          goal_handle.setAborted(result, result.message);
-          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message << " Canceling the action call.");
+          result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
+          result->message = "Another thread is still planning!";
+          goal_handle.abort(result);
+          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
           planner_active = false;
         }
         break;
@@ -126,19 +125,19 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
       case AbstractPlannerExecution::STOPPED:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: stopped");
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "Planning has been stopped rigorously!");
-        result.outcome = mbf_msgs::action::GetPath::Result::STOPPED;
-        result.message = "Global planner has been stopped!";
-        goal_handle.setAborted(result, result.message);
+        result->outcome = mbf_msgs::action::GetPath::Result::STOPPED;
+        result->message = "Global planner has been stopped!";
+        goal_handle.abort(result);
         planner_active = false;
         break;
 
       case AbstractPlannerExecution::CANCELED:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: canceled");
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Global planner has been canceled successfully");
-        result.path.header.stamp = ros::Time::now();
-        result.outcome = mbf_msgs::action::GetPath::Result::CANCELED;
-        result.message = "Global planner has been canceled!";
-        goal_handle.setCanceled(result, result.message);
+        result->path.header.stamp = node_->now();
+        result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
+        result->message = "Global planner has been canceled!";
+        goal_handle.canceled(result);
         planner_active = false;
         break;
 
@@ -151,45 +150,45 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         }
         else
         {
-          RCLCPP_DEBUG_THROTTLE(rclcpp::get_logger(2.0, name_), "planner state: planning");
+          RCLCPP_DEBUG_THROTTLE(rclcpp::get_logger(name_), *node_->get_clock(), 2000, "planner state: planning");
         }
         break;
 
         // found a new plan
       case AbstractPlannerExecution::FOUND_PLAN:
         // set time stamp to now
-        result.path.header.stamp = ros::Time::now();
+        result->path.header.stamp = node_->now();
         plan = execution.getPlan();
 
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: found plan with cost: " << execution.getCost());
 
         if (!transformPlanToGlobalFrame(plan, global_plan))
         {
-          result.outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
-          result.message = "Could not transform the plan to the global frame!";
+          result->outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
+          result->message = "Could not transform the plan to the global frame!";
 
-          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message << " Canceling the action call.");
-          goal_handle.setAborted(result, result.message);
+          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
+          goal_handle.abort(result);
           planner_active = false;
           break;
         }
 
         if (global_plan.empty())
         {
-          result.outcome = mbf_msgs::action::GetPath::Result::EMPTY_PATH;
-          result.message = "Global planner returned an empty path!";
+          result->outcome = mbf_msgs::action::GetPath::Result::EMPTY_PATH;
+          result->message = "Global planner returned an empty path!";
 
-          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result.message);
-          goal_handle.setAborted(result, result.message);
+          RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message);
+          goal_handle.abort(result);
           planner_active = false;
           break;
         }
 
-        result.path.poses = global_plan;
-        result.cost = execution.getCost();
-        result.outcome = execution.getOutcome();
-        result.message = execution.getMessage();
-        goal_handle.setSucceeded(result, result.message);
+        result->path.poses = global_plan;
+        result->cost = execution.getCost();
+        result->outcome = execution.getOutcome();
+        result->message = execution.getMessage();
+        goal_handle.succeed(result);
 
         planner_active = false;
         break;
@@ -197,44 +196,44 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         // no plan found
       case AbstractPlannerExecution::NO_PLAN_FOUND:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: no plan found");
-        result.outcome = execution.getOutcome();
-        result.message = execution.getMessage();
-        goal_handle.setAborted(result, result.message);
+        result->outcome = execution.getOutcome();
+        result->message = execution.getMessage();
+        goal_handle.abort(result);
         planner_active = false;
         break;
 
       case AbstractPlannerExecution::MAX_RETRIES:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Global planner reached the maximum number of retries");
-        result.outcome = execution.getOutcome();
-        result.message = execution.getMessage();
-        goal_handle.setAborted(result, result.message);
+        result->outcome = execution.getOutcome();
+        result->message = execution.getMessage();
+        goal_handle.abort(result);
         planner_active = false;
         break;
 
       case AbstractPlannerExecution::PAT_EXCEEDED:
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Global planner exceeded the patience time");
-        result.outcome = mbf_msgs::action::GetPath::Result::PAT_EXCEEDED;
-        result.message = "Global planner exceeded the patience time";
-        goal_handle.setAborted(result, result.message);
+        result->outcome = mbf_msgs::action::GetPath::Result::PAT_EXCEEDED;
+        result->message = "Global planner exceeded the patience time";
+        goal_handle.abort(result);
         planner_active = false;
         break;
 
       case AbstractPlannerExecution::INTERNAL_ERROR:
         RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), "Internal error: Unknown error thrown by the plugin!"); // TODO getMessage from planning
         planner_active = false;
-        result.outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
-        result.message = "Internal error: Unknown error thrown by the plugin!";
-        goal_handle.setAborted(result, result.message);
+        result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
+        result->message = "Internal error: Unknown error thrown by the plugin!";
+        goal_handle.abort(result);
         break;
 
       default:
-        result.outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
+        result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
         std::ostringstream ss;
         ss << "Internal error: Unknown state in a move base flex planner execution with the number: "
            << static_cast<int>(state_planning_input);
-        result.message = ss.str();
-        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result.message);
-        goal_handle.setAborted(result, result.message);
+        result->message = ss.str();
+        RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result->message);
+        goal_handle.abort(result);
         planner_active = false;
     }
 
@@ -244,7 +243,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
       // try to sleep a bit
       // normally this thread should be woken up from the planner execution thread
       // in order to transfer the results to the controller.
-      execution.waitForStateUpdate(boost::chrono::milliseconds(500));
+      execution.waitForStateUpdate(std::chrono::milliseconds(500));
     }
   }  // while (planner_active && ros::ok())
 
@@ -268,12 +267,12 @@ bool PlannerAction::transformPlanToGlobalFrame(const std::vector<geometry_msgs::
   for (iter = plan.begin(); iter != plan.end(); ++iter)
   {
     geometry_msgs::msg::PoseStamped global_pose;
-    tf_success = mbf_utility::transformPose(robot_info_.getTransformListener(), robot_info_.getGlobalFrame(),
+    tf_success = mbf_utility::transformPose(node_, robot_info_.getTransformListener(), robot_info_.getGlobalFrame(),
                                             robot_info_.getTfTimeout(), *iter, global_pose);
     if (!tf_success)
     {
-      RCLCPP_ERROR_STREAM("Can not transform pose from the \"" << iter->header.frame_id << "\" frame into the \""
-                                                            << robot_info_.getGlobalFrame() << "\" frame !");
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), "Can not transform pose from the \"" << iter->header.frame_id << "\" frame into the \""
+                                                     << robot_info_.getGlobalFrame() << "\" frame !");
       return false;
     }
     global_plan.push_back(global_pose);

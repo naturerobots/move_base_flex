@@ -84,10 +84,7 @@ class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath, Abstr
  private:
 
   //! Publisher to publish the current goal pose, which is used for path planning
-  rclcpp::Publisher current_goal_pub_;
-
-  //! Path sequence counter
-  unsigned int path_seq_count_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr current_goal_pub_;
 };
 
 } /* mbf_abstract_nav */
