@@ -34,7 +34,7 @@ def add_mbf_abstract_nav_params(gen):
     # gen.add("recovery_patience", double_t, 0,
     #         "How much time we allow recovery behaviors to complete before canceling (or stopping if cancel fails) them", 15.0, 0, 100)
 
-    gen.add("oscillation_timeout", double_t, 0,
-            "How long in seconds to allow for oscillation before executing recovery behaviors", 0.0, 0, 60)
-    gen.add("oscillation_distance", double_t, 0,
-            "How far in meters the robot must move to be considered not to be oscillating", 0.5, 0, 10)
+    # gen.add("oscillation_timeout", double_t, 0,
+    #         "How long in seconds to allow for oscillation before executing recovery behaviors", 0.0, 0, 60)
+    # gen.add("oscillation_distance", double_t, 0,
+    #         "How far in meters the robot must move to be considered not to be oscillating", 0.5, 0, 10)

@@ -40,15 +40,34 @@
 
 #include "mbf_abstract_nav/controller_action.h"
 
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
+
 namespace mbf_abstract_nav
 {
 
 ControllerAction::ControllerAction(
-    const rclcpp::Node::ConstSharedPtr &node,
+    const rclcpp::Node::SharedPtr &node,
     const std::string &action_name,
     const mbf_utility::RobotInformation &robot_info)
     : AbstractActionBase(node, action_name, robot_info)
 {
+  rcl_interfaces::msg::ParameterDescriptor oscillation_timeout_description;
+  rcl_interfaces::msg::FloatingPointRange oscillation_timeout_range;
+  oscillation_timeout_range.from_value = 0.0;
+  oscillation_timeout_range.to_value = 60.0;
+  oscillation_timeout_range.step = 0.0;
+  oscillation_timeout_description.description = "How long in seconds to allow for oscillation before executing recovery behaviors";
+  oscillation_timeout_description.floating_point_range.push_back(oscillation_timeout_range);
+  node->declare_parameter<double>("oscillation_timeout", 0.0, oscillation_timeout_description);
+
+  rcl_interfaces::msg::ParameterDescriptor oscillation_distance_description;
+  rcl_interfaces::msg::FloatingPointRange oscillation_distance_range;
+  oscillation_distance_range.from_value = 0.0;
+  oscillation_distance_range.to_value = 10.0;
+  oscillation_distance_range.step = 0.0;
+  oscillation_distance_description.description = "How far in meters the robot must move to be considered not to be oscillating";
+  oscillation_distance_description.floating_point_range.push_back(oscillation_distance_range);
+  node->declare_parameter<double>("oscillation_distance", 0.5, oscillation_distance_description);
 }
 
 void ControllerAction::start(
