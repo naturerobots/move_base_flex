@@ -73,7 +73,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Recovery behavior stopped rigorously");
         result->outcome = mbf_msgs::action::Recovery::Result::STOPPED;
         result->message = "Recovery has been stopped!";
-        goal_handle.setAborted(result, result->message);
+        goal_handle.abort(result);
         recovery_active = false;
         break;
 

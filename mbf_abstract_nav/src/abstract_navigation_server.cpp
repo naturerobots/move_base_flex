@@ -44,18 +44,19 @@
 
 namespace mbf_abstract_nav
 {
+using namespace std::placeholders;
 
 AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node)
     : tf_listener_ptr_(tf_listener_ptr), node_(node),
       planner_plugin_manager_("planners",
-          boost::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
-          boost::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2)),
+          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2)),
       controller_plugin_manager_("controllers",
-          boost::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
-          boost::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2)),
+          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2)),
       recovery_plugin_manager_("recovery_behaviors",
-          boost::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
-          boost::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2)),
+          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2)),
       controller_action_(name_action_exe_path, robot_info_),
       planner_action_(name_action_get_path, robot_info_),
       recovery_action_(name_action_recovery, robot_info_),
@@ -83,33 +84,33 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
     new ActionServerGetPath(
       node_,
       name_action_get_path,
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, _1),
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, _1),
-      false));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, _1, _2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, _1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, _1)));
 
   action_server_exe_path_ptr_ = ActionServerExePathPtr(
     new ActionServerExePath(
       node_,
       name_action_exe_path,
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, _1),
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, _1),
-      false));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalExePath, this, _1, _2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, _1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, _1)));
 
   action_server_recovery_ptr_ = ActionServerRecoveryPtr(
     new ActionServerRecovery(
       node_,
       name_action_recovery,
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, _1),
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, _1),
-      false));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRecovery, this, _1, _2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, _1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, _1)));
 
   action_server_move_base_ptr_ = ActionServerMoveBasePtr(
     new ActionServerMoveBase(
       node_,
       name_action_move_base,
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1),
-      boost::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1),
-      false));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, _1, _2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1)));
 
   // XXX note that we don't start a dynamic reconfigure server, to avoid colliding with the one possibly created by
   // the base class. If none, it should call startDynamicReconfigureServer method to start the one defined here for
@@ -128,9 +129,13 @@ AbstractNavigationServer::~AbstractNavigationServer()
 
 }
 
-void AbstractNavigationServer::callActionGetPath(ActionServerGetPath::GoalHandle goal_handle)
+virtual void AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
+
+}
+
+void AbstractNavigationServer::callActionGetPath(std::shared_ptr<ActionServerGetPath::GoalHandle> goal_handle)
 {
-  const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle.getGoal().get());
+  const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle->getGoal().get());
   const geometry_msgs::msg::Point &p = goal.target_pose.pose.position;
 
   std::string planner_name;
@@ -146,7 +151,7 @@ void AbstractNavigationServer::callActionGetPath(ActionServerGetPath::GoalHandle
     RCLCPP_WARN_STREAM(rclcpp::get_logger("get_path"), result.message);
     goal_handle.setRejected(result, result.message);
     return;
-  }
+  } // TODO move rejection code to handleGoal CB
 
   if(!planner_plugin_manager_.hasPlugin(planner_name))
   {

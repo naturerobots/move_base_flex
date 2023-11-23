@@ -76,13 +76,14 @@ class AbstractActionBase
  public:
   typedef std::shared_ptr<AbstractActionBase> Ptr;
   typedef typename rclcpp_action::ServerGoalHandle<Action> GoalHandle;
+  typedef typename std::shared_ptr<GoalHandle> GoalHandlePtr;
 
   /// @brief POD holding info for one execution
   struct ConcurrencySlot{
     ConcurrencySlot() : thread_ptr(NULL), in_use(false){}
     typename Execution::Ptr execution;
     boost::thread* thread_ptr; ///< Owned pointer to a thread
-    GoalHandle goal_handle;
+    GoalHandlePtr goal_handle;
     bool in_use;
   };
 
@@ -127,16 +128,16 @@ public:
   }
 
   virtual void start(
-      GoalHandle &goal_handle,
+      const GoalHandlePtr &goal_handle,
       typename Execution::Ptr execution_ptr
   )
   {
-    uint8_t slot = goal_handle.get_goal()->concurrency_slot;
+    uint8_t slot = goal_handle->get_goal()->concurrency_slot;
 
-    if(goal_handle.is_canceling())
+    if(goal_handle->is_canceling())
     {
-      typename Action::Result::SharedPtr result = std::make_shared<Action::Result>();
-      goal_handle.canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
+      typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
+      goal_handle->canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
     }
     else
     {
@@ -162,13 +163,13 @@ public:
       {
         // create a new map object in order to avoid costly lookups
         // note: currently unchecked
-        slot_it = concurrency_slots_.insert(std::make_pair(slot, ConcurrencySlot())).first;
+        slot_it = concurrency_slots_.emplace(slot).first;
       }
 
       // fill concurrency slot with the new goal handle, execution, and working thread
       slot_it->second.in_use = true;
       slot_it->second.goal_handle = goal_handle;
-      slot_it->second.goal_handle.setAccepted();
+      slot_it->second.goal_handle->setAccepted();
       slot_it->second.execution = execution_ptr;
       slot_it->second.thread_ptr =
         threads_.create_thread(boost::bind(&AbstractActionBase::run, this, boost::ref(concurrency_slots_[slot])));
@@ -177,7 +178,7 @@ public:
 
   virtual void cancel(GoalHandle &goal_handle)
   {
-    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
+    uint8_t slot = goal_handle->getGoal()->concurrency_slot;
 
     boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
     typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
@@ -192,11 +193,11 @@ public:
   virtual void run(ConcurrencySlot &slot)
   {
     slot.execution->preRun();
-    runImpl(slot.goal_handle, *slot.execution);
+    runImpl(*slot.goal_handle, *slot.execution);
     RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
     slot.execution->join();
     RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Execution completed with goal status "
-                           << (int)slot.goal_handle.getGoalStatus().status << ": "<< slot.goal_handle.getGoalStatus().text);
+                           << (int)slot.goal_handle->getGoalStatus().status << ": "<< slot.goal_handle->getGoalStatus().text);
     slot.execution->postRun();
     slot.in_use = false;
   }
