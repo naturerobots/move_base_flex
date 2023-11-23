@@ -103,7 +103,7 @@ public:
    * the lifetime of name and robot_info exceeds the lifetime of this object.
    */
   AbstractActionBase(
-      const rclcpp::Node::ConstSharedPtr& node,
+      const rclcpp::Node::SharedPtr& node,
       const std::string &name,
       const mbf_utility::RobotInformation &robot_info
   ) : node_(node), name_(name), robot_info_(robot_info){}
@@ -229,7 +229,7 @@ public:
   }
 
 protected:
-  rclcpp::Node::ConstSharedPtr node_;
+  rclcpp::Node::SharedPtr node_;
   const std::string &name_;
   const mbf_utility::RobotInformation &robot_info_;
 
