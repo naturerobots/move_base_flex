@@ -51,14 +51,14 @@ ControllerAction::ControllerAction(
 }
 
 void ControllerAction::start(
-    GoalHandle &goal_handle,
+    GoalHandlePtr goal_handle,
     typename AbstractControllerExecution::Ptr execution_ptr
 )
 {
   if(goal_handle.is_canceling())
   {
     Action::Result::SharedPtr result = std::make_shared<Action::Result>();
-    goal_handle.canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
+    goal_handle.canceled(result); // TODO why trigger cancel if the goal is already being canceled?
   }
 
   uint8_t slot = goal_handle.get_goal()->concurrency_slot;

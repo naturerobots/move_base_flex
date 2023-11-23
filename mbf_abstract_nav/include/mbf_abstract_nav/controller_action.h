@@ -65,11 +65,11 @@ class ControllerAction :
   /**
    * @brief Start controller action.
    * Override abstract action version to allow updating current plan without stopping execution.
-   * @param goal_handle Reference to the goal handle received on action execution callback.
+   * @param goal_handle Pointer to the goal handle received on action execution callback.
    * @param execution_ptr Pointer to the execution descriptor.
    */
   void start(
-      GoalHandle &goal_handle,
+      GoalHandlePtr goal_handle,
       typename AbstractControllerExecution::Ptr execution_ptr
   );
 
