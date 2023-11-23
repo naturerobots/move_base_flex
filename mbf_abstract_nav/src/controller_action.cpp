@@ -169,7 +169,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Called action \""
       << name_ << "\" with plan:" << std::endl
       << "frame: \"" << goal.path.header.frame_id << "\" " << std::endl
-      << "stamp: " << goal.path.header.stamp << std::endl
+      << "stamp: " << rclcpp::Time(goal.path.header.stamp).seconds() << std::endl
       << "poses: " << goal.path.poses.size() << std::endl
       << "goal: (" << goal_pose_.pose.position.x << ", "
       << goal_pose_.pose.position.y << ", "
@@ -381,18 +381,18 @@ void ControllerAction::publishExePathFeedback(
         uint32_t outcome, const std::string &message,
         const geometry_msgs::msg::TwistStamped &current_twist)
 {
-  mbf_msgs::action::ExePath::Feedback feedback;
-  feedback.outcome = outcome;
-  feedback.message = message;
+  mbf_msgs::action::ExePath::Feedback::SharedPtr feedback = std::make_shared<mbf_msgs::action::ExePath::Feedback>();
+  feedback->outcome = outcome;
+  feedback->message = message;
 
-  feedback.last_cmd_vel = current_twist;
-  if (feedback.last_cmd_vel.header.stamp.isZero())
-    feedback.last_cmd_vel.header.stamp = ros::Time::now();
+  feedback->last_cmd_vel = current_twist;
+  if (feedback->last_cmd_vel.header.stamp == rclcpp::Time(0, 0))
+    feedback->last_cmd_vel.header.stamp = node_->now();
 
-  feedback.current_pose = robot_pose_;
-  feedback.dist_to_goal = static_cast<float>(mbf_utility::distance(robot_pose_, goal_pose_));
-  feedback.angle_to_goal = static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
-  goal_handle->publishFeedback(feedback);
+  feedback->current_pose = robot_pose_;
+  feedback->dist_to_goal = static_cast<float>(mbf_utility::distance(robot_pose_, goal_pose_));
+  feedback->angle_to_goal = static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
+  goal_handle.publish_feedback(feedback);
 }
 
 void ControllerAction::fillExePathResult(
