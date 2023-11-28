@@ -189,7 +189,7 @@ void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal
         = newPlannerExecution(planner_name, planner_plugin);
 
     //start another planning action
-    planner_action_.start(goal_handle, planner_execution);
+    planner_action_->start(goal_handle, planner_execution);
   }
   else
   {
@@ -204,7 +204,7 @@ void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal
 void AbstractNavigationServer::cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("get_path"), "Cancel action \"get_path\"");
-  planner_action_.cancel(goal_handle);
+  planner_action_->cancel(goal_handle);
 }
 
 void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal_handle)
@@ -224,7 +224,7 @@ void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal
         = newControllerExecution(controller_name, controller_plugin);
 
     // starts another controller action
-    controller_action_.start(goal_handle, controller_execution);
+    controller_action_->start(goal_handle, controller_execution);
   }
   else
   {
@@ -239,7 +239,7 @@ void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal
 void AbstractNavigationServer::cancelActionExePath(ServerGoalHandleExePathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("exe_path"), "Cancel action \"exe_path\"");
-  controller_action_.cancel(goal_handle);
+  controller_action_->cancel(goal_handle);
 }
 
 void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
@@ -268,7 +268,7 @@ void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr go
     mbf_abstract_nav::AbstractRecoveryExecution::Ptr recovery_execution
         = newRecoveryExecution(recovery_name, recovery_plugin);
 
-    recovery_action_.start(goal_handle, recovery_execution);
+    recovery_action_->start(goal_handle, recovery_execution);
   }
   else
   {
@@ -283,19 +283,19 @@ void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr go
 void AbstractNavigationServer::cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("recovery"), "Cancel action \"recovery\"");
-  recovery_action_.cancel(goal_handle);
+  recovery_action_->cancel(goal_handle);
 }
 
 void AbstractNavigationServer::callActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
-  move_base_action_.start(goal_handle);
+  move_base_action_->start(goal_handle);
 }
 
 void AbstractNavigationServer::cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "Cancel action \"move_base\"");
-  move_base_action_.cancel();
+  move_base_action_->cancel();
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Cancel action \"move_base\" completed");
 }
 
@@ -344,19 +344,19 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
 //     config.restore_defaults = false;
 //   }
 // TODO can probably be removed - composite classes can use node handle to register callbacks for reacting on param changes themselves.
-//   planner_action_.reconfigureAll(config, level);
-//   controller_action_.reconfigureAll(config, level);
-//   recovery_action_.reconfigureAll(config, level);
-//   move_base_action_.reconfigure(config, level);
+//   planner_action_->reconfigureAll(config, level);
+//   controller_action_->reconfigureAll(config, level);
+//   recovery_action_->reconfigureAll(config, level);
+//   move_base_action_->reconfigure(config, level);
 // 
 //   last_config_ = config;
 // }
 
 void AbstractNavigationServer::stop(){
-  planner_action_.cancelAll();
-  controller_action_.cancelAll();
-  recovery_action_.cancelAll();
-  move_base_action_.cancel();
+  planner_action_->cancelAll();
+  controller_action_->cancelAll();
+  recovery_action_->cancelAll();
+  move_base_action_->cancel();
 }
 
 } /* namespace mbf_abstract_nav */
