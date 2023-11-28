@@ -68,7 +68,7 @@ class AbstractPluginManager
 
   const std::vector<std::string>& getLoadedNames() const;
 
-  typename PluginType::Ptr getPlugin(const std::string &name) const;
+  typename PluginType::Ptr getPlugin(const std::string &name);
 
   void clearPlugins();
 
