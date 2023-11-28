@@ -78,18 +78,26 @@ namespace mbf_abstract_nav
 //! GetPath action server
 typedef rclcpp_action::Server<mbf_msgs::action::GetPath> ActionServerGetPath;
 typedef std::shared_ptr<ActionServerGetPath> ActionServerGetPathPtr;
+typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::GetPath> ServerGoalHandleGetPath;
+typedef std::shared_ptr<ServerGoalHandleGetPath> ServerGoalHandleGetPathPtr;
 
 //! ExePath action server
 typedef rclcpp_action::Server<mbf_msgs::action::ExePath> ActionServerExePath;
 typedef std::shared_ptr<ActionServerExePath> ActionServerExePathPtr;
+typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::ExePath> ServerGoalHandleExePath;
+typedef std::shared_ptr<ServerGoalHandleExePath> ServerGoalHandleExePathPtr;
 
 //! Recovery action server
 typedef rclcpp_action::Server<mbf_msgs::action::Recovery> ActionServerRecovery;
 typedef std::shared_ptr<ActionServerRecovery> ActionServerRecoveryPtr;
+typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::Recovery> ServerGoalHandleRecovery;
+typedef std::shared_ptr<ServerGoalHandleRecovery> ServerGoalHandleRecoveryPtr;
 
 //! MoveBase action server
 typedef rclcpp_action::Server<mbf_msgs::action::MoveBase> ActionServerMoveBase;
 typedef std::shared_ptr<ActionServerMoveBase> ActionServerMoveBasePtr;
+typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> ServerGoalHandleMoveBase;
+typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
 
 //! ExePath action topic name
 const std::string name_action_exe_path = "exe_path";
@@ -224,9 +232,9 @@ const std::string name_action_move_base = "move_base";
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionGetPath(std::shared_ptr<ActionServerGetPath:GoalHandle> goal_handle);
+    virtual void callActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
 
-    virtual void cancelActionGetPath(std::shared_ptr<ActionServerGetPath::GoalHandle> goal_handle);
+    virtual void cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
 
     virtual void handleGoalExePath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::ExePath::Goal> goal);
 
@@ -235,9 +243,9 @@ const std::string name_action_move_base = "move_base";
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionExePath(std::shared_ptr<ActionServerExePath::GoalHandle> goal_handle);
+    virtual void callActionExePath(ServerGoalHandleExePathPtr goal_handle);
 
-    virtual void cancelActionExePath(std::shared_ptr<ActionServerExePath::GoalHandle> goal_handle);
+    virtual void cancelActionExePath(ServerGoalHandleExePathPtr goal_handle);
 
     virtual void handleGoalRecovery(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::Recovery::Goal> goal);
 
@@ -246,9 +254,9 @@ const std::string name_action_move_base = "move_base";
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionRecovery(std::shared_ptr<ActionServerRecovery::GoalHandle> goal_handle);
+    virtual void callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
 
-    virtual void cancelActionRecovery(std::shared_ptr<ActionServerRecovery::GoalHandle> goal_handle);
+    virtual void cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
 
     virtual void handleGoalMoveBase(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::MoveBase::Goal> goal);
 
@@ -257,9 +265,9 @@ const std::string name_action_move_base = "move_base";
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionMoveBase(std::shared_ptr<ActionServerMoveBase::GoalHandle> goal_handle);
+    virtual void callActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
 
-    virtual void cancelActionMoveBase(std::shared_ptr<ActionServerMoveBase::GoalHandle> goal_handle);
+    virtual void cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
 
     /**
      * @brief starts all action server.

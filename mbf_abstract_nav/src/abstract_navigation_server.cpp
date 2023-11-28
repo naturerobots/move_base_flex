@@ -186,13 +186,13 @@ void AbstractNavigationServer::callActionGetPath(std::shared_ptr<ActionServerGet
   }
 }
 
-void AbstractNavigationServer::cancelActionGetPath(ActionServerGetPath::GoalHandle goal_handle)
+void AbstractNavigationServer::cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("get_path"), "Cancel action \"get_path\"");
   planner_action_.cancel(goal_handle);
 }
 
-void AbstractNavigationServer::callActionExePath(ActionServerExePath::GoalHandle goal_handle)
+void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal_handle)
 {
   const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle.getGoal().get());
 
@@ -244,13 +244,13 @@ void AbstractNavigationServer::callActionExePath(ActionServerExePath::GoalHandle
   }
 }
 
-void AbstractNavigationServer::cancelActionExePath(ActionServerExePath::GoalHandle goal_handle)
+void AbstractNavigationServer::cancelActionExePath(ServerGoalHandleExePathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("exe_path"), "Cancel action \"exe_path\"");
   controller_action_.cancel(goal_handle);
 }
 
-void AbstractNavigationServer::callActionRecovery(ActionServerRecovery::GoalHandle goal_handle)
+void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
 {
   const mbf_msgs::action::Recovery::Goal &goal = *(goal_handle.getGoal().get());
 
@@ -302,19 +302,19 @@ void AbstractNavigationServer::callActionRecovery(ActionServerRecovery::GoalHand
   }
 }
 
-void AbstractNavigationServer::cancelActionRecovery(ActionServerRecovery::GoalHandle goal_handle)
+void AbstractNavigationServer::cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("recovery"), "Cancel action \"recovery\"");
   recovery_action_.cancel(goal_handle);
 }
 
-void AbstractNavigationServer::callActionMoveBase(ActionServerMoveBase::GoalHandle goal_handle)
+void AbstractNavigationServer::callActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
   move_base_action_.start(goal_handle);
 }
 
-void AbstractNavigationServer::cancelActionMoveBase(ActionServerMoveBase::GoalHandle goal_handle)
+void AbstractNavigationServer::cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "Cancel action \"move_base\"");
   move_base_action_.cancel();
