@@ -131,27 +131,45 @@ AbstractNavigationServer::~AbstractNavigationServer()
 
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
-  std::string planner_name;
-  if(!planner_plugin_manager_.getLoadedNames().empty())
+template <typename T>
+rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from_goal, const mbf_abstract_nav::AbstractPluginManager<T>& plugin_manager, rclcpp::Logger& logger)
+{
+  std::string plugin_name;
+  if(!plugin_manager.getLoadedNames().empty())
   {
-    planner_name = goal->planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal->planner;
+    plugin_name = plugin_name_from_goal.empty() ? plugin_manager.getLoadedNames().front() : plugin_name_from_goal;
   }
   else
   {
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("get_path"), "Rejecting goal: No plugins loaded at all!");
+    RCLCPP_WARN_STREAM(logger, "Rejecting goal: No plugins loaded at all!");
     return rclcpp_action::GoalResponse::REJECT;
   }
 
-  if(planner_plugin_manager_.hasPlugin(planner_name))
+  if(plugin_manager_.hasPlugin(plugin_name))
   {
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
   else
   {
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger("get_path"), "Rejecting goal: No plugin loaded with the given name \"" << goal->planner << "\"!");
+    RCLCPP_ERROR_STREAM(logger, "Rejecting goal: No plugin loaded with the given name \"" << plugin_name_from_goal << "\"!");
     return rclcpp_action::GoalResponse::REJECT;
   }
+}
+
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) 
+{
+  handleGoalHelper(goal->planner, controller_plugin_manager_, rclcpp::get_logger("get_path"));
+}
+
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::ExePath::Goal> goal)
+{
+  handleGoalHelper(goal->controller, controller_plugin_manager_, rclcpp::get_logger("exe_path"));
+}
+
+
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::Recovery::Goal> goal)
+{
+  handleGoalHelper(goal->behavior, recovery_plugin_manager_, rclcpp::get_logger("recovery"));
 }
 
 void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
@@ -175,11 +193,11 @@ void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal
   }
   else
   {
-    mbf_msgs::action::GetPath::Result result;
-    result.outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
-    result.message = "Internal Error: \"planner_plugin\" pointer should not be a null pointer!";
-    RCLCPP_FATAL_STREAM(rclcpp::get_logger("get_path"), result.message);
-    goal_handle.setRejected(result, result.message);
+    mbf_msgs::action::GetPath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::GetPath::Result>();
+    result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
+    result->message = "Internal Error: \"planner_plugin\" pointer should not be a null pointer!";
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("get_path"), result->message);
+    goal_handle->abort(result);
   }
 }
 
@@ -191,32 +209,9 @@ void AbstractNavigationServer::cancelActionGetPath(ServerGoalHandleGetPathPtr go
 
 void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal_handle)
 {
-  const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle.getGoal().get());
+  const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle->get_goal());
 
-  std::string controller_name;
-  if(!controller_plugin_manager_.getLoadedNames().empty())
-  {
-    controller_name = goal.controller.empty() ? controller_plugin_manager_.getLoadedNames().front() : goal.controller;
-  }
-  else
-  {
-    mbf_msgs::action::ExePath::Result result;
-    result.outcome = mbf_msgs::action::ExePath::Result::INVALID_PLUGIN;
-    result.message = "No plugins loaded at all!";
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("exe_path"), result.message);
-    goal_handle.setRejected(result, result.message);
-    return;
-  }
-
-  if(!controller_plugin_manager_.hasPlugin(controller_name))
-  {
-    mbf_msgs::action::ExePath::Result result;
-    result.outcome = mbf_msgs::action::ExePath::Result::INVALID_PLUGIN;
-    result.message = "No plugin loaded with the given name \"" + goal.controller + "\"!";
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger("exe_path"), result.message);
-    goal_handle.setRejected(result, result.message);
-    return;
-  }
+  const std::string controller_name = goal.controller.empty() ? controller_plugin_manager_.getLoadedNames().front() : goal.controller;
 
   mbf_abstract_core::AbstractController::Ptr controller_plugin = controller_plugin_manager_.getPlugin(controller_name);
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("exe_path"), "Start action \"exe_path\" using controller \"" << controller_name
@@ -233,11 +228,11 @@ void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal
   }
   else
   {
-    mbf_msgs::action::ExePath::Result result;
-    result.outcome = mbf_msgs::action::ExePath::Result::INTERNAL_ERROR;
-    result.message = "Internal Error: \"controller_plugin\" pointer should not be a null pointer!";
-    RCLCPP_FATAL_STREAM(rclcpp::get_logger("exe_path"), result.message);
-    goal_handle.setRejected(result, result.message);
+    mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
+    result->outcome = mbf_msgs::action::ExePath::Result::INTERNAL_ERROR;
+    result->message = "Internal Error: \"controller_plugin\" pointer should not be a null pointer!";
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("exe_path"), result->message);
+    goal_handle->abort(result);
   }
 }
 
@@ -249,31 +244,17 @@ void AbstractNavigationServer::cancelActionExePath(ServerGoalHandleExePathPtr go
 
 void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
 {
-  const mbf_msgs::action::Recovery::Goal &goal = *(goal_handle.getGoal().get());
+  const mbf_msgs::action::Recovery::Goal &goal = *(goal_handle->get_goal());
 
-  std::string recovery_name;
-
-  if(!recovery_plugin_manager_.getLoadedNames().empty())
-  {
-    recovery_name = goal.behavior.empty() ? recovery_plugin_manager_.getLoadedNames().front() : goal.behavior;
-  }
-  else
-  {
-    mbf_msgs::action::Recovery::Result result;
-    result.outcome = mbf_msgs::action::Recovery::Result::INVALID_PLUGIN;
-    result.message = "No plugins loaded at all!";
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("recovery"), result.message);
-    goal_handle.setRejected(result, result.message);
-    return;
-  }
+  const std::string recovery_name = goal.behavior.empty() ? recovery_plugin_manager_.getLoadedNames().front() : goal.behavior;
 
   if(!recovery_plugin_manager_.hasPlugin(recovery_name))
   {
-    mbf_msgs::action::Recovery::Result result;
-    result.outcome = mbf_msgs::Recovery::Result::INVALID_PLUGIN;
-    result.message = "No plugin loaded with the given name \"" + goal.behavior + "\"!";
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger("recovery"), result.message);
-    goal_handle.setRejected(result, result.message);
+    mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
+    result->outcome = mbf_msgs::action::Recovery::Result::INVALID_PLUGIN;
+    result->message = "No plugin loaded with the given name \"" + goal.behavior + "\"!";
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("recovery"), result->message);
+    goal_handle->abort(result);
     return;
   }
 
@@ -291,11 +272,11 @@ void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr go
   }
   else
   {
-    mbf_msgs::action::Recovery::Result result;
-    result.outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
-    result.message = "Internal Error: \"recovery_plugin\" pointer should not be a null pointer!";
-    RCLCPP_FATAL_STREAM(rclcpp::get_logger("recovery"), result.message);
-    goal_handle.setRejected(result, result.message);
+    mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
+    result->outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
+    result->message = "Internal Error: \"recovery_plugin\" pointer should not be a null pointer!";
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("recovery"), result->message);
+    goal_handle->abort(result);
   }
 }
 
