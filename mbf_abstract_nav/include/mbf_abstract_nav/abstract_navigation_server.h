@@ -341,12 +341,12 @@ const std::string name_action_move_base = "move_base";
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
 
     //! current robot state
-    mbf_utility::RobotInformation robot_info_;
+    mbf_utility::RobotInformation::Ptr robot_info_;
 
-    ControllerAction controller_action_;
-    PlannerAction planner_action_;
-    RecoveryAction recovery_action_;
-    MoveBaseAction move_base_action_;
+    ControllerAction::Ptr controller_action_;
+    PlannerAction::Ptr planner_action_;
+    RecoveryAction::Ptr recovery_action_;
+    MoveBaseAction::Ptr move_base_action_;
   };
 
 } /* namespace mbf_abstract_nav */

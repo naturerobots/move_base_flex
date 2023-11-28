@@ -57,7 +57,7 @@ class ControllerAction :
 {
  public:
 
-  typedef boost::shared_ptr<ControllerAction> Ptr;
+  typedef std::shared_ptr<ControllerAction> Ptr;
 
     
   ControllerAction(const rclcpp::Node::SharedPtr &node, const std::string &name,

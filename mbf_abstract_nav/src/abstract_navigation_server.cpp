@@ -58,11 +58,7 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
       recovery_plugin_manager_("recovery_behaviors",
           std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, std::placeholders::_1),
           std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, std::placeholders::_1, std::placeholders::_2),
-          node),
-      controller_action_(node, name_action_exe_path, robot_info_),
-      planner_action_(node, name_action_get_path, robot_info_),
-      recovery_action_(node, name_action_recovery, robot_info_),
-      move_base_action_(node, name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames())
+          node)
 {
   node_->declare_parameter<double>("tf_timeout", 3.0);
   node_->declare_parameter<std::string>("global_frame", "map");
@@ -77,6 +73,10 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, *tf_listener_ptr, global_frame_, robot_frame_,
                                                                 rclcpp::Duration::from_seconds(tf_timeout_s),
                                                                 node_->get_parameter("odom_topic").as_string());
+  controller_action_ = std::make_shared<ControllerAction>(node, name_action_exe_path, *robot_info_); // TODO const ref to where robot_info_ ptr points is maybe not so nice
+  planner_action_ = std::make_shared<PlannerAction>(node, name_action_get_path, *robot_info_);
+  recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, *robot_info_);
+  move_base_action_ = std::make_shared<MoveBaseAction>(node, name_action_move_base, *robot_info_, recovery_plugin_manager_.getLoadedNames());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
