@@ -303,24 +303,24 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr AbstractNavigationServer::newPla
     const std::string &plugin_name,
     const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
-  return boost::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
-                                                                        robot_info_, last_config_);
+  return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
+                                                                      robot_info_, node_);//, last_config_); TODO reintroduce last_config feature?
 }
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::newControllerExecution(
     const std::string &plugin_name,
     const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
-  return boost::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
-                                                                           vel_pub_, goal_pub_, last_config_);
+  return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
+                                                                         vel_pub_, goal_pub_, node_); // last_config_); TODO reintroduce last_config feature?
 }
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRecoveryExecution(
     const std::string &plugin_name,
     const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
-  return boost::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
-                                                                         robot_info_, last_config_);
+  return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
+                                                                       robot_info_, node_); // last_config_); TODO reintroduce last_config feature?
 }
 
 // TODO add restore_defaults functionality again

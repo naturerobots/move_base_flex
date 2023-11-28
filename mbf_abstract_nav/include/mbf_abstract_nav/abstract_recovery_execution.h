@@ -80,7 +80,7 @@ namespace mbf_abstract_nav
   {
   public:
 
-    typedef boost::shared_ptr<AbstractRecoveryExecution > Ptr;
+    typedef std::shared_ptr<AbstractRecoveryExecution > Ptr;
 
     /**
      * @brief Constructor
