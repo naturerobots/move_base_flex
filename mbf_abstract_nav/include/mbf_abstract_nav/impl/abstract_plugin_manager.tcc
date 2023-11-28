@@ -125,7 +125,7 @@ bool AbstractPluginManager<PluginType>::hasPlugin(const std::string &name) const
 }
 
 template <typename PluginType>
-std::string AbstractPluginManager<PluginType>::getType(const std::string &name)
+std::string AbstractPluginManager<PluginType>::getType(const std::string &name) const
 {
   std::map<std::string, std::string>::iterator iter = plugins_type_.find(name);
   return iter->second;
@@ -133,7 +133,7 @@ std::string AbstractPluginManager<PluginType>::getType(const std::string &name)
 
 
 template <typename PluginType>
-typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std::string &name)
+typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std::string &name) const
 {
   typename std::map<std::string, typename PluginType::Ptr>::iterator new_plugin
       = plugins_.find(name);
