@@ -131,39 +131,34 @@ AbstractNavigationServer::~AbstractNavigationServer()
 
 }
 
-void AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
+  std::string planner_name;
+  if(!planner_plugin_manager_.getLoadedNames().empty())
+  {
+    planner_name = goal->planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal->planner;
+  }
+  else
+  {
+    RCLCPP_WARN_STREAM(rclcpp::get_logger("get_path"), "Rejecting goal: No plugins loaded at all!");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
 
+  if(planner_plugin_manager_.hasPlugin(planner_name))
+  {
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  }
+  else
+  {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("get_path"), "Rejecting goal: No plugin loaded with the given name \"" << goal->planner << "\"!");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
 }
 
 void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
   const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle->get_goal().get());
   const geometry_msgs::msg::Point &p = goal.target_pose.pose.position;
-
-  std::string planner_name;
-  if(!planner_plugin_manager_.getLoadedNames().empty())
-  {
-    planner_name = goal.planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal.planner;
-  }
-  else
-  {
-    mbf_msgs::action::GetPath::Result result;
-    result.outcome = mbf_msgs::action::GetPath::Result::INVALID_PLUGIN;
-    result.message = "No plugins loaded at all!";
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("get_path"), result.message);
-    goal_handle.setRejected(result, result.message);
-    return;
-  } // TODO move rejection code to handleGoal CB
-
-  if(!planner_plugin_manager_.hasPlugin(planner_name))
-  {
-    mbf_msgs::action::GetPath::Result result;
-    result.outcome = mbf_msgs::action::GetPath::Result::INVALID_PLUGIN;
-    result.message = "No plugin loaded with the given name \"" + goal.planner + "\"!";
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger("get_path"), result.message);
-    goal_handle.setRejected(result, result.message);
-    return;
-  }
+  const std::string planner_name = goal.planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal.planner;
 
   mbf_abstract_core::AbstractPlanner::Ptr planner_plugin = planner_plugin_manager_.getPlugin(planner_name);
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("get_path"), "Start action \"get_path\" using planner \"" << planner_name
