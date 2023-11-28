@@ -66,8 +66,8 @@ std::string resultCodeToString(rclcpp_action::ResultCode result_code)
 
 using namespace std::placeholders;
 
-MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::RobotInformation& robot_info,
-                               const std::vector<std::string>& behaviors, const rclcpp::Node::WeakPtr &node)
+MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string& name,
+                               const mbf_utility::RobotInformation& robot_info, const std::vector<std::string>& behaviors)
   : name_(name)
   , robot_info_(robot_info)
   , node_(node)
@@ -83,11 +83,10 @@ MoveBaseAction::MoveBaseAction(const std::string& name, const mbf_utility::Robot
   , replanning_thread_(boost::bind(&MoveBaseAction::replanningThread, this))
 { 
   // TODO check, if parameterizable values get instantly set via reconfigure callback; otherwise, get param here. (Note that the params are declared in controller_action.)
-  auto nodeActive = node_.lock();
-  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(nodeActive, "exe_path");
-  action_client_get_path_ = rclcpp_action::create_client<GetPath>(nodeActive, "get_path");
-  action_client_recovery_ = rclcpp_action::create_client<Recovery>(nodeActive, "recovery");
-  dyn_params_handler_ = nodeActive->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, _1));
+  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path");
+  action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path");
+  action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery");
+  dyn_params_handler_ = node_->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, _1));
 
   get_path_send_goal_options_.goal_response_callback = std::bind(&MoveBaseAction::actionGetPathGoalResponse, this, _1);
   get_path_send_goal_options_.result_callback = std::bind(&MoveBaseAction::actionGetPathResult, this, _1);
@@ -178,7 +177,7 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
 
   const auto connection_timeout = std::chrono::seconds(1);
 
-  last_oscillation_reset_ = node_.lock()->now();
+  last_oscillation_reset_ = node_->now();
 
   // start recovering with the first behavior, use the recovery behaviors from the action request, if specified,
   // otherwise, use all loaded behaviors.
@@ -247,7 +246,7 @@ void MoveBaseAction::actionExePathFeedback(const rclcpp_action::ClientGoalHandle
   {
     // check if oscillating
     // moved more than the minimum oscillation distance
-    const rclcpp::Time tNow = node_.lock()->now();
+    const rclcpp::Time tNow = node_->now();
     if (mbf_utility::distance(robot_pose_, last_oscillation_pose_) >= oscillation_distance_)
     {
       last_oscillation_reset_ = tNow;
@@ -486,7 +485,7 @@ void MoveBaseAction::recoveryRejectedOrAborted(const rclcpp_action::ClientGoalHa
 void MoveBaseAction::actionRecoveryResult(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result)
 {
   // give the robot some time to stop oscillating after executing the recovery behavior
-  last_oscillation_reset_ = node_.lock()->now();
+  last_oscillation_reset_ = node_->now();
 
   const mbf_msgs::action::Recovery::Result& recovery_result = *(result.result);
   mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
@@ -557,9 +556,8 @@ bool MoveBaseAction::replanningActive() const
 
 void MoveBaseAction::replanningThread()
 {
-  auto node = node_.lock();
   const auto update_preiod = std::chrono::milliseconds(5);
-  rclcpp::Time last_replan_time(0, 0, node->get_clock()->get_clock_type());
+  rclcpp::Time last_replan_time(0, 0, node_->get_clock()->get_clock_type());
 
   while (rclcpp::ok() && !replanning_thread_shutdown_)
   {
@@ -590,11 +588,11 @@ void MoveBaseAction::replanningThread()
     {
       rclcpp::sleep_for(update_preiod);
     }
-    else if (node->now() - last_replan_time >= replanning_period_)
+    else if (node_->now() - last_replan_time >= replanning_period_)
     {
       RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Next replanning cycle, using the \"get_path\" action!");
       get_path_goal_handle_ = action_client_get_path_->async_send_goal(get_path_goal_); // TODO no callbacks needed?
-      last_replan_time = node->now();
+      last_replan_time = node_->now();
     }
   }
 }

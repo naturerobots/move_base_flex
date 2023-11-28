@@ -67,10 +67,9 @@ class MoveBaseAction
 
   typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> GoalHandle;
 
-  MoveBaseAction(const std::string &name,
+  MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string &name,
                  const mbf_utility::RobotInformation &robot_info,
-                 const std::vector<std::string> &controllers,
-                 const rclcpp::Node::WeakPtr &node);
+                 const std::vector<std::string> &controllers);
 
   ~MoveBaseAction();
 
@@ -149,7 +148,7 @@ class MoveBaseAction
   //! current goal pose; used to compute remaining distance and angle
   geometry_msgs::msg::PoseStamped goal_pose_;
 
-  rclcpp::Node::WeakPtr node_;
+  rclcpp::Node::SharedPtr node_;
 
   //! Action client used by the move_base action
   rclcpp_action::Client<ExePath>::SharedPtr action_client_exe_path_;
