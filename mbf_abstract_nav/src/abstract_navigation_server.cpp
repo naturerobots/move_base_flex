@@ -71,12 +71,12 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
 
   double tf_timeout_s;  
   node_->get_parameter("tf_timeout",tf_timeout_s);
-  tf_timeout_ = rclcpp::Duration::from_seconds(tf_timeout_s);
   node_->get_parameter("global_frame", global_frame_);
   node_->get_parameter("robot_frame", robot_frame_);
 
-  robot_info_(node, *tf_listener_ptr, global_frame_, robot_frame_,
-              tf_timeout_, node_->get_parameter("odom_topic").as_string());
+  robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, *tf_listener_ptr, global_frame_, robot_frame_,
+                                                                rclcpp::Duration::from_seconds(tf_timeout_s),
+                                                                node_->get_parameter("odom_topic").as_string());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity

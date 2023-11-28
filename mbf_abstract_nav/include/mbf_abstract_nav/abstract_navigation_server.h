@@ -331,9 +331,6 @@ const std::string name_action_move_base = "move_base";
     //! the global frame, in which the robot is moving
     std::string global_frame_;
 
-    //! timeout after tf returns without a result
-    rclcpp::Duration tf_timeout_;
-
     //! shared pointer to the common TransformListener
     const TFPtr tf_listener_ptr_;
 
