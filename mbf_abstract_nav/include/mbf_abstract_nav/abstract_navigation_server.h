@@ -343,10 +343,10 @@ const std::string name_action_move_base = "move_base";
     const TFPtr tf_listener_ptr_;
 
     //! cmd_vel publisher for all controller execution objects
-    rclcpp::Publisher<geometry_msgs::msg::Twist> vel_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
 
     //! current_goal publisher for all controller execution objects
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped> goal_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
 
     //! current robot state
     mbf_utility::RobotInformation robot_info_;
