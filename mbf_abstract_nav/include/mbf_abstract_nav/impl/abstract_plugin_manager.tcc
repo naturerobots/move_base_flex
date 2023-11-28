@@ -113,13 +113,13 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
 }
 
 template <typename PluginType>
-const std::vector<std::string>& AbstractPluginManager<PluginType>::getLoadedNames()
+const std::vector<std::string>& AbstractPluginManager<PluginType>::getLoadedNames() const
 {
   return names_;
 }
 
 template <typename PluginType>
-bool AbstractPluginManager<PluginType>::hasPlugin(const std::string &name)
+bool AbstractPluginManager<PluginType>::hasPlugin(const std::string &name) const
 {
   return static_cast<bool>(plugins_.count(name)); // returns 1 or 0;
 }
