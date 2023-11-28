@@ -86,33 +86,33 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
     new ActionServerGetPath(
       node_,
       name_action_get_path,
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, _1, _2),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, _1),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, _1)));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, std::placeholders::_1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, std::placeholders::_1)));
 
   action_server_exe_path_ptr_ = ActionServerExePathPtr(
     new ActionServerExePath(
       node_,
       name_action_exe_path,
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalExePath, this, _1, _2),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, _1),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, _1)));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalExePath, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, std::placeholders::_1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, std::placeholders::_1)));
 
   action_server_recovery_ptr_ = ActionServerRecoveryPtr(
     new ActionServerRecovery(
       node_,
       name_action_recovery,
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRecovery, this, _1, _2),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, _1),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, _1)));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRecovery, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, std::placeholders::_1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, std::placeholders::_1)));
 
   action_server_move_base_ptr_ = ActionServerMoveBasePtr(
     new ActionServerMoveBase(
       node_,
       name_action_move_base,
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, _1, _2),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1),
-      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1)));
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, std::placeholders::_1),
+      std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, std::placeholders::_1)));
 
   // XXX note that we don't start a dynamic reconfigure server, to avoid colliding with the one possibly created by
   // the base class. If none, it should call startDynamicReconfigureServer method to start the one defined here for
@@ -131,13 +131,13 @@ AbstractNavigationServer::~AbstractNavigationServer()
 
 }
 
-virtual void AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
+void AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) {
 
 }
 
-void AbstractNavigationServer::callActionGetPath(std::shared_ptr<ActionServerGetPath::GoalHandle> goal_handle)
+void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
-  const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle->getGoal().get());
+  const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle->get_goal().get());
   const geometry_msgs::msg::Point &p = goal.target_pose.pose.position;
 
   std::string planner_name;
