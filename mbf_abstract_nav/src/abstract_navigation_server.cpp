@@ -323,14 +323,6 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
                                                                          robot_info_, last_config_);
 }
 
-void AbstractNavigationServer::startActionServers()
-{
-  action_server_get_path_ptr_->start();
-  action_server_exe_path_ptr_->start();
-  action_server_recovery_ptr_->start();
-  action_server_move_base_ptr_->start();
-}
-
 // TODO add restore_defaults functionality again
 // void AbstractNavigationServer::reconfigure(
 //   mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)

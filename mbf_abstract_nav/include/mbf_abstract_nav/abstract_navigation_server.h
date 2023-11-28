@@ -270,11 +270,6 @@ const std::string name_action_move_base = "move_base";
     virtual void cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
 
     /**
-     * @brief starts all action server.
-     */
-    virtual void startActionServers();
-
-    /**
      * @brief initializes all server components. Initializing the plugins of the @ref planner_execution "Planner", the
      *        @ref controller_execution "Controller", and the @ref recovery_execution "Recovery Behavior".
      */
