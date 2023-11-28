@@ -132,7 +132,7 @@ AbstractNavigationServer::~AbstractNavigationServer()
 }
 
 template <typename T>
-rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from_goal, const mbf_abstract_nav::AbstractPluginManager<T>& plugin_manager, rclcpp::Logger& logger)
+rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from_goal, const mbf_abstract_nav::AbstractPluginManager<T>& plugin_manager, rclcpp::Logger logger)
 {
   std::string plugin_name;
   if(!plugin_manager.getLoadedNames().empty())
@@ -145,7 +145,7 @@ rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from
     return rclcpp_action::GoalResponse::REJECT;
   }
 
-  if(plugin_manager_.hasPlugin(plugin_name))
+  if(plugin_manager.hasPlugin(plugin_name))
   {
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
@@ -158,18 +158,18 @@ rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from
 
 rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) 
 {
-  handleGoalHelper(goal->planner, controller_plugin_manager_, rclcpp::get_logger("get_path"));
+  return handleGoalHelper(goal->planner, controller_plugin_manager_, rclcpp::get_logger("get_path"));
 }
 
 rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::ExePath::Goal> goal)
 {
-  handleGoalHelper(goal->controller, controller_plugin_manager_, rclcpp::get_logger("exe_path"));
+  return handleGoalHelper(goal->controller, controller_plugin_manager_, rclcpp::get_logger("exe_path"));
 }
 
 
 rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(const rclcpp_action::GoalUUID uuid, std::shared_ptr<const mbf_msgs::action::Recovery::Goal> goal)
 {
-  handleGoalHelper(goal->behavior, recovery_plugin_manager_, rclcpp::get_logger("recovery"));
+  return handleGoalHelper(goal->behavior, recovery_plugin_manager_, rclcpp::get_logger("recovery"));
 }
 
 void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
