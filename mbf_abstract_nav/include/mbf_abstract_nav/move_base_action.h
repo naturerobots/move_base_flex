@@ -59,6 +59,7 @@ namespace mbf_abstract_nav
 class MoveBaseAction
 {
  public:
+  typedef std::shared_ptr<MoveBaseAction> Ptr;
 
   //! Action clients for the MoveBase action
   typedef mbf_msgs::action::GetPath GetPath;
