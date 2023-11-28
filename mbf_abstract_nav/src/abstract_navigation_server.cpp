@@ -44,23 +44,25 @@
 
 namespace mbf_abstract_nav
 {
-using namespace std::placeholders;
 
 AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node)
     : tf_listener_ptr_(tf_listener_ptr), node_(node),
       planner_plugin_manager_("planners",
-          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2)),
+          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, std::placeholders::_1),
+          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          node),
       controller_plugin_manager_("controllers",
-          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2)),
+          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, std::placeholders::_1),
+          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          node),
       recovery_plugin_manager_("recovery_behaviors",
-          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2)),
-      controller_action_(name_action_exe_path, robot_info_),
-      planner_action_(name_action_get_path, robot_info_),
-      recovery_action_(name_action_recovery, robot_info_),
-      move_base_action_(name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames())
+          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, std::placeholders::_1),
+          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          node),
+      controller_action_(node, name_action_exe_path, robot_info_),
+      planner_action_(node, name_action_get_path, robot_info_),
+      recovery_action_(node, name_action_recovery, robot_info_),
+      move_base_action_(node, name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames())
 {
   node_->declare_parameter<double>("tf_timeout", 3.0);
   node_->declare_parameter<std::string>("global_frame", "map");
@@ -73,7 +75,7 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   node_->get_parameter("global_frame", global_frame_);
   node_->get_parameter("robot_frame", robot_frame_);
 
-  robot_info_(node_, *tf_listener_ptr, global_frame_, robot_frame_,
+  robot_info_(node, *tf_listener_ptr, global_frame_, robot_frame_,
               tf_timeout_, node_->get_parameter("odom_topic").as_string());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
 
