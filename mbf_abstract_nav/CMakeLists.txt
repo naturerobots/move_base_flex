@@ -51,14 +51,18 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  # gtests
+  ament_add_gtest(${MBF_ABSTRACT_SERVER_LIB}_gtest test/abstract_execution_base.cpp)
+  target_include_directories(${MBF_ABSTRACT_SERVER_LIB}_gtest PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(${MBF_ABSTRACT_SERVER_LIB}_gtest ${MBF_ABSTRACT_SERVER_LIB})
+
 # TODO!!!
-
-# if(CATKIN_ENABLE_TESTING)
-#   find_package(rostest REQUIRED)
-
-#   # gtests
-#   catkin_add_gtest(${MBF_ABSTRACT_SERVER_LIB}_gtest test/abstract_execution_base.cpp)
-#   target_link_libraries(${MBF_ABSTRACT_SERVER_LIB}_gtest ${MBF_ABSTRACT_SERVER_LIB})
 
 #   # ros-tests
 #   add_rostest_gmock(abstract_action_base_test
@@ -80,7 +84,7 @@ install(DIRECTORY include/
 #     test/planner_action.launch
 #     test/planner_action.cpp)
 #   target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
-# endif()
+endif()
 
 ament_export_include_directories(include) 
 ament_export_libraries(${MBF_ABSTRACT_SERVER_LIB})

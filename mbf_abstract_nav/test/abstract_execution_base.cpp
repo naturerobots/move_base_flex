@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <mbf_abstract_nav/abstract_execution_base.h>
-
-#include <boost/chrono.hpp>
+#include <mutex>
+#include <chrono>
 
 using namespace mbf_abstract_nav;
 
@@ -25,13 +25,13 @@ struct DummyExecutionBase : public AbstractExecutionBase
 protected:
   void run()
   {
-    boost::mutex mutex;
-    boost::unique_lock<boost::mutex> lock(mutex);
+    std::mutex mutex;
+    std::unique_lock<std::mutex> lock(mutex);
 
     // wait until someone says we are done (== cancel or stop)
     // we set a timeout, since we might miss the cancel call (especially if we
     // run on an environment with high CPU load)
-    condition_.wait_for(lock, boost::chrono::seconds(1));
+    condition_.wait_for(lock, std::chrono::seconds(1));
     outcome_ = 0;
   }
 };
@@ -42,11 +42,15 @@ using testing::Test;
 // the fixture owning the instance of the DummyExecutionBase
 struct AbstractExecutionFixture : public Test
 {
+  rclcpp::Node::SharedPtr node_;
   TF tf_;
-  DummyExecutionBase impl_;
   mbf_utility::RobotInformation ri_;
-
-  AbstractExecutionFixture() : ri_(tf_, "global_frame", "local_frame", ros::Duration(), ""), impl_("foo", ri_)
+  DummyExecutionBase impl_;
+  AbstractExecutionFixture() :
+    node_(std::make_shared<rclcpp::Node>("test")), 
+    tf_(node_->get_clock()), 
+    ri_(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), ""), 
+    impl_("foo", ri_)
   {
   }
 };
@@ -57,7 +61,7 @@ TEST_F(AbstractExecutionFixture, timeout)
   impl_.start();
 
   // make sure that we timeout and don't alter the outcome
-  EXPECT_EQ(impl_.waitForStateUpdate(boost::chrono::microseconds(60)), boost::cv_status::timeout);
+  EXPECT_EQ(impl_.waitForStateUpdate(std::chrono::microseconds(60)), std::cv_status::timeout);
   EXPECT_EQ(impl_.getOutcome(), 255);
 }
 
@@ -65,7 +69,7 @@ TEST_F(AbstractExecutionFixture, success)
 {
   // start the thread
   impl_.start();
-  EXPECT_EQ(impl_.waitForStateUpdate(boost::chrono::microseconds(60)), boost::cv_status::timeout);
+  EXPECT_EQ(impl_.waitForStateUpdate(std::chrono::microseconds(60)), std::cv_status::timeout);
 
   // cancel, so we set the outcome to 0
   impl_.cancel();
