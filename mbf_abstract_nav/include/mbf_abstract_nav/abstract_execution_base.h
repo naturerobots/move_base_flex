@@ -125,7 +125,7 @@ protected:
   //! mutex for locking the condition variable
   std::mutex mutex_;
   std::condition_variable cv_;
-  bool shouldExit;
+  bool should_exit_;
 
   //! flag for canceling controlling
   bool cancel_;

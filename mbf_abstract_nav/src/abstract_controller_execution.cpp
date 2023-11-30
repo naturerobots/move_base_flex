@@ -545,7 +545,7 @@ bool AbstractControllerExecution::cancel()
           // The nanosleep used by ROS time is not interruptable, therefore providing an interrupt point before and
           // after
           // Simulate boost::this_thread::interruption_point()
-          if (shouldExit)
+          if (should_exit_)
           {
             // Early exit if shouldExit is set
             break;
@@ -558,7 +558,7 @@ bool AbstractControllerExecution::cancel()
             //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
           }
           // Simulate boost::this_thread::interruption_point()
-          if (shouldExit)
+          if (should_exit_)
           {
             // Early exit if shouldExit is set
             break;

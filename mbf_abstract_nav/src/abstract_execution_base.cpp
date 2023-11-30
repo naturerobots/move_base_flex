@@ -43,7 +43,7 @@ namespace mbf_abstract_nav
 AbstractExecutionBase::AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info, const rclcpp::Node::SharedPtr& node)
   : outcome_(255), cancel_(false), name_(name), robot_info_(robot_info), node_(node)
 {
-  shouldExit = false;
+  should_exit_ = false;
 }
 
 AbstractExecutionBase::~AbstractExecutionBase()
@@ -63,7 +63,7 @@ bool AbstractExecutionBase::start()
     // if the user forgets to call stop(), we have to kill it
     stop();
     thread_.join();
-    shouldExit = false;
+    should_exit_ = false;
   }
 
   thread_ = std::thread(&AbstractExecutionBase::runWrapper, this);
@@ -78,22 +78,22 @@ void AbstractExecutionBase::stop()
   {
     // Set the exit flag in a critical section
     std::unique_lock<std::mutex> lock(mutex_);
-    shouldExit = true;
+    should_exit_ = true;
 
     // Notify the thread that it should check the exit flag
     cv_.notify_one();
   }
 }
 
-void AbstractExecutionBase::runWrapper(){
+void AbstractExecutionBase::runWrapper()
+{
   std::unique_lock<std::mutex> lock(mutex_);
   // Wait for the notification and check the exit flag
-  cv_.wait(lock, [this] { return shouldExit; });
+  cv_.wait(lock, [this] { return should_exit_; });
   run();
 }
 
-    void
-    AbstractExecutionBase::join()
+void AbstractExecutionBase::join()
 {
   if (thread_.joinable())
     thread_.join();
