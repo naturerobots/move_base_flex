@@ -90,7 +90,7 @@ static bool isNormalized(const geometry_msgs::msg::Quaternion& _q, double _epsil
 }
 
 bool transformPose(const rclcpp::Node::ConstSharedPtr node,
-                   TF &tf,
+                   const TF &tf,
                    const std::string &target_frame,
                    const rclcpp::Duration &timeout,
                    const geometry_msgs::msg::PoseStamped &in,
