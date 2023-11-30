@@ -17,8 +17,8 @@ foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)
 endforeach()
 
-#maybe needed , maybe include in standard library
-#find_package(Boost COMPONENTS thread chrono REQUIRED)
+# TODO remove dep to boost, use std lib instead
+find_package(Boost COMPONENTS thread chrono REQUIRED)
 
 include_directories(
   include
@@ -60,7 +60,7 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
   )
-  target_link_libraries(${MBF_ABSTRACT_SERVER_LIB}_gtest ${MBF_ABSTRACT_SERVER_LIB})
+  target_link_libraries(${MBF_ABSTRACT_SERVER_LIB}_gtest ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
 # TODO!!!
 
