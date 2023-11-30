@@ -56,7 +56,7 @@ AbstractControllerExecution::AbstractControllerExecution(
     const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
     const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
     const rclcpp::Node::SharedPtr& node_handle)
-  : AbstractExecutionBase(name, robot_info)
+  : AbstractExecutionBase(name, robot_info, node_handle)
   , controller_(controller_ptr)
   , state_(INITIALIZED)
   , moving_(false)
@@ -306,14 +306,14 @@ bool AbstractControllerExecution::isPatienceExceeded() const
     if ( node_handle_->now() - last_call_time_ > patience_)
     {
       auto clock = node_handle_->get_clock();
-      RCLCPP_WARN_THROTTLE(rclcpp::get_logger("some_logger_name"), *clock, 1.0,
+      RCLCPP_WARN_THROTTLE(node_handle_->get_logger(), *clock, 1.0,
                            "The controller plugin \"%s\" needs more time to compute in one run than the patience time!",
                            name_.c_str());
       return true;
     }
     if ( node_handle_->now() - last_valid_cmd_time_ > patience_)
     {
-      RCLCPP_DEBUG(rclcpp::get_logger("some_logger_name"),
+      RCLCPP_DEBUG(node_handle_->get_logger(),
                    "The controller plugin \"%s\" does not return a success state (outcome < 10) for more than the "
                    "patience time in multiple runs!",
                    name_.c_str());
@@ -579,7 +579,7 @@ bool AbstractControllerExecution::cancel()
     catch (...)
     {
       message_ = "Unknown error occurred";
-      RCLCPP_FATAL(rclcpp::get_logger("some_logger_name"), "%s", message_.c_str());
+      RCLCPP_FATAL(node_handle_->get_logger(), "%s", message_.c_str());
       setState(INTERNAL_ERROR);
       moving_ = false;
       condition_.notify_all();

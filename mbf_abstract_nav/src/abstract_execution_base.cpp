@@ -40,8 +40,8 @@
 
 namespace mbf_abstract_nav
 {
-AbstractExecutionBase::AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info)
-  : outcome_(255), cancel_(false), name_(name), robot_info_(robot_info)
+AbstractExecutionBase::AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info, const rclcpp::Node::SharedPtr& node)
+  : outcome_(255), cancel_(false), name_(name), robot_info_(robot_info), node_(node)
 {
   shouldExit = false;
 }
@@ -72,7 +72,7 @@ bool AbstractExecutionBase::start()
 
 void AbstractExecutionBase::stop()
 {
-  RCLCPP_WARN_STREAM(rclcpp::get_logger("some_logger_name"),
+  RCLCPP_WARN_STREAM(node_->get_logger(),
                      "Try to stop the plugin \"" << name_ << "\" rigorously by notifying the thread!");
 
   {

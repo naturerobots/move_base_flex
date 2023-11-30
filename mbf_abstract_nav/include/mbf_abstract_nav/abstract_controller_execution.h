@@ -389,7 +389,7 @@ namespace mbf_abstract_nav
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 
     //node handle
-    const rclcpp::Node::SharedPtr& node_handle_;
+    rclcpp::Node::SharedPtr node_handle_;
   };
 
 } /* namespace mbf_abstract_nav */

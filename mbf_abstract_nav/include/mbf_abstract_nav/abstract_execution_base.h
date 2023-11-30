@@ -58,7 +58,7 @@ namespace mbf_abstract_nav
 class AbstractExecutionBase
 {
  public:
-   AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info);
+   AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info, const rclcpp::Node::SharedPtr& node);
 
    virtual ~AbstractExecutionBase();
 
@@ -141,6 +141,9 @@ protected:
 
   //! Reference to the current robot state
   const mbf_utility::RobotInformation& robot_info_;
+
+  //! Pointer to node in which the execution runs in. E.g. for getting the right logger.
+  rclcpp::Node::SharedPtr node_;
 
 private:
   void runWrapper();

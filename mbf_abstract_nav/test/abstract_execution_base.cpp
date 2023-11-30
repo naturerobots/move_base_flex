@@ -2,6 +2,7 @@
 #include <mbf_abstract_nav/abstract_execution_base.h>
 #include <mutex>
 #include <chrono>
+#include <rclcpp/rclcpp.hpp>
 
 using namespace mbf_abstract_nav;
 
@@ -9,8 +10,8 @@ using namespace mbf_abstract_nav;
 // it basically runs until we cancel it.
 struct DummyExecutionBase : public AbstractExecutionBase
 {
-  DummyExecutionBase(const std::string& _name, const mbf_utility::RobotInformation& ri)
-    : AbstractExecutionBase(_name, ri)
+  DummyExecutionBase(const std::string& _name, const mbf_utility::RobotInformation& ri, const rclcpp::Node::SharedPtr& node)
+    : AbstractExecutionBase(_name, ri, node)
   {
   }
 
@@ -50,7 +51,7 @@ struct AbstractExecutionFixture : public Test
     node_(std::make_shared<rclcpp::Node>("test")), 
     tf_(node_->get_clock()), 
     ri_(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), ""), 
-    impl_("foo", ri_)
+    impl_("foo", ri_, node_)
   {
   }
 };
@@ -97,5 +98,6 @@ TEST_F(AbstractExecutionFixture, stop)
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
+  rclcpp::init(argc, argv);
   return RUN_ALL_TESTS();
 }

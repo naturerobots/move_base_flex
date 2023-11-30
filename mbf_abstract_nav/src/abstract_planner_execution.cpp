@@ -47,7 +47,7 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
                                                    const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr,
                                                    const mbf_utility::RobotInformation& robot_info,
                                                    const rclcpp::Node::SharedPtr& node_handle)
-  : AbstractExecutionBase(name, robot_info)
+  : AbstractExecutionBase(name, robot_info, node_handle)
   , planner_(planner_ptr)
   , state_(INITIALIZED)
   , max_retries_(0)
