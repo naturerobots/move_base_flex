@@ -221,7 +221,7 @@ const std::string name_action_move_base = "move_base";
     ) = 0;
 
 
-    virtual rclcpp_action::GoalResponse handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal);
+    virtual rclcpp_action::GoalResponse handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal);
 
     /**
      * @brief GetPath action execution method. This method will be called if the action server receives a goal
@@ -232,7 +232,7 @@ const std::string name_action_move_base = "move_base";
 
     virtual rclcpp_action::CancelResponse cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalExePath(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::ExePath::Goal> goal);
+    virtual rclcpp_action::GoalResponse handleGoalExePath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal);
 
     /**
      * @brief ExePath action execution method. This method will be called if the action server receives a goal
@@ -243,7 +243,7 @@ const std::string name_action_move_base = "move_base";
 
     virtual rclcpp_action::CancelResponse cancelActionExePath(ServerGoalHandleExePathPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::Recovery::Goal> goal);
+    virtual rclcpp_action::GoalResponse handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal);
 
     /**
      * @brief Recovery action execution method. This method will be called if the action server receives a goal

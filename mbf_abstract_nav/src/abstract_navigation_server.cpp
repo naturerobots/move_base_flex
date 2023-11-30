@@ -152,18 +152,18 @@ rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from
   }
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::GetPath::Goal> goal) 
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal) 
 {
   return handleGoalHelper(goal->planner, controller_plugin_manager_, rclcpp::get_logger("get_path"));
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::ExePath::Goal> goal)
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal)
 {
   return handleGoalHelper(goal->controller, controller_plugin_manager_, rclcpp::get_logger("exe_path"));
 }
 
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::Recovery::Goal> goal)
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal)
 {
   return handleGoalHelper(goal->behavior, recovery_plugin_manager_, rclcpp::get_logger("recovery"));
 }
