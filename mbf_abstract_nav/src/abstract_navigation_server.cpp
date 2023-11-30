@@ -291,6 +291,11 @@ void AbstractNavigationServer::callActionMoveBase(ServerGoalHandleMoveBasePtr go
   move_base_action_->start(goal_handle);
 }
 
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalMoveBase(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal)
+{
+  return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
 rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "Cancel action \"move_base\"");

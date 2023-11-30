@@ -254,7 +254,7 @@ const std::string name_action_move_base = "move_base";
 
     virtual rclcpp_action::CancelResponse cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalMoveBase(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const mbf_msgs::action::MoveBase::Goal> goal);
+    virtual rclcpp_action::GoalResponse handleGoalMoveBase(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal);
 
     /**
      * @brief MoveBase action execution method. This method will be called if the action server receives a goal
