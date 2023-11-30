@@ -83,12 +83,6 @@ void AbstractExecutionBase::stop()
     // Notify the thread that it should check the exit flag
     cv_.notify_one();
   }
-
-  // Wait for the thread to finish
-  if (thread_.joinable())
-  {
-    thread_.join();
-  }
 }
 
 void AbstractExecutionBase::runWrapper(){
