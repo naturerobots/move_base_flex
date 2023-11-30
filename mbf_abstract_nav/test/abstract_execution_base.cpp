@@ -16,7 +16,7 @@ struct DummyExecutionBase : public AbstractExecutionBase
   }
 
   // implement the required interfaces
-  bool cancel()
+  bool cancel() override 
   {
     cancel_ = true;
     condition_.notify_all();
@@ -24,7 +24,7 @@ struct DummyExecutionBase : public AbstractExecutionBase
   }
 
 protected:
-  void run()
+  void run() override
   {
     std::mutex mutex;
     std::unique_lock<std::mutex> lock(mutex);

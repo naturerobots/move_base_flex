@@ -123,8 +123,7 @@ protected:
   std::thread thread_;
 
   //! mutex for locking the condition variable
-  std::mutex mutex_;
-  std::condition_variable cv_;
+  std::mutex should_exit_mutex_;
   bool should_exit_;
 
   //! flag for canceling controlling
@@ -144,9 +143,6 @@ protected:
 
   //! Pointer to node in which the execution runs in. E.g. for getting the right logger.
   rclcpp::Node::SharedPtr node_;
-
-private:
-  void runWrapper();
 };
 
 } /* namespace mbf_abstract_nav */

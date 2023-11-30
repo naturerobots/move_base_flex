@@ -370,6 +370,7 @@ bool AbstractControllerExecution::cancel()
   }
   return true;
   }
+
   void AbstractControllerExecution::run()
   {
     start_time_ = node_handle_->now();
@@ -542,13 +543,15 @@ bool AbstractControllerExecution::cancel()
         {
           // The nanosleep used by ROS time is not interruptable, therefore providing an interrupt point before and
           // after
-          // The nanosleep used by ROS time is not interruptable, therefore providing an interrupt point before and
-          // after
           // Simulate boost::this_thread::interruption_point()
-          if (should_exit_)
           {
-            // Early exit if shouldExit is set
-            break;
+            std::unique_lock<std::mutex> lock(should_exit_mutex_);
+            if (should_exit_)
+            {
+              // Early exit if shouldExit is set
+              handle_thread_interrupted();
+              return;
+            }
           }
           if (!loop_rate_->sleep())
           {
@@ -558,23 +561,17 @@ bool AbstractControllerExecution::cancel()
             //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
           }
           // Simulate boost::this_thread::interruption_point()
-          if (should_exit_)
           {
-            // Early exit if shouldExit is set
-            break;
+            std::unique_lock<std::mutex> lock(should_exit_mutex_);
+            if (should_exit_)
+            {
+              // Early exit if shouldExit is set
+              handle_thread_interrupted();
+              return;
+            }
           }
         }
       }
-    }
-    catch (const std::exception& ex)
-    {
-      // Controller thread interrupted; in most cases we have started a new plan
-      // Can also be that robot is oscillating or we have exceeded planner patience
-      RCLCPP_DEBUG(rclcpp::get_logger("AbstractControllerExecution"), "Controller thread interrupted!");
-      publishZeroVelocity();
-      setState(STOPPED);
-      condition_.notify_all();
-      moving_ = false;
     }
     catch (...)
     {
@@ -586,6 +583,16 @@ bool AbstractControllerExecution::cancel()
     }
 }
 
+void AbstractControllerExecution::handle_thread_interrupted()
+{
+  // Controller thread interrupted; in most cases we have started a new plan
+  // Can also be that robot is oscillating or we have exceeded planner patience
+  RCLCPP_DEBUG(rclcpp::get_logger("AbstractControllerExecution"), "Controller thread interrupted!");
+  publishZeroVelocity();
+  setState(STOPPED);
+  condition_.notify_all();
+  moving_ = false;
+}
 
 void AbstractControllerExecution::publishZeroVelocity()
 {

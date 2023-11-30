@@ -294,6 +294,11 @@ namespace mbf_abstract_nav
      */
     void setState(ControllerState state);
 
+    /**
+     * @brief Gets called when the worker thread is interrupted
+     */
+    void handle_thread_interrupted();
+
     //! mutex to handle safe thread communication for the current value of the state
     mutable std::mutex state_mtx_;
 

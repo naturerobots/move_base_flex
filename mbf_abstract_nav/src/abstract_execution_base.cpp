@@ -66,7 +66,7 @@ bool AbstractExecutionBase::start()
     should_exit_ = false;
   }
 
-  thread_ = std::thread(&AbstractExecutionBase::runWrapper, this);
+  thread_ = std::thread(&AbstractExecutionBase::run, this);
   return true;
 }
 
@@ -77,20 +77,9 @@ void AbstractExecutionBase::stop()
 
   {
     // Set the exit flag in a critical section
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(should_exit_mutex_);
     should_exit_ = true;
-
-    // Notify the thread that it should check the exit flag
-    cv_.notify_one();
   }
-}
-
-void AbstractExecutionBase::runWrapper()
-{
-  std::unique_lock<std::mutex> lock(mutex_);
-  // Wait for the notification and check the exit flag
-  cv_.wait(lock, [this] { return should_exit_; });
-  run();
 }
 
 void AbstractExecutionBase::join()
