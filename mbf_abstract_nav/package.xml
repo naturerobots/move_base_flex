@@ -22,6 +22,7 @@
     <depend>std_srvs</depend>
 
     <test_depend>ament_cmake_gtest</test_depend> 
+    <test_depend>ament_cmake_gmock</test_depend> 
 
     <export>
       <!-- TODO -->

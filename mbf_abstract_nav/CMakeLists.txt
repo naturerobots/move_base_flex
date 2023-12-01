@@ -54,7 +54,6 @@ install(DIRECTORY include/
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
-  # gtests
   ament_add_gtest(${MBF_ABSTRACT_SERVER_LIB}_gtest test/abstract_execution_base.cpp)
   target_include_directories(${MBF_ABSTRACT_SERVER_LIB}_gtest PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -62,28 +61,26 @@ if(BUILD_TESTING)
   )
   target_link_libraries(${MBF_ABSTRACT_SERVER_LIB}_gtest ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
-# TODO!!!
+  find_package(ament_cmake_gmock REQUIRED)
+  ament_add_gmock(abstract_action_base_test
+    test/abstract_action_base.cpp)
+  target_include_directories(abstract_action_base_test PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(abstract_action_base_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
-#   # ros-tests
-#   add_rostest_gmock(abstract_action_base_test
-#     test/abstract_action_base.launch
-#     test/abstract_action_base.cpp)
-#   target_link_libraries(abstract_action_base_test ${MBF_ABSTRACT_SERVER_LIB})
+  #ament_add_gmock(abstract_controller_execution_test
+  #  test/abstract_controller_execution.cpp)
+  #target_link_libraries(abstract_controller_execution_test ${MBF_ABSTRACT_SERVER_LIB})
 
-#   add_rostest_gmock(abstract_controller_execution_test
-#     test/abstract_controller_execution.launch
-#     test/abstract_controller_execution.cpp)
-#   target_link_libraries(abstract_controller_execution_test ${MBF_ABSTRACT_SERVER_LIB})
+  #ament_add_gmock(abstract_planner_execution_test
+  #  test/abstract_planner_execution.cpp)
+  #target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB})
 
-#   add_rostest_gmock(abstract_planner_execution_test
-#     test/abstract_planner_execution.launch
-#     test/abstract_planner_execution.cpp)
-#   target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB})
-
-#   add_rostest_gmock(planner_action_test
-#     test/planner_action.launch
-#     test/planner_action.cpp)
-#   target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
+  #ament_add_gmock(planner_action_test
+  #  test/planner_action.cpp)
+  #target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
 endif()
 
 ament_export_include_directories(include) 
