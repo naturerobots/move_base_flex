@@ -61,8 +61,6 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
           node)
 {
   node_->declare_parameter<double>("tf_timeout", 3.0);
-  node_->declare_parameter<std::string>("global_frame", "map");
-  node_->declare_parameter<std::string>("robot_frame", "base_link");
   node_->declare_parameter<std::string>("odom_topic", "odom");
 
   double tf_timeout_s;  

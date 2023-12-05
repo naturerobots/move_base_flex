@@ -69,8 +69,6 @@ AbstractControllerExecution::AbstractControllerExecution(
 {
 
   // reconfigurable parameters
-  node_handle_->declare_parameter("robot_frame", "base_link");
-  node_handle_->declare_parameter("map_frame", "map");
   node_handle_->declare_parameter("force_stop_at_goal", false);
   node_handle_->declare_parameter("force_stop_on_retry", true);
   node_handle_->declare_parameter("force_stop_on_cancel",false);

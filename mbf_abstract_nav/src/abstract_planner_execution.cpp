@@ -57,12 +57,6 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   , node_handle_(node_handle)
   , patience_(0, 0)
 {
-  //reconfigurable parameters
-  // private_nh.param("robot_frame", robot_frame_, std::string("base_footprint"));
-  // private_nh.param("map_frame", global_frame_, std::string("map"));
-  node_handle_->declare_parameter("robot_frame", std::string("base_footprint"));
-  node_handle_->declare_parameter("map_frame", std::string("map"));
-
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
   param_desc.description = "The rate in Hz at which to run the planning loop";
   node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0), param_desc);
