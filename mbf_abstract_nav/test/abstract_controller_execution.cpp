@@ -64,6 +64,15 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
 
     // we have to stop the thread when the test is done
     join();
+
+    // re-init global objects, otherwise we get crashes due to multiple declaration of params
+    // TODO we should rid ourselves of global objects
+    NODE = std::make_shared<rclcpp::Node>("read_types");
+    VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
+    GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
+    TF_PTR = std::make_shared<TF>(NODE->get_clock());
+    ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, *TF_PTR, "global_frame",
+                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   }
 
 };
