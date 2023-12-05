@@ -1,32 +1,27 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <mbf_abstract_core/abstract_controller.h>
-#include <mbf_abstract_nav/MoveBaseFlexConfig.h>
 #include <mbf_abstract_nav/abstract_controller_execution.h>
 
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <geometry_msgs/Twist.h>
-#include <tf/transform_datatypes.h>
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <string>
 #include <vector>
 
-using geometry_msgs::PoseStamped;
-using geometry_msgs::TransformStamped;
-using geometry_msgs::Twist;
-using geometry_msgs::TwistStamped;
+using geometry_msgs::msg::PoseStamped;
+using geometry_msgs::msg::TransformStamped;
+using geometry_msgs::msg::Twist;
+using geometry_msgs::msg::TwistStamped;
 using mbf_abstract_core::AbstractController;
 using mbf_abstract_nav::AbstractControllerExecution;
-using mbf_abstract_nav::MoveBaseFlexConfig;
 using testing::_;
 using testing::Return;
 using testing::Test;
-// for kinetic
-using tf::StampedTransform;
 
 // the plan as a vector of poses
 typedef std::vector<PoseStamped> plan_t;
@@ -41,17 +36,23 @@ struct AbstractControllerMock : public AbstractController
   MOCK_METHOD0(cancel, bool());
 };
 
-ros::Publisher VEL_PUB, GOAL_PUB;
+// some global variables for the test
+rclcpp::Node::SharedPtr NODE;
+rclcpp::Publisher<Twist>::SharedPtr VEL_PUB;
+rclcpp::Publisher<PoseStamped>::SharedPtr GOAL_PUB;
 TFPtr TF_PTR;
-mbf_utility::RobotInformation::Ptr ROBOT_INFO_PTR;
+mbf_utility::RobotInformation::Ptr ROBOT_INFO;
 
 // fixture for our tests
 struct AbstractControllerExecutionFixture : public Test, public AbstractControllerExecution
 {
   AbstractControllerExecutionFixture()
-    : AbstractControllerExecution("a name", AbstractController::Ptr(new AbstractControllerMock()), *ROBOT_INFO_PTR,
-                                  VEL_PUB, GOAL_PUB, MoveBaseFlexConfig{})
+    : AbstractControllerExecution("a name", AbstractController::Ptr(new AbstractControllerMock()),
+                                  *ROBOT_INFO, VEL_PUB, GOAL_PUB, NODE)
   {
+    TF_PTR->setUsingDedicatedThread(true);
+    // suppress the logging since we don't want warnings to pollute the test-outcome
+    NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
   }
 
   void TearDown() override
@@ -64,6 +65,7 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
     // we have to stop the thread when the test is done
     join();
   }
+
 };
 
 TEST_F(AbstractControllerExecutionFixture, noPlan)
@@ -75,7 +77,7 @@ TEST_F(AbstractControllerExecutionFixture, noPlan)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), NO_PLAN);
 }
 
@@ -91,7 +93,7 @@ TEST_F(AbstractControllerExecutionFixture, emptyPlan)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), EMPTY_PLAN);
 }
 
@@ -111,7 +113,7 @@ TEST_F(AbstractControllerExecutionFixture, invalidPlan)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), INVALID_PLAN);
 }
 
@@ -137,7 +139,7 @@ TEST_F(AbstractControllerExecutionFixture, internalError)
 
   // wait for the status update
   // note: this timeout must be longer than the default tf-timeout
-  waitForStateUpdate(boost::chrono::seconds(2));
+  waitForStateUpdate(std::chrono::seconds(2));
   ASSERT_EQ(getState(), INTERNAL_ERROR);
 }
 
@@ -149,18 +151,11 @@ struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
     // setup the transform.
     global_frame_ = "global_frame";
     robot_frame_ = "robot_frame";
-#ifdef USE_OLD_TF
-    StampedTransform transform;
-    transform.child_frame_id_ = robot_frame_;
-    transform.frame_id_ = global_frame_;
-    transform.stamp_ = ros::Time::now();
-#else
     TransformStamped transform;
-    transform.header.stamp = ros::Time::now();
+    transform.header.stamp = NODE->now();
     transform.header.frame_id = global_frame_;
     transform.child_frame_id = robot_frame_;
     transform.transform.rotation.w = 1;
-#endif
     // todo right now the mbf_utility checks on the transform age - but this does not work for static transforms
     TF_PTR->setTransform(transform, "mama");
   }
@@ -188,7 +183,7 @@ TEST_F(ComputeRobotPoseFixture, arrivedGoal)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), ARRIVED_GOAL);
 }
 
@@ -214,7 +209,7 @@ TEST_F(ComputeRobotPoseFixture, controllerException)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), INTERNAL_ERROR);
 }
 
@@ -251,12 +246,12 @@ TEST_F(FailureFixture, maxRetries)
   ASSERT_TRUE(start());
 
   // wait for the status update: in first iteration NO_LOCAL_CMD
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), NO_LOCAL_CMD);
 
   // wait for the status update: in second iteration MAX_RETRIES
   // bcs max_retries_ > 0 && ++retries > max_retries_
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), MAX_RETRIES);
 }
 
@@ -271,7 +266,7 @@ TEST_F(FailureFixture, noValidCmd)
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), NO_LOCAL_CMD);
 }
 
@@ -282,35 +277,27 @@ TEST_F(FailureFixture, patExceeded)
 
   // disable the retries logic and enable the patience logic: we cheat by setting it to a negative duration.
   max_retries_ = -1;
-  patience_ = ros::Duration(-1e-3);
+  patience_ = rclcpp::Duration::from_seconds(-1e-3);
 
   // call start
   ASSERT_TRUE(start());
 
   // wait for the status update
-  waitForStateUpdate(boost::chrono::seconds(1));
+  waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(getState(), PAT_EXCEEDED);
 }
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "read_types");
-  ros::NodeHandle nh;
-  // setup the pubs as global objects
-  VEL_PUB = nh.advertise<Twist>("vel", 1);
-  GOAL_PUB = nh.advertise<PoseStamped>("pose", 1);
+  rclcpp::init(argc, argv);
 
-  // setup the tf-publisher and robot info as a global objects
-  TF_PTR.reset(new TF());
-  TF_PTR->setUsingDedicatedThread(true);
-  ros::Duration TF_TIMEOUT(1.0);
-  ROBOT_INFO_PTR.reset(new mbf_utility::RobotInformation(*TF_PTR, "global_frame", "robot_frame", TF_TIMEOUT, ""));
-
-  // suppress the logging since we don't want warnings to pollute the test-outcome
-  if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal))
-  {
-    ros::console::notifyLoggerLevelsChanged();
-  }
+  // init global objects
+  NODE = std::make_shared<rclcpp::Node>("read_types");
+  VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
+  GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
+  TF_PTR = std::make_shared<TF>(NODE->get_clock());
+  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, *TF_PTR, "global_frame",
+                                                               "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

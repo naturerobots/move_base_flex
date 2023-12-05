@@ -1,3 +1,0 @@
-<launch>
-  <test time-limit="10" test-name="abstract_controller_execution" pkg="mbf_abstract_nav" type="abstract_controller_execution_test"/>
-</launch>
