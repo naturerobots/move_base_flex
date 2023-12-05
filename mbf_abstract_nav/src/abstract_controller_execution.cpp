@@ -82,7 +82,7 @@ AbstractControllerExecution::AbstractControllerExecution(
 
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
   param_desc.description = "The rate in Hz at which to run the control loop and send velocity commands to the base";
-  node_handle_->declare_parameter("controller_frequency", rclcpp::ParameterValue(20), param_desc);
+  node_handle_->declare_parameter("controller_frequency", rclcpp::ParameterValue(20.0), param_desc);
   param_desc.description = "How long the controller will wait in seconds without receiving a valid control before "
                            "giving up";
   node_handle_->declare_parameter("controller_patience", rclcpp::ParameterValue(5.0), param_desc);
