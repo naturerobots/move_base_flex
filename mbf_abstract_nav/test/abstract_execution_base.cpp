@@ -44,12 +44,12 @@ using testing::Test;
 struct AbstractExecutionFixture : public Test
 {
   rclcpp::Node::SharedPtr node_;
-  TF tf_;
+  TFPtr tf_;
   mbf_utility::RobotInformation ri_;
   DummyExecutionBase impl_;
   AbstractExecutionFixture() :
     node_(std::make_shared<rclcpp::Node>("test")), 
-    tf_(node_->get_clock()), 
+    tf_(new TF(node_->get_clock())),
     ri_(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), ""), 
     impl_("foo", ri_, node_)
   {

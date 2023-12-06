@@ -60,7 +60,7 @@ class RobotInformation
 
   RobotInformation(
       const rclcpp::Node::SharedPtr& node,
-      const TF &tf_listener,
+      const TFPtr &tf_listener,
       const std::string &global_frame,
       const std::string &robot_frame,
       const rclcpp::Duration &tf_timeout,
@@ -99,13 +99,13 @@ class RobotInformation
  private:
   rclcpp::Node::SharedPtr node_;
 
-  const TF& tf_listener_;
+  const TFPtr tf_listener_;
 
-  const std::string &global_frame_;
+  const std::string global_frame_;
 
-  const std::string &robot_frame_;
+  const std::string robot_frame_;
 
-  const rclcpp::Duration &tf_timeout_;
+  const rclcpp::Duration tf_timeout_;
 
   OdometryHelper odom_helper_;
 

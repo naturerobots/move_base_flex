@@ -31,13 +31,13 @@ struct AbstractActionBaseFixture
   // required members for the c'tor
   std::string test_name;
   rclcpp::Node::SharedPtr node_;
-  TF tf_;
+  TFPtr tf_;
   mbf_utility::RobotInformation ri;
 
   AbstractActionBaseFixture()
       : test_name("action_base"),
         node_(std::make_shared<rclcpp::Node>("test_node")),
-        tf_(node_->get_clock()),
+        tf_(new TF(node_->get_clock())),
         ri(node_, tf_, "global_frame", "local_frame", rclcpp::Duration(0,0)),
         AbstractActionBase(node_, test_name, ri)
   {

@@ -68,7 +68,7 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   node_->get_parameter("global_frame", global_frame_);
   node_->get_parameter("robot_frame", robot_frame_);
 
-  robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, *tf_listener_ptr, global_frame_, robot_frame_,
+  robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, tf_listener_ptr, global_frame_, robot_frame_,
                                                                 rclcpp::Duration::from_seconds(tf_timeout_s),
                                                                 node_->get_parameter("odom_topic").as_string());
   controller_action_ = std::make_shared<ControllerAction>(node, name_action_exe_path, *robot_info_); // TODO const ref to where robot_info_ ptr points is maybe not so nice

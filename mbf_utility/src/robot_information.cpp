@@ -44,7 +44,7 @@
 namespace mbf_utility
 {
 RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
-                                   const TF &tf_listener,
+                                   const TFPtr &tf_listener,
                                    const std::string &global_frame,
                                    const std::string &robot_frame,
                                    const rclcpp::Duration &tf_timeout,
@@ -58,7 +58,7 @@ RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
 
 bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose) const
 {
-  bool tf_success = mbf_utility::getRobotPose(node_, tf_listener_, robot_frame_, global_frame_,
+  bool tf_success = mbf_utility::getRobotPose(node_, *tf_listener_, robot_frame_, global_frame_,
                                               rclcpp::Duration(tf_timeout_), robot_pose);
   if (!tf_success)
   {
@@ -105,7 +105,7 @@ const std::string& RobotInformation::getGlobalFrame() const {return global_frame
 
 const std::string& RobotInformation::getRobotFrame() const {return robot_frame_;};
 
-const TF& RobotInformation::getTransformListener() const {return tf_listener_;};
+const TF& RobotInformation::getTransformListener() const {return *tf_listener_;};
 
 const rclcpp::Duration& RobotInformation::getTfTimeout() const {return tf_timeout_;}
 

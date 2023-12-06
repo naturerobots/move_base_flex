@@ -71,7 +71,7 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
     VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
     GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
     TF_PTR = std::make_shared<TF>(NODE->get_clock());
-    ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, *TF_PTR, "global_frame",
+    ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
                                                                 "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   }
 
@@ -305,7 +305,7 @@ int main(int argc, char** argv)
   VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
   GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
   TF_PTR = std::make_shared<TF>(NODE->get_clock());
-  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, *TF_PTR, "global_frame",
+  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
