@@ -121,8 +121,7 @@ bool AbstractControllerExecution::setControllerFrequency(double frequency)
   // set the calling duration by the moving frequency
   if (frequency <= 0.0)
   {
-    RCLCPP_ERROR(rclcpp::get_logger("AbstractControllerExecution"), "Controller frequency must be greater than 0.0! No "
-                                                                    "change of the frequency!");
+    RCLCPP_ERROR(node_handle_->get_logger(), "Controller frequency must be greater than 0.0! No change of the frequency!");
     return false;
   }
   loop_rate_ = std::make_shared<rclcpp::Rate>(frequency);
@@ -189,7 +188,7 @@ void AbstractControllerExecution::setNewPlan(
   if (moving_)
   {
     // This is fine on continuous replanning
-    RCLCPP_DEBUG(rclcpp::get_logger("AbstractControllerExecution"), "Setting new plan while moving");
+    RCLCPP_DEBUG(node_handle_->get_logger(), "Setting new plan while moving");
   }
   std::lock_guard<std::mutex> guard(plan_mtx_);
   new_plan_ = true;
@@ -267,7 +266,7 @@ bool AbstractControllerExecution::checkCmdVelIgnored(const geometry_msgs::msg::T
 
   if (ignored_duration > cmd_vel_ignored_tolerance_)
   {
-    RCLCPP_ERROR(rclcpp::get_logger("AbstractControllerExecution"),
+    RCLCPP_ERROR(node_handle_->get_logger(),
                  "Robot is ignoring velocity commands for more than %.2f seconds. Tolerance exceeded!",
                  cmd_vel_ignored_tolerance_);
     return true;
@@ -275,7 +274,7 @@ bool AbstractControllerExecution::checkCmdVelIgnored(const geometry_msgs::msg::T
   else if (ignored_duration > 1.0)
   {
     auto clock = node_handle_->get_clock();
-    RCLCPP_WARN_THROTTLE(rclcpp::get_logger("AbstractControllerExecution"), *clock, 1.0,
+    RCLCPP_WARN_THROTTLE(node_handle_->get_logger(), *clock, 1.0,
                          "Robot is ignoring velocity commands for %.2f seconds (last command: vx=%.2f, vy=%.2f, "
                          "w=%.2f)",
                          ignored_duration, cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
@@ -349,18 +348,18 @@ bool AbstractControllerExecution::cancel()
   // If false (meaning cancel is not implemented, or that the controller defers handling it) MBF will take care.
   if (controller_->cancel())
   {
-    RCLCPP_INFO(rclcpp::get_logger("AbstractControllerExecution"), "Controller will take care of stopping");
+    RCLCPP_INFO(node_handle_->get_logger(), "Controller will take care of stopping");
   }
   else
   {
-    RCLCPP_WARN(rclcpp::get_logger("AbstractControllerExecution"), "Controller defers handling cancel; force it and "
+    RCLCPP_WARN(node_handle_->get_logger(), "Controller defers handling cancel; force it and "
                                                                    "wait until the current control cycle finished");
     cancel_ = true;
     // wait for the control cycle to stop
     if (waitForStateUpdate(std::chrono::milliseconds(500)) == std::cv_status::timeout)
     {
       // this situation should never happen; if it does, the action server will be unready for goals immediately sent
-      RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Timeout while waiting for control cycle "
+      RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Timeout while waiting for control cycle "
                                                                             "to stop; immediately sent goals can get "
                                                                             "stuck");
       return false;
@@ -379,7 +378,7 @@ bool AbstractControllerExecution::cancel()
     {
       setState(NO_PLAN);
       moving_ = false;
-      RCLCPP_ERROR_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "robot navigation moving has no plan!");
+      RCLCPP_ERROR_STREAM(node_handle_->get_logger(), "robot navigation moving has no plan!");
     }
 
     last_valid_cmd_time_ =  node_handle_->now();
@@ -493,7 +492,7 @@ bool AbstractControllerExecution::cancel()
           }
           else if (outcome_ == mbf_msgs::action::ExePath::Result::CANCELED)
           {
-            RCLCPP_INFO(rclcpp::get_logger("AbstractControllerExecution"), "Controller-handled cancel completed");
+            RCLCPP_INFO(node_handle_->get_logger(), "Controller-handled cancel completed");
             cancel_ = true;
             continue;
           }
@@ -585,7 +584,7 @@ void AbstractControllerExecution::handle_thread_interrupted()
 {
   // Controller thread interrupted; in most cases we have started a new plan
   // Can also be that robot is oscillating or we have exceeded planner patience
-  RCLCPP_DEBUG(rclcpp::get_logger("AbstractControllerExecution"), "Controller thread interrupted!");
+  RCLCPP_DEBUG(node_handle_->get_logger(), "Controller thread interrupted!");
   publishZeroVelocity();
   setState(STOPPED);
   condition_.notify_all();
