@@ -50,9 +50,6 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
     : AbstractControllerExecution("a name", AbstractController::Ptr(new AbstractControllerMock()),
                                   *ROBOT_INFO, VEL_PUB, GOAL_PUB, NODE)
   {
-    TF_PTR->setUsingDedicatedThread(true);
-    // suppress the logging since we don't want warnings to pollute the test-outcome
-    NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
   }
 
   void TearDown() override
@@ -68,9 +65,12 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
     // re-init global objects, otherwise we get crashes due to multiple declaration of params
     // TODO we should rid ourselves of global objects
     NODE = std::make_shared<rclcpp::Node>("read_types");
+    // suppress the logging since we don't want warnings to pollute the test-outcome
+    NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
     VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
     GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
     TF_PTR = std::make_shared<TF>(NODE->get_clock());
+    TF_PTR->setUsingDedicatedThread(true);
     ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
                                                                 "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   }
@@ -302,9 +302,12 @@ int main(int argc, char** argv)
 
   // init global objects
   NODE = std::make_shared<rclcpp::Node>("read_types");
+  // suppress the logging since we don't want warnings to pollute the test-outcome
+  NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
   VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
   GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
   TF_PTR = std::make_shared<TF>(NODE->get_clock());
+  TF_PTR->setUsingDedicatedThread(true);
   ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
   testing::InitGoogleTest(&argc, argv);
