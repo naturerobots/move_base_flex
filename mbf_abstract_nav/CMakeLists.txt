@@ -76,9 +76,9 @@ if(BUILD_TESTING)
   )
   target_link_libraries(abstract_controller_execution_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
-  #ament_add_gmock(abstract_planner_execution_test
-  #  test/abstract_planner_execution.cpp)
-  #target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
+  ament_add_gmock(abstract_planner_execution_test
+    test/abstract_planner_execution.cpp)
+  target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
   #ament_add_gmock(planner_action_test
   #  test/planner_action.cpp)
