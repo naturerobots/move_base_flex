@@ -62,6 +62,8 @@ std::string resultCodeToString(rclcpp_action::ResultCode result_code)
     case rclcpp_action::ResultCode::ABORTED:
     return "ABORTED";
   }
+  // should be unreachable code. If you see this, add new ResultCode to the switch case above.
+  return "NEW-RESULT-CODE-ADDED?";
 }
 
 using namespace std::placeholders;
