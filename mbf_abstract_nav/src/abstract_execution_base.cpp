@@ -41,10 +41,8 @@
 namespace mbf_abstract_nav
 {
 AbstractExecutionBase::AbstractExecutionBase(const std::string& name, const mbf_utility::RobotInformation& robot_info, const rclcpp::Node::SharedPtr& node)
-  : outcome_(255), cancel_(false), name_(name), robot_info_(robot_info), node_(node)
-{
-  should_exit_ = false;
-}
+  : should_exit_(false), outcome_(255), cancel_(false), name_(name), robot_info_(robot_info), node_(node)
+{ }
 
 AbstractExecutionBase::~AbstractExecutionBase()
 {
@@ -63,9 +61,9 @@ bool AbstractExecutionBase::start()
     // if the user forgets to call stop(), we have to kill it
     stop();
     thread_.join();
-    should_exit_ = false;
   }
 
+  should_exit_ = false;
   thread_ = std::thread(&AbstractExecutionBase::run, this);
   return true;
 }

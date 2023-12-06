@@ -66,7 +66,6 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
 
   node_handle_->get_parameter("planner_frequency", frequency_);
-
   double patience;
   node_handle_->get_parameter("planner_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
@@ -275,6 +274,13 @@ void AbstractPlannerExecution::run()
   {
     while (planning_ && rclcpp::ok())
     {
+      if (should_exit_)
+      {
+        // Early exit if should_exit_ is set
+        handle_thread_interrupted();
+        return;
+      }
+
       // call the planner
       std::vector<geometry_msgs::msg::PoseStamped> plan;
       double cost = 0.0;
@@ -370,17 +376,20 @@ void AbstractPlannerExecution::run()
       }
     } // while (planning_ && ros::ok())
   }
-  catch (const std::exception &ex)
-  {
-    // Planner thread interrupted; probably we have exceeded planner patience
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planner thread interrupted!");
-    setState(STOPPED, true);
-  }
   catch (...)
   {
     RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Unknown error occurred.");
     setState(INTERNAL_ERROR, true);
+    condition_.notify_all();
   }
+}
+
+void AbstractPlannerExecution::handle_thread_interrupted()
+{
+  // Planner thread interrupted; probably we have exceeded planner patience
+  RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planner thread interrupted!");
+  setState(STOPPED, true);
+  condition_.notify_all();
 }
 
 } /* namespace mbf_abstract_nav */

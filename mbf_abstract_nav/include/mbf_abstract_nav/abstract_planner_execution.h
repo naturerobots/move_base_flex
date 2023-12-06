@@ -208,6 +208,9 @@ namespace mbf_abstract_nav
      */
     virtual void run();
 
+    //! Helper method for cleaning up the state when the planner thread was interrupted.
+    void handle_thread_interrupted();
+
   private:
 
     /**

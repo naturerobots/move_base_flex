@@ -153,17 +153,19 @@ void AbstractRecoveryExecution::run()
       setState(RECOVERY_DONE);
     }
   }
-  catch (const std::exception& ex)
-  {
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Recovery \"" << name_ << "\" interrupted!");
-    setState(STOPPED);
-  }
   catch (...)
   {
     RCLCPP_FATAL_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"),
                        "Unknown error occurred in recovery behavior");
     setState(INTERNAL_ERROR);
   }
+  condition_.notify_one();
+}
+
+void AbstractRecoveryExecution::handle_thread_interrupted()
+{
+  RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Recovery \"" << name_ << "\" interrupted!");
+  setState(STOPPED);
   condition_.notify_one();
 }
 

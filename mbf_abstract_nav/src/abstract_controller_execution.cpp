@@ -390,6 +390,12 @@ bool AbstractControllerExecution::cancel()
     {
       while (moving_ && rclcpp::ok())
       {
+        if (should_exit_)
+        {
+          // Early exit if should_exit_ is set
+          handle_thread_interrupted();
+          return;
+        }
         if (cancel_)
         {
           if (force_stop_on_cancel_)
@@ -545,7 +551,6 @@ bool AbstractControllerExecution::cancel()
             std::unique_lock<std::mutex> lock(should_exit_mutex_);
             if (should_exit_)
             {
-              // Early exit if shouldExit is set
               handle_thread_interrupted();
               return;
             }
@@ -562,7 +567,6 @@ bool AbstractControllerExecution::cancel()
             std::unique_lock<std::mutex> lock(should_exit_mutex_);
             if (should_exit_)
             {
-              // Early exit if shouldExit is set
               handle_thread_interrupted();
               return;
             }

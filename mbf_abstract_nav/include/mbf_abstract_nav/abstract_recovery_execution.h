@@ -146,6 +146,9 @@ namespace mbf_abstract_nav
      */
     virtual void run();
 
+    //! Helper method for cleaning up the state when the recovery thread was interrupted.
+    void handle_thread_interrupted();
+
     //! the current loaded recovery behavior
     mbf_abstract_core::AbstractRecovery::Ptr behavior_;
 
