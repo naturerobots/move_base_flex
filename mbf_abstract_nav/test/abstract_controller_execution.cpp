@@ -43,6 +43,19 @@ rclcpp::Publisher<PoseStamped>::SharedPtr GOAL_PUB;
 TFPtr TF_PTR;
 mbf_utility::RobotInformation::Ptr ROBOT_INFO;
 
+void init_global_objects()
+{
+  NODE = std::make_shared<rclcpp::Node>("read_types");
+  // suppress the logging since we don't want warnings to pollute the test-outcome
+  NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
+  VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
+  GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
+  TF_PTR = std::make_shared<TF>(NODE->get_clock());
+  TF_PTR->setUsingDedicatedThread(true);
+  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
+                                                               "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+}
+
 // fixture for our tests
 struct AbstractControllerExecutionFixture : public Test, public AbstractControllerExecution
 {
@@ -64,15 +77,7 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
 
     // re-init global objects, otherwise we get crashes due to multiple declaration of params
     // TODO we should rid ourselves of global objects
-    NODE = std::make_shared<rclcpp::Node>("read_types");
-    // suppress the logging since we don't want warnings to pollute the test-outcome
-    NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
-    VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
-    GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
-    TF_PTR = std::make_shared<TF>(NODE->get_clock());
-    TF_PTR->setUsingDedicatedThread(true);
-    ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
-                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+    init_global_objects();
   }
 
 };
@@ -300,16 +305,7 @@ int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
 
-  // init global objects
-  NODE = std::make_shared<rclcpp::Node>("read_types");
-  // suppress the logging since we don't want warnings to pollute the test-outcome
-  NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
-  VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
-  GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
-  TF_PTR = std::make_shared<TF>(NODE->get_clock());
-  TF_PTR->setUsingDedicatedThread(true);
-  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
-                                                               "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+  init_global_objects();
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
