@@ -59,12 +59,10 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
 {
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
   param_desc.description = "The rate in Hz at which to run the planning loop";
-  node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0), param_desc);
-  param_desc.description = "How long the planner will wait in seconds in an attempt to find a valid plan before giving "
-                           "up";
+  node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0.0), param_desc);
+  param_desc.description = "How long the planner will wait in seconds in an attempt to find a valid plan before giving up";
   node_handle_->declare_parameter("planner_patience", rclcpp::ParameterValue(5.0), param_desc);
-  param_desc.description = "How many times we will recall the planner in an attempt to find a valid plan before giving "
-                           "up";
+  param_desc.description = "How many times we will recall the planner in an attempt to find a valid plan before giving up";
   node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
 
   node_handle_->get_parameter("planner_frequency", frequency_);
@@ -72,7 +70,7 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   double patience;
   node_handle_->get_parameter("planner_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
-  node_handle_->get_parameter("planner_frequency", max_retries_);
+  node_handle_->get_parameter("planner_max_retries", max_retries_);
 
   // dynamically reconfigurable parameters
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(
