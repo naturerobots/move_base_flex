@@ -117,7 +117,7 @@ AbstractPlannerExecution::reconfigure(std::vector<rclcpp::Parameter> parameters)
     const auto& param_name = param.get_name();
     if (param_name == "planner_frequency")
     {
-      frequency_= param.as_double();
+      frequency_ = param.as_double();
     }
     else if (param_name == "planner_patience")
     {
