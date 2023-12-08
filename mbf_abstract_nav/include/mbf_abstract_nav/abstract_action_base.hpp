@@ -230,7 +230,7 @@ public:
 
 protected:
   rclcpp::Node::SharedPtr node_;
-  const std::string &name_;
+  const std::string name_;
   const mbf_utility::RobotInformation &robot_info_;
 
   boost::thread_group threads_;
