@@ -65,12 +65,6 @@ struct MockedActionServer : public rclcpp_action::Server<GetPath>
   MOCK_METHOD2(publish_result, void(const rclcpp_action::GoalUUID &, std::shared_ptr<void>));
 };
 
-// action which will trigger our condition variable, so we can wait until the runImpl thread reaches makePlan
-ACTION_P(Notify, cv)
-{
-  cv->notify_all();
-}
-
 // test-fixture
 struct PlannerActionFixture : public Test
 {
@@ -83,19 +77,25 @@ struct PlannerActionFixture : public Test
     , robot_info_(node_, tf_, global_frame_, local_frame_, rclcpp::Duration::from_seconds(0.0))
     , planner_execution_(new AbstractPlannerExecution("plugin", planner_, robot_info_, node_))
     , planner_action_(node_, "action_name", robot_info_)
-    , action_server_(new MockedActionServer(node_, 
-                    std::bind(&PlannerActionFixture::acceptGoal, this, std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&PlannerActionFixture::cancelAction, this, std::placeholders::_1),
-                    std::bind(&PlannerActionFixture::callAction, this, std::placeholders::_1)))
-    , goal_(new mbf_msgs::action::GetPath::Goal())
+    , action_server_(rclcpp_action::create_server<mbf_msgs::action::GetPath>(
+        node_, "planner_action_test_server", 
+        std::bind(&PlannerActionFixture::acceptGoal, this, std::placeholders::_1, std::placeholders::_2),
+        std::bind(&PlannerActionFixture::cancelAction, this, std::placeholders::_1),
+        std::bind(&PlannerActionFixture::callAction, this, std::placeholders::_1)))
+    , action_client_(rclcpp_action::create_client<mbf_msgs::action::GetPath>(node_, "planner_action_test_server"))
   {
-    node_->get_node_waitables_interface()->add_waitable(action_server_, nullptr);
     tf_->setUsingDedicatedThread(true);
     node_->set_parameter(rclcpp::Parameter("planner_patience", 0.0));
   }
 
+  void SetUp()
+  {
+    ASSERT_TRUE(action_client_->wait_for_action_server(std::chrono::milliseconds(100)));
+  }
+
   void TearDown()
   {
+    // wait until the test finishes, i.e. until the action_client gets a result returned from the action_server
   }
 
   rclcpp_action::GoalResponse acceptGoal(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal) 
@@ -114,49 +114,52 @@ struct PlannerActionFixture : public Test
     planner_action_.start(goal_handle, planner_execution_);
   }
 
+  /*
+   * Helper method for tests.
+   * Sends the given goal to the server via the client  and lets ROS spin until we get the goal's result.
+   * Fails the test if the goal does not get accepted or the result does not finish in time.
+   *
+   * Returns void, so we can use gtest macros in here.
+   * Fills the result into the given output parameter action_result.
+  */ 
+  void sendGoalAndWaitForResult(const mbf_msgs::action::GetPath::Goal& goal, rclcpp_action::Client<mbf_msgs::action::GetPath>::WrappedResult& action_result)
+  {
+    const auto goal_handle = action_client_->async_send_goal(goal);
+    ASSERT_EQ(rclcpp::spin_until_future_complete(node_, goal_handle, std::chrono::milliseconds(100)), rclcpp::FutureReturnCode::SUCCESS);
+    // action goal is accepted
+    const auto future_result = action_client_->async_get_result(goal_handle.get());
+    ASSERT_EQ(rclcpp::spin_until_future_complete(node_, future_result, std::chrono::seconds(1)), rclcpp::FutureReturnCode::SUCCESS);
+    // action is finished, result is available
+    action_result = future_result.get();
+  }
+
   rclcpp::Node::SharedPtr node_;
   TFPtr tf_;
-  std::shared_ptr<MockPlanner> planner_;     ///< the mocked planner
-  std::condition_variable done_condition_;  ///< cv triggered on makePlan
+  std::shared_ptr<MockPlanner> planner_;    ///< the mocked planner
   std::string global_frame_;
   std::string local_frame_;
   mbf_utility::RobotInformation robot_info_;
   AbstractPlannerExecution::Ptr planner_execution_;
   PlannerAction planner_action_;
-  std::shared_ptr<MockedActionServer> action_server_;
-  mbf_msgs::action::GetPath::Goal::SharedPtr goal_;
+  std::shared_ptr<rclcpp_action::Server<mbf_msgs::action::GetPath>> action_server_;
+  std::shared_ptr<rclcpp_action::Client<mbf_msgs::action::GetPath>> action_client_;
 };
-
-MATCHER_P(GetPathOutcomeIs, expected_outcome, "") 
-{
-  // we get std::shared_ptr<void> from get_result
-  std::shared_ptr<mbf_msgs::action::GetPath::Result> msgPtr = std::reinterpret_pointer_cast<mbf_msgs::action::GetPath::Result>(arg);
-  return msgPtr->outcome == expected_outcome;
-}
 
 TEST_F(PlannerActionFixture, emptyPath)
 {
-  // goal with frames, so we can pass tf-lookup
-  goal_->use_start_pose = true;
-  goal_->start_pose.header.frame_id = goal_->target_pose.header.frame_id = global_frame_;
-
   // setup the expectation
   // we dont return anything here, so the outcome should be empty path
   EXPECT_CALL(*planner_, makePlan(_, _, _, _, _, _)).WillOnce(Return(0));
 
-  EXPECT_CALL(*action_server_,
-    publish_result(_, GetPathOutcomeIs(mbf_msgs::action::GetPath::Result::EMPTY_PATH))
-    ).Times(1).WillOnce(Notify(&done_condition_));
+  // goal with frames, so we can pass tf-lookup
+  mbf_msgs::action::GetPath::Goal goal;
+  goal.use_start_pose = true;
+  goal.start_pose.header.frame_id = goal.target_pose.header.frame_id = global_frame_;
+  rclcpp_action::Client<mbf_msgs::action::GetPath>::WrappedResult result; // to be filled by sendGoalAndWaitForResult
+  sendGoalAndWaitForResult(goal, result);
 
-  // tear down 
-  // call the server - this is where the actual test call happens
-  std::shared_ptr<void> goal = goal_;
-  action_server_->execute_goal_request_received(goal);
-
-  // wait until the cv gets triggered
-  std::mutex m;
-  std::unique_lock<std::mutex> lock(m);
-  done_condition_.wait_for(lock, std::chrono::seconds(1));
+  ASSERT_EQ(result.code, rclcpp_action::ResultCode::ABORTED);
+  EXPECT_EQ(result.result->outcome, mbf_msgs::action::GetPath::Result::EMPTY_PATH);
 }
 
 //TEST_F(PlannerActionFixture, success)
