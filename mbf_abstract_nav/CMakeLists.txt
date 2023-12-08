@@ -80,9 +80,9 @@ if(BUILD_TESTING)
     test/abstract_planner_execution.cpp)
   target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 
-  #ament_add_gmock(planner_action_test
-  #  test/planner_action.cpp)
-  #target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
+  ament_add_gmock(planner_action_test
+    test/planner_action.cpp)
+  target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB} ${Boost_LIBRARIES})
 endif()
 
 ament_export_include_directories(include) 

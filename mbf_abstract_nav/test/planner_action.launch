@@ -1,3 +1,0 @@
-<launch>
-  <test time-limit="10" test-name="planner_action" pkg="mbf_abstract_nav" type="planner_action_test"/>
-</launch>
