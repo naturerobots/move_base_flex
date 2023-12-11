@@ -557,10 +557,10 @@ bool AbstractControllerExecution::cancel()
           }
           if (!loop_rate_->sleep())
           {
-            // TODO: find ROS2 equivalent or port for r.cycletime()
-            // ROS_WARN_THROTTLE(1.0, "Calculation needs too much time to stay in the moving frequency! (%.4fs >
-            // %.4fs)",
-            //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
+            // TODO: missing loop_rate_->cycletime ROS2 equivalent for conveniently outputting the duration of the loop-to-blame.
+            RCLCPP_WARN_THROTTLE( node_->get_logger(), *node_->get_clock(), 1000, 
+              "Calculation needs too much time to stay in the moving frequency! ( took longer than %.4fs)",
+              std::chrono::duration<float>(loop_rate_->period()).count());
           }
           // Simulate boost::this_thread::interruption_point()
           {
