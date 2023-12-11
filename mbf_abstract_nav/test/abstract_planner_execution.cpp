@@ -57,7 +57,6 @@ struct AbstractPlannerExecutionFixture : public Test, public AbstractPlannerExec
     join();
 
     // re-init global objects, otherwise we get crashes due to multiple declaration of params
-    // TODO we should rid ourselves of global objects
     init_global_objects();
   }
 };
