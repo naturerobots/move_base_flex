@@ -47,7 +47,7 @@ namespace mbf_abstract_nav
 
 AbstractRecoveryExecution::AbstractRecoveryExecution(const std::string& name,
                                                      const mbf_abstract_core::AbstractRecovery::Ptr& recovery_ptr,
-                                                     const mbf_utility::RobotInformation& robot_info,
+                                                     const mbf_utility::RobotInformation::ConstPtr& robot_info,
                                                      const rclcpp::Node::SharedPtr& node_handle)
   : AbstractExecutionBase(name, robot_info, node_handle),
     behavior_(recovery_ptr),

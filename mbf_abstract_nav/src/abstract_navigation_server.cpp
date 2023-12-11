@@ -71,10 +71,10 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, tf_listener_ptr, global_frame_, robot_frame_,
                                                                 rclcpp::Duration::from_seconds(tf_timeout_s),
                                                                 node_->get_parameter("odom_topic").as_string());
-  controller_action_ = std::make_shared<ControllerAction>(node, name_action_exe_path, *robot_info_); // TODO const ref to where robot_info_ ptr points is maybe not so nice
-  planner_action_ = std::make_shared<PlannerAction>(node, name_action_get_path, *robot_info_);
-  recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, *robot_info_);
-  move_base_action_ = std::make_shared<MoveBaseAction>(node, name_action_move_base, *robot_info_, recovery_plugin_manager_.getLoadedNames());
+  controller_action_ = std::make_shared<ControllerAction>(node, name_action_exe_path, robot_info_);
+  planner_action_ = std::make_shared<PlannerAction>(node, name_action_get_path, robot_info_);
+  recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, robot_info_);
+  move_base_action_ = std::make_shared<MoveBaseAction>(node, name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
@@ -307,14 +307,14 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr AbstractNavigationServer::newPla
     const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
-                                                                      *robot_info_, node_);//, last_config_); TODO reintroduce last_config feature?
+                                                                      robot_info_, node_);//, last_config_); TODO reintroduce last_config feature?
 }
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::newControllerExecution(
     const std::string &plugin_name,
     const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
-  return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, *robot_info_,
+  return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
                                                                          vel_pub_, goal_pub_, node_); // last_config_); TODO reintroduce last_config feature?
 }
 
@@ -323,7 +323,7 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
     const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
-                                                                       *robot_info_, node_); // last_config_); TODO reintroduce last_config feature?
+                                                                       robot_info_, node_); // last_config_); TODO reintroduce last_config feature?
 }
 
 // TODO add restore_defaults functionality again

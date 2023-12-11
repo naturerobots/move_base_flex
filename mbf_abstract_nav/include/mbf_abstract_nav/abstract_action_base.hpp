@@ -105,7 +105,7 @@ public:
   AbstractActionBase(
       const rclcpp::Node::SharedPtr& node,
       const std::string &name,
-      const mbf_utility::RobotInformation &robot_info
+      const mbf_utility::RobotInformation::ConstPtr &robot_info
   ) : node_(node), name_(name), robot_info_(robot_info){}
 
   virtual ~AbstractActionBase()
@@ -231,7 +231,7 @@ public:
 protected:
   rclcpp::Node::SharedPtr node_;
   const std::string name_;
-  const mbf_utility::RobotInformation &robot_info_;
+  mbf_utility::RobotInformation::ConstPtr robot_info_;
 
   boost::thread_group threads_;
   ConcurrencyMap concurrency_slots_;

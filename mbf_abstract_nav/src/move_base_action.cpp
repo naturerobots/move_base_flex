@@ -69,7 +69,7 @@ std::string resultCodeToString(rclcpp_action::ResultCode result_code)
 using namespace std::placeholders;
 
 MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string& name,
-                               const mbf_utility::RobotInformation& robot_info, const std::vector<std::string>& behaviors)
+                               const mbf_utility::RobotInformation::ConstPtr& robot_info, const std::vector<std::string>& behaviors)
   : name_(name)
   , robot_info_(robot_info)
   , node_(node)
@@ -188,7 +188,7 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   current_recovery_behavior_ = recovery_behaviors_.begin();
 
   // get the current robot pose only at the beginning, as exe_path will keep updating it as we move
-  if (!robot_info_.getRobotPose(robot_pose_))
+  if (!robot_info_->getRobotPose(robot_pose_))
   {
     RCLCPP_ERROR_STREAM(rclcpp::get_logger("move_base"), "Could not get the current robot pose!");
     move_base_result->message = "Could not get the current robot pose!";

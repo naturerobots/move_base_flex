@@ -57,6 +57,7 @@ class RobotInformation
  public:
 
   typedef std::shared_ptr<RobotInformation> Ptr;
+  typedef std::shared_ptr<const RobotInformation> ConstPtr;
 
   RobotInformation(
       const rclcpp::Node::SharedPtr& node,

@@ -69,7 +69,7 @@ class MoveBaseAction
   typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> GoalHandle;
 
   MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string &name,
-                 const mbf_utility::RobotInformation &robot_info,
+                 const mbf_utility::RobotInformation::ConstPtr &robot_info,
                  const std::vector<std::string> &controllers);
 
   ~MoveBaseAction();
@@ -141,7 +141,7 @@ class MoveBaseAction
   std::string name_;
 
   //! current robot state
-  const mbf_utility::RobotInformation &robot_info_;
+  mbf_utility::RobotInformation::ConstPtr robot_info_;
 
   //! current robot pose; updated with exe_path action feedback
   geometry_msgs::msg::PoseStamped robot_pose_;

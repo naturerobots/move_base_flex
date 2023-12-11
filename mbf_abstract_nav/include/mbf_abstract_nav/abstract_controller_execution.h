@@ -94,7 +94,7 @@ namespace mbf_abstract_nav
      */
     AbstractControllerExecution(const std::string& name,
                                 const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
-                                const mbf_utility::RobotInformation& robot_info,
+                                const mbf_utility::RobotInformation::ConstPtr& robot_info,
                                 const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
                                 const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
                                 const rclcpp::Node::SharedPtr& node_handle);

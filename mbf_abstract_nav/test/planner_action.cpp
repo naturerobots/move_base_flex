@@ -56,7 +56,7 @@ struct PlannerActionFixture : public Test
     , planner_(new MockPlanner())
     , global_frame_("global_frame")
     , local_frame_("local_frame")
-    , robot_info_(node_, tf_, global_frame_, local_frame_, rclcpp::Duration::from_seconds(0.0))
+    , robot_info_(new mbf_utility::RobotInformation(node_, tf_, global_frame_, local_frame_, rclcpp::Duration::from_seconds(0.0)))
     , planner_execution_(new AbstractPlannerExecution("plugin", planner_, robot_info_, node_))
     , planner_action_(node_, "action_name", robot_info_)
     , action_server_(rclcpp_action::create_server<mbf_msgs::action::GetPath>(
@@ -115,7 +115,7 @@ struct PlannerActionFixture : public Test
   std::shared_ptr<MockPlanner> planner_; ///< the mocked planner
   std::string global_frame_;
   std::string local_frame_;
-  mbf_utility::RobotInformation robot_info_;
+  mbf_utility::RobotInformation::ConstPtr robot_info_;
   AbstractPlannerExecution::Ptr planner_execution_;
   PlannerAction planner_action_;
   std::shared_ptr<rclcpp_action::Server<mbf_msgs::action::GetPath>> action_server_;

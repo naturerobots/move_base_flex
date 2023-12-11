@@ -65,7 +65,7 @@ class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath, Abstr
   PlannerAction(
       const rclcpp::Node::SharedPtr& node,
       const std::string &name,
-      const mbf_utility::RobotInformation &robot_info
+      const mbf_utility::RobotInformation::ConstPtr &robot_info
   );
 
   void runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &execution);

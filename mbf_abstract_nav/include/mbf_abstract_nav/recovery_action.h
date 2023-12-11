@@ -56,7 +56,7 @@ class RecoveryAction : public AbstractActionBase<mbf_msgs::action::Recovery, Abs
 
   typedef std::shared_ptr<RecoveryAction> Ptr;
 
-  RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation &robot_info);
+  RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation::ConstPtr &robot_info);
 
   void runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution &execution);
 

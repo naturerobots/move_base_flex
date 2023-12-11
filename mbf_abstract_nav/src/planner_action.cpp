@@ -48,7 +48,7 @@ namespace mbf_abstract_nav
 PlannerAction::PlannerAction(
     const rclcpp::Node::SharedPtr& node,
     const std::string &name,
-    const mbf_utility::RobotInformation &robot_info)
+    const mbf_utility::RobotInformation::ConstPtr &robot_info)
   : AbstractActionBase(node, name, robot_info)
 {
   // informative topics: current navigation goal
@@ -62,7 +62,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
   mbf_msgs::action::GetPath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::GetPath::Result>();
   geometry_msgs::msg::PoseStamped start_pose;
 
-  result->path.header.frame_id = robot_info_.getGlobalFrame();
+  result->path.header.frame_id = robot_info_->getGlobalFrame();
 
   double tolerance = goal.tolerance;
   bool use_start_pose = goal.use_start_pose;
@@ -79,7 +79,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
   else
   {
     // get the current robot pose
-    if (!robot_info_.getRobotPose(start_pose))
+    if (!robot_info_->getRobotPose(start_pose))
     {
       result->outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
       result->message = "Could not get the current robot pose!";
@@ -267,12 +267,12 @@ bool PlannerAction::transformPlanToGlobalFrame(const std::vector<geometry_msgs::
   for (iter = plan.begin(); iter != plan.end(); ++iter)
   {
     geometry_msgs::msg::PoseStamped global_pose;
-    tf_success = mbf_utility::transformPose(node_, robot_info_.getTransformListener(), robot_info_.getGlobalFrame(),
-                                            robot_info_.getTfTimeout(), *iter, global_pose);
+    tf_success = mbf_utility::transformPose(node_, robot_info_->getTransformListener(), robot_info_->getGlobalFrame(),
+                                            robot_info_->getTfTimeout(), *iter, global_pose);
     if (!tf_success)
     {
       RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), "Can not transform pose from the \"" << iter->header.frame_id << "\" frame into the \""
-                                                     << robot_info_.getGlobalFrame() << "\" frame !");
+                                                     << robot_info_->getGlobalFrame() << "\" frame !");
       return false;
     }
     global_plan.push_back(global_pose);

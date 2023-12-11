@@ -61,7 +61,7 @@ struct AbstractControllerExecutionFixture : public Test, public AbstractControll
 {
   AbstractControllerExecutionFixture()
     : AbstractControllerExecution("a name", AbstractController::Ptr(new AbstractControllerMock()),
-                                  *ROBOT_INFO, VEL_PUB, GOAL_PUB, NODE)
+                                  ROBOT_INFO, VEL_PUB, GOAL_PUB, NODE)
   {
   }
 
