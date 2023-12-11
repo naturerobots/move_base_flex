@@ -90,7 +90,7 @@ void ControllerAction::start(
   std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
   if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
-    boost::lock_guard<boost::mutex> goal_guard(goal_mtx_);
+    std::lock_guard<std::mutex> goal_guard(goal_mtx_);
     if ((slot_it->second.execution->getName() == goal_handle->get_goal()->controller ||
          goal_handle->get_goal()->controller.empty()) &&
          slot_it->second.goal_handle->is_active())
