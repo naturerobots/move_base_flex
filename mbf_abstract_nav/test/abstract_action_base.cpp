@@ -1,3 +1,6 @@
+#include <memory>
+#include <functional>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -12,7 +15,7 @@ using namespace mbf_abstract_nav;
 
 // mocked version of an execution
 struct MockedExecution : public AbstractExecutionBase {
-  typedef boost::shared_ptr<MockedExecution> Ptr;
+  typedef std::shared_ptr<MockedExecution> Ptr;
 
   MockedExecution(const mbf_utility::RobotInformation::ConstPtr& ri, const rclcpp::Node::SharedPtr& node) : AbstractExecutionBase("mocked_execution", ri, node) {}
 
@@ -50,9 +53,8 @@ TEST_F(AbstractActionBaseFixture, thread_stop)
 {
   unsigned char slot = 1;
   concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
-  concurrency_slots_[slot].thread_ptr =
-      threads_.create_thread(boost::bind(&AbstractActionBaseFixture::run, this,
-                                         boost::ref(concurrency_slots_[slot])));
+  concurrency_slots_[slot].thread_ptr = new std::thread(
+    std::bind(&AbstractActionBaseFixture::run, this, std::ref(concurrency_slots_[slot])));
 }
 
 using testing::Return;
@@ -68,9 +70,8 @@ TEST_F(AbstractActionBaseFixture, cancelAll)
 
     // set the in_use flag --> this should turn to false
     concurrency_slots_[slot].in_use = true;
-    concurrency_slots_[slot].thread_ptr = threads_.create_thread(
-        boost::bind(&AbstractActionBaseFixture::run, this,
-                    boost::ref(concurrency_slots_[slot])));
+    concurrency_slots_[slot].thread_ptr = new std::thread(
+        std::bind(&AbstractActionBaseFixture::run, this, std::ref(concurrency_slots_[slot])));
   }
 
   // cancel all of slots
