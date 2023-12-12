@@ -330,7 +330,7 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
 // void AbstractNavigationServer::reconfigure(
 //   mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
 // {
-//   boost::lock_guard<boost::mutex> guard(configuration_mutex_);
+//   std::lock_guard<std::mutex> guard(configuration_mutex_);
 // 
 //   // Make sure we have the original configuration the first time we're called, so we can restore it if needed
 //   if (!setup_reconfigure_)

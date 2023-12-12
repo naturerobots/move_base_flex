@@ -44,7 +44,6 @@
 #include <string>
 
 #include <memory>
-#include <boost/thread/recursive_mutex.hpp>
 
 #include <rclcpp_action/server.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -310,7 +309,7 @@ const std::string name_action_move_base = "move_base";
     ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
 
     //! configuration mutex for derived classes and other threads.
-    boost::mutex configuration_mutex_;
+    //std::mutex configuration_mutex_;
 
     ////! last configuration save
     //mbf_abstract_nav::MoveBaseFlexConfig last_config_;

@@ -38,8 +38,6 @@
  *
  */
 
-#include <boost/exception/diagnostic_information.hpp>
-
 #include <mbf_abstract_nav/abstract_recovery_execution.h>
 
 namespace mbf_abstract_nav
