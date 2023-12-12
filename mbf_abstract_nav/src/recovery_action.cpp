@@ -89,7 +89,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
           execution.cancel();
         }
 
-        //RCLCPP_DEBUG_STREAM_THROTTLE(rclcpp::get_logger(name_), clock, 3seconds , "Recovering with: " << goal.behavior); // TODO no node -> no clock? :(
+        RCLCPP_DEBUG_STREAM_THROTTLE(rclcpp::get_logger(name_), *node_->get_clock(), 3000 , "Recovering with: " << goal.behavior);
         break;
 
       case AbstractRecoveryExecution::CANCELED:
