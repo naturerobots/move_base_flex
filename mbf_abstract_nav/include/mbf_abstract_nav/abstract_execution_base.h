@@ -104,15 +104,6 @@ class AbstractExecutionBase
     */
    virtual void postRun(){};
 
-   /**
-    * @brief Optional implementaiton-specific configuration function.
-    */
-   virtual rcl_interfaces::msg::SetParametersResult reconfigure(std::vector<rclcpp::Parameter> parameters)
-   {
-      (void)parameters;
-      return rcl_interfaces::msg::SetParametersResult();
-   }
-
 protected:
   virtual void run(){};
 
