@@ -303,7 +303,7 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr AbstractNavigationServer::newPla
     const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
-                                                                      robot_info_, node_);//, last_config_); TODO reintroduce last_config feature?
+                                                                      robot_info_, node_);
 }
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::newControllerExecution(
@@ -311,7 +311,7 @@ mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::new
     const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
-                                                                         vel_pub_, goal_pub_, node_); // last_config_); TODO reintroduce last_config feature?
+                                                                         vel_pub_, goal_pub_, node_);
 }
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRecoveryExecution(
@@ -319,7 +319,7 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
     const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
-                                                                       robot_info_, node_); // last_config_); TODO reintroduce last_config feature?
+                                                                       robot_info_, node_);
 }
 
 void AbstractNavigationServer::stop(){
