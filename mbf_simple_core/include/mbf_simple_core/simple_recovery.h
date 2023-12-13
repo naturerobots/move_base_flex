@@ -53,7 +53,7 @@ namespace mbf_simple_core
 class SimpleRecovery : public mbf_abstract_core::AbstractRecovery{
  public:
 
-  typedef boost::shared_ptr< ::mbf_simple_core::SimpleRecovery> Ptr;
+  typedef std::shared_ptr< ::mbf_simple_core::SimpleRecovery> Ptr;
 
   /**
    * @brief Initialization function for the SimpleRecovery
@@ -80,8 +80,7 @@ class SimpleRecovery : public mbf_abstract_core::AbstractRecovery{
    */
   virtual ~SimpleRecovery(){}
 
- protected:
-  SimpleRecovery(){}
+  SimpleRecovery() = delete;
 
 };
 }  /* namespace mbf_simple_core */

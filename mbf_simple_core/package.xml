@@ -13,12 +13,14 @@
     <author email="spuetz@uos.de">Sebastian Pütz</author>
     <license>BSD-3</license>
 
-    <buildtool_depend>catkin</buildtool_depend>
-
     <depend>geometry_msgs</depend>
     <depend>mbf_abstract_core</depend>
     <depend>mbf_utility</depend>
     <depend>std_msgs</depend>
     <depend>tf2</depend>
+
+    <export>
+      <build_type>ament_cmake</build_type>
+    </export>
 
 </package>

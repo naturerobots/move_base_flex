@@ -51,7 +51,7 @@ namespace mbf_simple_core {
   class SimplePlanner : public mbf_abstract_core::AbstractPlanner{
     public:
 
-      typedef boost::shared_ptr< ::mbf_simple_core::SimplePlanner > Ptr;
+      typedef std::shared_ptr< ::mbf_simple_core::SimplePlanner > Ptr;
 
       /**
        * @brief Given a goal pose in the world, compute a plan
@@ -80,8 +80,8 @@ namespace mbf_simple_core {
        *         INTERNAL_ERROR  = 62
        *         71..99 are reserved as plugin specific errors
        */
-      virtual uint32_t makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,
-                                double tolerance, std::vector<geometry_msgs::PoseStamped> &plan, double &cost,
+      virtual uint32_t makePlan(const geometry_msgs::msg::PoseStamped &start, const geometry_msgs::msg::PoseStamped &goal,
+                                double tolerance, std::vector<geometry_msgs::msg::PoseStamped> &plan, double &cost,
                                 std::string &message) = 0;
 
       /**
@@ -102,8 +102,7 @@ namespace mbf_simple_core {
        */
       virtual ~SimplePlanner(){}
 
-    protected:
-      SimplePlanner(){}
+      SimplePlanner() = delete;
 
   };
 }  /* namespace mbf_simple_core */
