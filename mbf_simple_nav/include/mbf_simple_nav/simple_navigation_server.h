@@ -45,6 +45,10 @@
 #include <pluginlib/class_loader.hpp>
 #include <mbf_utility/types.h>
 
+#include <mbf_simple_core/simple_planner.h>
+#include <mbf_simple_core/simple_controller.h>
+#include <mbf_simple_core/simple_recovery.h>
+
 namespace mbf_simple_nav
 {
 /**
@@ -132,9 +136,9 @@ public:
   );
 
  private:
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractPlanner> planner_plugin_loader_;
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractController> controller_plugin_loader_;
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractRecovery> recovery_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimplePlanner> planner_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimpleController> controller_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimpleRecovery> recovery_plugin_loader_;
 };
 
 } /* namespace mbf_simple_nav */

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="2">
+    <name>mbf_simple_core</name>
+    <version>0.4.0</version>
+    <description>
+        This package provides common interfaces for navigation specific robot actions. It contains the SimplePlanner, SimpleController and SimpleRecovery interfaces. The interfaces have to be implemented by the plugins to make them available for Move Base Flex using the mbf_simple_nav navigation implementation. That implementation inherits the mbf_abstract_nav implementation and there is no binding to a map representation.
+    </description>
+    <url>http://wiki.ros.org/move_base_flex/mbf_costmap_core</url>
+    <maintainer email="spuetz@uos.de">Sebastian Pütz</maintainer>
+    <maintainer email="santos@magazino.eu">Jorge Santos</maintainer>
+    <author email="santos@magazino.eu">Jorge Santos</author>
+    <author email="spuetz@uos.de">Sebastian Pütz</author>
+    <license>BSD-3</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <depend>geometry_msgs</depend>
+    <depend>mbf_abstract_core</depend>
+    <depend>mbf_utility</depend>
+    <depend>std_msgs</depend>
+    <depend>tf2</depend>
+
+</package>

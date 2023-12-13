@@ -7,7 +7,11 @@ set(dependencies
   mbf_abstract_core
   mbf_abstract_nav
   mbf_msgs
+<<<<<<< HEAD
   mbf_utility
+=======
+  mbf_simple_core
+>>>>>>> magazino/feature/simple_nav
   nav_msgs
   pluginlib
   rclcpp
@@ -16,6 +20,38 @@ set(dependencies
   std_srvs
   tf2
   tf2_ros
+<<<<<<< HEAD
+=======
+  
+  )
+
+find_package(Boost COMPONENTS thread chrono REQUIRED)
+
+set(MBF_SIMPLE_SERVER_LIB mbf_simple_server)
+set(MBF_SIMPLE_SERVER_NODE mbf_simple_nav)
+
+catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES ${MBF_SIMPLE_SERVER_LIB}
+  CATKIN_DEPENDS
+  actionlib
+  actionlib_msgs
+  dynamic_reconfigure
+  geometry_msgs
+  mbf_abstract_core
+  mbf_abstract_nav
+  mbf_msgs
+  mbf_simple_core
+  nav_msgs
+  pluginlib
+  roscpp
+  std_msgs
+  std_srvs
+  tf
+  tf2
+  tf2_ros
+  DEPENDS Boost
+>>>>>>> magazino/feature/simple_nav
 )
 foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)

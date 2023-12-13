@@ -40,6 +40,7 @@
 
 #include "mbf_simple_nav/simple_navigation_server.h"
 
+
 namespace mbf_simple_nav
 {
 
@@ -76,6 +77,12 @@ bool SimpleNavigationServer::initializePlannerPlugin(
     const mbf_abstract_core::AbstractPlanner::Ptr&  planner_ptr
 )
 {
+  mbf_simple_core::SimplePlanner::Ptr simple_planner_ptr =
+      boost::static_pointer_cast<mbf_simple_core::SimplePlanner>(planner_ptr);
+  ROS_DEBUG_STREAM("Initialize planner \"" << name << "\".");
+
+  simple_planner_ptr->initialize(name);
+  ROS_DEBUG_STREAM("Planner plugin \"" << name << "\" initialized.");
   return true;
 }
 
@@ -103,6 +110,18 @@ bool SimpleNavigationServer::initializeControllerPlugin(
     const std::string& name,
     const mbf_abstract_core::AbstractController::Ptr& controller_ptr)
 {
+  ROS_DEBUG_STREAM("Initialize controller \"" << name << "\".");
+
+  if (!tf_listener_ptr_)
+  {
+    ROS_FATAL_STREAM("The tf listener pointer has not been initialized!");
+    return false;
+  }
+
+  mbf_simple_core::SimpleController::Ptr simple_controller_ptr =
+      boost::static_pointer_cast<mbf_simple_core::SimpleController>(controller_ptr);
+  simple_controller_ptr->initialize(name, tf_listener_ptr_.get());
+  ROS_DEBUG_STREAM("Controller plugin \"" << name << "\" initialized.");
   return true;
 }
 
@@ -127,6 +146,18 @@ bool SimpleNavigationServer::initializeRecoveryPlugin(
     const std::string& name,
     const mbf_abstract_core::AbstractRecovery::Ptr& behavior_ptr)
 {
+  ROS_DEBUG_STREAM("Initialize recovery behavior \"" << name << "\".");
+
+  if (!tf_listener_ptr_)
+  {
+    ROS_FATAL_STREAM("The tf listener pointer has not been initialized!");
+    return false;
+  }
+
+  mbf_simple_core::SimpleRecovery::Ptr behavior =
+      boost::static_pointer_cast<mbf_simple_core::SimpleRecovery>(behavior_ptr);
+  behavior->initialize(name, tf_listener_ptr_.get());
+  ROS_DEBUG_STREAM("Recovery behavior plugin \"" << name << "\" initialized.");
   return true;
 }
 
