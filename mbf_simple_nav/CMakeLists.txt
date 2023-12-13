@@ -31,9 +31,10 @@ add_library(${MBF_SIMPLE_SERVER_LIB}
 )
 ament_target_dependencies(${MBF_SIMPLE_SERVER_LIB} ${dependencies})
 
-#set(MBF_SIMPLE_SERVER_NODE mbf_simple_nav)
-#add_executable(${MBF_SIMPLE_SERVER_NODE} src/simple_server_node.cpp)
-#ament_target_dependencies(${MBF_SIMPLE_SERVER_NODE} ${dependencies})
+set(MBF_SIMPLE_SERVER_NODE mbf_simple_nav)
+add_executable(${MBF_SIMPLE_SERVER_NODE} src/simple_server_node.cpp)
+target_link_libraries(${MBF_SIMPLE_SERVER_NODE} ${MBF_SIMPLE_SERVER_LIB})
+ament_target_dependencies(${MBF_SIMPLE_SERVER_NODE} ${dependencies})
 
 install(TARGETS
   ${MBF_SIMPLE_SERVER_LIB} ${MBF_SIMPLE_SERVER_NODE}
