@@ -42,7 +42,7 @@
 #define MBF_SIMPLE_NAV__SIMPLE_NAVIGATION_SERVER_H_
 
 #include <mbf_abstract_nav/abstract_navigation_server.h>
-#include <pluginlib/class_loader.h>
+#include <pluginlib/class_loader.hpp>
 #include <mbf_utility/types.h>
 
 namespace mbf_simple_nav
@@ -68,7 +68,7 @@ public:
    * @brief Constructor
    * @param tf_listener_ptr Shared pointer to a common TransformListener
    */
-  SimpleNavigationServer(const TFPtr &tf_listener_ptr);
+  SimpleNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node);
 
   /**
    * @brief Destructor
