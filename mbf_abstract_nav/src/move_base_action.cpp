@@ -560,8 +560,9 @@ void MoveBaseAction::replanningThread()
   const auto update_preiod = std::chrono::milliseconds(5);
   rclcpp::Time last_replan_time(0, 0, node_->get_clock()->get_clock_type());
 
-  while (rclcpp::ok() && !replanning_thread_shutdown_)
+  while (rclcpp::ok() && !replanning_thread_shutdown_ && get_path_goal_handle_.valid())
   {
+    get_path_goal_handle_.wait(); // TODO maybe use wait_for and fail gracefully if the future does not return in time?
     const auto get_path_goal_handle = get_path_goal_handle_.get();
     if (get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_ACCEPTED || get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_EXECUTING)
     {
