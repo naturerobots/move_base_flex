@@ -196,19 +196,6 @@ public:
     slot.in_use = false;
   }
 
-  // TODO remove if not needed for restore defaults feature
-  // virtual void reconfigureAll(
-  //     mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
-  // {
-  //   std::lock_guard<std::mutex> guard(slot_map_mtx_);
-
-  //   typename ConcurrencyMap::iterator iter;
-  //   for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
-  //   {
-  //     iter->second.execution->reconfigure(config);
-  //   }
-  // }
-
   virtual void cancelAll()
   {
     RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Cancel all goals for \"" << name_ << "\".");
