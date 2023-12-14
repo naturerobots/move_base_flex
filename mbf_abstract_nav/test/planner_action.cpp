@@ -36,6 +36,8 @@ using mbf_abstract_nav::AbstractPlannerExecution;
 using mbf_msgs::action::GetPath;
 using ServerGoalHandlePtr = std::shared_ptr<rclcpp_action::ServerGoalHandle<GetPath>>;
 
+using namespace std::placeholders;
+
 using testing::_;
 using testing::DoAll;
 using testing::Eq;
@@ -61,9 +63,9 @@ struct PlannerActionFixture : public Test
     , planner_action_(node_, "action_name", robot_info_)
     , action_server_(rclcpp_action::create_server<mbf_msgs::action::GetPath>(
         node_, "planner_action_test_server", 
-        std::bind(&PlannerActionFixture::acceptGoal, this, std::placeholders::_1, std::placeholders::_2),
-        std::bind(&PlannerActionFixture::cancelAction, this, std::placeholders::_1),
-        std::bind(&PlannerActionFixture::callAction, this, std::placeholders::_1)))
+        std::bind(&PlannerActionFixture::acceptGoal, this, _1, _2),
+        std::bind(&PlannerActionFixture::cancelAction, this, _1),
+        std::bind(&PlannerActionFixture::callAction, this, _1)))
     , action_client_(rclcpp_action::create_client<mbf_msgs::action::GetPath>(node_, "planner_action_test_server"))
   {
     tf_->setUsingDedicatedThread(true);

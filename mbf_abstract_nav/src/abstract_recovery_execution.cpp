@@ -88,7 +88,7 @@ AbstractRecoveryExecution::reconfigure(std::vector<rclcpp::Parameter> parameters
       }
       catch (std::exception& ex)
       {
-        RCLCPP_ERROR(rclcpp::get_logger("AbstractRecoveryExecution"), "Failed to set recovery_patience: %s", ex.what());
+        RCLCPP_ERROR(node_handle_->get_logger(), "Failed to set recovery_patience: %s", ex.what());
         patience_ = rclcpp::Duration(0, 0);
       }
     }
@@ -117,7 +117,7 @@ bool AbstractRecoveryExecution::cancel()
   // returns false if cancel is not implemented or rejected by the recovery behavior (will run until completion)
   if (!behavior_->cancel())
   {
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"),"Cancel recovery behavior \"" << name_ << "\" failed or is not supported by the plugin. "
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(),"Cancel recovery behavior \"" << name_ << "\" failed or is not supported by the plugin. "
                         << "Wait until the current recovery behavior finished!");
     return false;
   }
@@ -128,7 +128,7 @@ bool AbstractRecoveryExecution::isPatienceExceeded()
 {
   std::lock_guard<std::mutex> guard1(conf_mtx_);
   std::lock_guard<std::mutex> guard2(time_mtx_);
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Patience: " << patience_.seconds() << ", start time: " << start_time_.seconds()
+  RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Patience: " << patience_.seconds() << ", start time: " << start_time_.seconds()
                                                                                     <<  " now: " << node_handle_->now().seconds());
   return !(patience_ == rclcpp::Duration(0, 0)) && (node_handle_->now() - start_time_ > patience_);
 }
@@ -155,7 +155,7 @@ void AbstractRecoveryExecution::run()
   }
   catch (...)
   {
-    RCLCPP_FATAL_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"),
+    RCLCPP_FATAL_STREAM(node_handle_->get_logger(),
                        "Unknown error occurred in recovery behavior");
     setState(INTERNAL_ERROR);
   }
@@ -164,7 +164,7 @@ void AbstractRecoveryExecution::run()
 
 void AbstractRecoveryExecution::handle_thread_interrupted()
 {
-  RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractRecoveryExecution"), "Recovery \"" << name_ << "\" interrupted!");
+  RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Recovery \"" << name_ << "\" interrupted!");
   setState(STOPPED);
   condition_.notify_one();
 }

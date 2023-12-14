@@ -45,19 +45,21 @@
 namespace mbf_abstract_nav
 {
 
+using namespace std::placeholders;
+
 AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node)
     : tf_listener_ptr_(tf_listener_ptr), node_(node),
       planner_plugin_manager_("planners",
-          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, std::placeholders::_1),
-          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2),
           node),
       controller_plugin_manager_("controllers",
-          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, std::placeholders::_1),
-          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2),
           node),
       recovery_plugin_manager_("recovery_behaviors",
-          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, std::placeholders::_1),
-          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, std::placeholders::_1, std::placeholders::_2),
+          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
+          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2),
           node)
 {
   node_->declare_parameter<double>("tf_timeout", 3.0);
@@ -83,30 +85,30 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   action_server_get_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::GetPath>(
     node_,
     name_action_get_path,
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, std::placeholders::_1),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, std::placeholders::_1));
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, _1, _2),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, _1),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, _1));
 
   action_server_exe_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::ExePath>(
     node_,
     name_action_exe_path,
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalExePath, this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, std::placeholders::_1),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, std::placeholders::_1));
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalExePath, this, _1, _2),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionExePath, this, _1),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionExePath, this, _1));
 
   action_server_recovery_ptr_ = rclcpp_action::create_server<mbf_msgs::action::Recovery>(
     node_,
     name_action_recovery,
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRecovery, this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, std::placeholders::_1),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, std::placeholders::_1));
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRecovery, this, _1, _2),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRecovery, this, _1),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRecovery, this, _1));
 
   action_server_move_base_ptr_ = rclcpp_action::create_server<mbf_msgs::action::MoveBase>(
     node_,
     name_action_move_base,
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, std::placeholders::_1),
-    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, std::placeholders::_1));
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, _1, _2),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1));
 }
 
 void AbstractNavigationServer::initializeServerComponents()

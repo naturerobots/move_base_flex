@@ -224,7 +224,7 @@ bool AbstractPlannerExecution::start(const geometry_msgs::msg::PoseStamped& star
   const geometry_msgs::msg::Point& s = start.pose.position;
   const geometry_msgs::msg::Point& g = goal.pose.position;
 
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution") ,"Start planning from the start pose: ("
+  RCLCPP_DEBUG_STREAM(node_handle_->get_logger() ,"Start planning from the start pose: ("
                    << s.x << ", " << s.y << ", " << s.z << ")"
                    << " to the goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
 
@@ -239,7 +239,7 @@ bool AbstractPlannerExecution::cancel()
   // returns false if cancel is not implemented or rejected by the planner (will run until completion)
   if (!planner_->cancel())
   {
-    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+    RCLCPP_DEBUG_STREAM(node_handle_->get_logger(),
                         "Cancel planning failed or is not supported by the plugin. "
                             << "Wait until the current planning finished!");
 
@@ -291,10 +291,10 @@ void AbstractPlannerExecution::run()
       {
         has_new_start_ = false;
         current_start = start_;
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "A new start pose is available. Planning "
+        RCLCPP_INFO_STREAM(node_handle_->get_logger(), "A new start pose is available. Planning "
                                                                            "with the new start pose!");
         const geometry_msgs::msg::Point& s = start_.pose.position;
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+        RCLCPP_INFO_STREAM(node_handle_->get_logger(),
                            "New planning start pose: (" << s.x << ", " << s.y << ", " << s.z << ")");
       }
       if (has_new_goal_)
@@ -303,10 +303,10 @@ void AbstractPlannerExecution::run()
         current_goal = goal_;
         current_tolerance = tolerance_;
         RCLCPP_INFO_STREAM(
-            rclcpp::get_logger("AbstractControllerExecution"),
+            node_handle_->get_logger(),
             "A new goal pose is available. Planning with the new goal pose and the tolerance: " << current_tolerance);
         const geometry_msgs::msg::Point& g = goal_.pose.position;
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+        RCLCPP_INFO_STREAM(node_handle_->get_logger(),
                            "New goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
       }
 
@@ -314,7 +314,7 @@ void AbstractPlannerExecution::run()
       goal_start_mtx_.unlock();
       if (cancel_)
       {
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "The global planner has been canceled!");
+        RCLCPP_INFO_STREAM(node_handle_->get_logger(), "The global planner has been canceled!");
         setState(CANCELED, true);
       }
       else
@@ -328,13 +328,13 @@ void AbstractPlannerExecution::run()
 
         if (cancel_ && !isPatienceExceeded())
         {
-          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+          RCLCPP_INFO_STREAM(node_handle_->get_logger(),
                              "The planner \"" << name_ << "\" has been canceled!");  // but not due to patience exceeded
           setState(CANCELED, true);
         }
         else if (success)
         {
-          RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Successfully found a plan.");
+          RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Successfully found a plan.");
 
           std::lock_guard<std::mutex> plan_mtx_guard(plan_mtx_);
           plan_ = plan;
@@ -348,7 +348,7 @@ void AbstractPlannerExecution::run()
         }
         else if (max_retries_ > 0 && ++retries > max_retries_)
         {
-          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+          RCLCPP_INFO_STREAM(node_handle_->get_logger(),
                              "Planning reached max retries! (" << max_retries_ << ")");
           setState(MAX_RETRIES, true);
         }
@@ -358,19 +358,19 @@ void AbstractPlannerExecution::run()
           // disabled, and on the navigation server when the planner doesn't return for more that patience seconds.
           // In the second case, the navigation server has tried to cancel planning (possibly without success, as
           // old nav_core-based planners do not support canceling), and we add here the fact to the log for info
-          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),
+          RCLCPP_INFO_STREAM(node_handle_->get_logger(),
                              "Planning patience (" << patience_.seconds() << "s) has been exceeded"
                                                    << (cancel_ ? "; planner canceled!" : ""));
           setState(PAT_EXCEEDED, true);
         }
         else if (max_retries_ == 0)
         {
-          RCLCPP_INFO_STREAM(rclcpp::get_logger("AbstractControllerExecution"),"Planning could not find a plan!");
+          RCLCPP_INFO_STREAM(node_handle_->get_logger(),"Planning could not find a plan!");
           setState(NO_PLAN_FOUND, true);
         }
         else
         {
-          RCLCPP_DEBUG_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planning could not find a plan! "
+          RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Planning could not find a plan! "
                                                                                 "Trying again...");
         }
       }
@@ -378,7 +378,7 @@ void AbstractPlannerExecution::run()
   }
   catch (...)
   {
-    RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Unknown error occurred.");
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Unknown error occurred.");
     setState(INTERNAL_ERROR, true);
     condition_.notify_all();
   }
@@ -387,7 +387,7 @@ void AbstractPlannerExecution::run()
 void AbstractPlannerExecution::handle_thread_interrupted()
 {
   // Planner thread interrupted; probably we have exceeded planner patience
-  RCLCPP_WARN_STREAM(rclcpp::get_logger("AbstractControllerExecution"), "Planner thread interrupted!");
+  RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Planner thread interrupted!");
   setState(STOPPED, true);
   condition_.notify_all();
 }
