@@ -48,7 +48,7 @@ namespace mbf_abstract_nav
 ControllerAction::ControllerAction(
     const rclcpp::Node::SharedPtr &node,
     const std::string &action_name,
-    const mbf_utility::RobotInformation &robot_info)
+    const mbf_utility::RobotInformation::ConstPtr &robot_info)
     : AbstractActionBase(node, action_name, robot_info)
 {
   rcl_interfaces::msg::ParameterDescriptor oscillation_timeout_description;
@@ -90,7 +90,7 @@ void ControllerAction::start(
   std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
   if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
-    boost::lock_guard<boost::mutex> goal_guard(goal_mtx_);
+    std::lock_guard<std::mutex> goal_guard(goal_mtx_);
     if ((slot_it->second.execution->getName() == goal_handle->get_goal()->controller ||
          goal_handle->get_goal()->controller.empty()) &&
          slot_it->second.goal_handle->is_active())
@@ -187,7 +187,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
   {
     // goal_handle could change between the loop cycles due to adapting the plan
     // with a new goal received for the same concurrency slot
-    if (!robot_info_.getRobotPose(robot_pose_))
+    if (!robot_info_->getRobotPose(robot_pose_))
     {
       controller_active = false;
       fillExePathResult(mbf_msgs::action::ExePath::Result::TF_ERROR, "Could not get the robot pose!", *result);

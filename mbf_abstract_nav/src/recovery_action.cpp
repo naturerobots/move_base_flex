@@ -45,7 +45,7 @@
 namespace mbf_abstract_nav
 {
 
-RecoveryAction::RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation &robot_info)
+RecoveryAction::RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation::ConstPtr &robot_info)
   : AbstractActionBase(node, name, robot_info){}
 
 void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution &execution)

@@ -52,7 +52,7 @@ const double AbstractControllerExecution::DEFAULT_CONTROLLER_FREQUENCY = 100.0; 
 
 AbstractControllerExecution::AbstractControllerExecution(
     const std::string& name, const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
-    const mbf_utility::RobotInformation& robot_info,
+    const mbf_utility::RobotInformation::ConstPtr& robot_info,
     const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
     const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
     const rclcpp::Node::SharedPtr& node_handle)
@@ -241,7 +241,7 @@ bool AbstractControllerExecution::checkCmdVelIgnored(const geometry_msgs::msg::T
     return false;
   }
 
-  const bool robot_stopped = robot_info_.isRobotStopped(1e-3, 1e-3);
+  const bool robot_stopped = robot_info_->isRobotStopped(1e-3, 1e-3);
 
   // compute linear and angular velocity magnitude
   const double cmd_linear = std::hypot(cmd_vel.linear.x, cmd_vel.linear.y);
@@ -443,7 +443,7 @@ bool AbstractControllerExecution::cancel()
         }
 
         // compute robot pose and store it in robot_pose_
-        if (!robot_info_.getRobotPose(robot_pose_))
+        if (!robot_info_->getRobotPose(robot_pose_))
         {
           message_ = "Could not get the robot pose";
           outcome_ = mbf_msgs::action::ExePath::Result::TF_ERROR;
@@ -480,7 +480,7 @@ bool AbstractControllerExecution::cancel()
           // call plugin to compute the next velocity command
           geometry_msgs::msg::TwistStamped cmd_vel_stamped;
           geometry_msgs::msg::TwistStamped robot_velocity;
-          robot_info_.getRobotVelocity(robot_velocity);
+          robot_info_->getRobotVelocity(robot_velocity);
           outcome_ = computeVelocityCmd(robot_pose_, robot_velocity, cmd_vel_stamped, message_ = "");
 
           if (outcome_ < 10)
@@ -557,10 +557,10 @@ bool AbstractControllerExecution::cancel()
           }
           if (!loop_rate_->sleep())
           {
-            // TODO: find ROS2 equivalent or port for r.cycletime()
-            // ROS_WARN_THROTTLE(1.0, "Calculation needs too much time to stay in the moving frequency! (%.4fs >
-            // %.4fs)",
-            //                   loop_rate_.cycleTime().toSec(), loop_rate_.expectedCycleTime().toSec());
+            // TODO: missing loop_rate_->cycletime ROS2 equivalent for conveniently outputting the duration of the loop-to-blame.
+            RCLCPP_WARN_THROTTLE( node_->get_logger(), *node_->get_clock(), 1000, 
+              "Calculation needs too much time to stay in the moving frequency! ( took longer than %.4fs)",
+              std::chrono::duration<float>(loop_rate_->period()).count());
           }
           // Simulate boost::this_thread::interruption_point()
           {

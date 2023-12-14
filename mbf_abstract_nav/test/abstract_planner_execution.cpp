@@ -28,7 +28,7 @@ using testing::Test;
 
 TFPtr TF_PTR;
 rclcpp::Node::SharedPtr NODE;
-mbf_utility::RobotInformation::Ptr ROBOT_INFO_PTR;
+mbf_utility::RobotInformation::ConstPtr ROBOT_INFO_PTR;
 
 void init_global_objects()
 {
@@ -47,7 +47,7 @@ struct AbstractPlannerExecutionFixture : public Test, public AbstractPlannerExec
 
   AbstractPlannerExecutionFixture()
     : AbstractPlannerExecution("foo", AbstractPlanner::Ptr{ new AbstractPlannerMock() },
-                               *ROBOT_INFO_PTR, NODE)
+                               ROBOT_INFO_PTR, NODE)
   {
   }
 
@@ -57,7 +57,6 @@ struct AbstractPlannerExecutionFixture : public Test, public AbstractPlannerExec
     join();
 
     // re-init global objects, otherwise we get crashes due to multiple declaration of params
-    // TODO we should rid ourselves of global objects
     init_global_objects();
   }
 };

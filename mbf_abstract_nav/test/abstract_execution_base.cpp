@@ -10,7 +10,7 @@ using namespace mbf_abstract_nav;
 // it basically runs until we cancel it.
 struct DummyExecutionBase : public AbstractExecutionBase
 {
-  DummyExecutionBase(const std::string& _name, const mbf_utility::RobotInformation& ri, const rclcpp::Node::SharedPtr& node)
+  DummyExecutionBase(const std::string& _name, const mbf_utility::RobotInformation::ConstPtr& ri, const rclcpp::Node::SharedPtr& node)
     : AbstractExecutionBase(_name, ri, node)
   {
   }
@@ -45,12 +45,12 @@ struct AbstractExecutionFixture : public Test
 {
   rclcpp::Node::SharedPtr node_;
   TFPtr tf_;
-  mbf_utility::RobotInformation ri_;
+  mbf_utility::RobotInformation::ConstPtr ri_;
   DummyExecutionBase impl_;
   AbstractExecutionFixture() :
     node_(std::make_shared<rclcpp::Node>("test")), 
     tf_(new TF(node_->get_clock())),
-    ri_(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), ""), 
+    ri_(new mbf_utility::RobotInformation(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), "")), 
     impl_("foo", ri_, node_)
   {
   }

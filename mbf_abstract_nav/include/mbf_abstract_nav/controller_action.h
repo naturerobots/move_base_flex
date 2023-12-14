@@ -43,6 +43,8 @@
 
 #include <rclcpp_action/server.hpp>
 
+#include <mutex>
+
 #include <mbf_msgs/action/exe_path.hpp>
 #include <mbf_utility/robot_information.h>
 
@@ -59,9 +61,8 @@ class ControllerAction :
 
   typedef std::shared_ptr<ControllerAction> Ptr;
 
-    
   ControllerAction(const rclcpp::Node::SharedPtr &node, const std::string &name,
-                   const mbf_utility::RobotInformation &robot_info);
+                   const mbf_utility::RobotInformation::ConstPtr &robot_info);
 
   /**
    * @brief Start controller action.
@@ -92,7 +93,7 @@ protected:
         uint32_t outcome, const std::string &message,
         mbf_msgs::action::ExePath::Result &result);
 
-  boost::mutex goal_mtx_; ///< lock goal handle for updating it while running
+  std::mutex goal_mtx_; ///< lock goal handle for updating it while running
   geometry_msgs::msg::PoseStamped robot_pose_; ///< Current robot pose
   geometry_msgs::msg::PoseStamped goal_pose_;  ///< Current goal pose
 

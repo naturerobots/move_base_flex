@@ -90,7 +90,7 @@ namespace mbf_abstract_nav
      * @param config Initial configuration for this execution
      */
     AbstractPlannerExecution(const std::string& name, const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr,
-                             const mbf_utility::RobotInformation& robot_info,
+                             const mbf_utility::RobotInformation::ConstPtr& robot_info,
                              const rclcpp::Node::SharedPtr& node_handle);
 
     /**
