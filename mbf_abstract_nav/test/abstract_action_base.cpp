@@ -19,9 +19,6 @@ struct MockedExecution : public AbstractExecutionBase {
 
   MockedExecution(const mbf_utility::RobotInformation::ConstPtr& ri, const rclcpp::Node::SharedPtr& node) : AbstractExecutionBase("mocked_execution", ri, node) {}
 
-
-protected:
-  MOCK_METHOD0(run, void());
   MOCK_METHOD(bool, cancel, (), (override));
 };
 
