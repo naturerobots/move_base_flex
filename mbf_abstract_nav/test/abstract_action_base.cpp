@@ -43,7 +43,9 @@ struct AbstractActionBaseFixture
   {
   }
 
-  void runImpl(GoalHandle &goal_handle, MockedExecution &execution) {}
+  void runImpl(GoalHandle &goal_handle, MockedExecution &execution) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50)); // runs in action thread(s)
+  }
 };
 
 TEST_F(AbstractActionBaseFixture, thread_stop)
@@ -62,8 +64,7 @@ TEST_F(AbstractActionBaseFixture, cancelAll)
   for (unsigned char slot = 0; slot != 10; ++slot) {
     concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
     // set the expectation
-    EXPECT_CALL(*concurrency_slots_[slot].execution, cancel())
-        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*concurrency_slots_[slot].execution, cancel()).WillRepeatedly(Return(true));
 
     // set the in_use flag --> this should turn to false
     concurrency_slots_[slot].in_use = true;
