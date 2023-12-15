@@ -22,6 +22,7 @@ struct MockedExecution : public AbstractExecutionBase {
   MOCK_METHOD(bool, cancel, (), (override));
 };
 
+using testing::Return;
 using testing::Test;
 
 // fixture with access to the AbstractActionBase's internals
@@ -47,16 +48,6 @@ struct AbstractActionBaseFixture
       std::this_thread::sleep_for(std::chrono::milliseconds(50)); // runs in action thread(s)
   }
 };
-
-TEST_F(AbstractActionBaseFixture, thread_stop)
-{
-  unsigned char slot = 1;
-  concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
-  concurrency_slots_[slot].thread_ptr = new std::thread(
-    std::bind(&AbstractActionBaseFixture::run, this, std::ref(concurrency_slots_[slot])));
-}
-
-using testing::Return;
 
 TEST_F(AbstractActionBaseFixture, cancelAll)
 {
