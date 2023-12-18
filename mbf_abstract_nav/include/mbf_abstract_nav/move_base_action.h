@@ -40,10 +40,11 @@
 #ifndef MBF_ABSTRACT_NAV__MOVE_BASE_ACTION_H_
 #define MBF_ABSTRACT_NAV__MOVE_BASE_ACTION_H_
 
+#include <thread>
+
 #include <rclcpp/duration.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
-#include <boost/thread.hpp> // TODO std thread?
 
 #include <mbf_msgs/action/move_base.hpp>
 #include <mbf_msgs/action/get_path.hpp>
@@ -167,7 +168,7 @@ class MoveBaseAction
   rclcpp::Duration replanning_period_;
 
   //! Replanning thread, running permanently
-  boost::thread replanning_thread_;
+  std::thread replanning_thread_;
   bool replanning_thread_shutdown_;
 
   //! true, if recovery behavior for the MoveBase action is enabled.

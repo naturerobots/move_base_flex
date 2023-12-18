@@ -87,7 +87,7 @@ void ControllerAction::start(
 
   bool update_plan = false;
   slot_map_mtx_.lock();
-  std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
+  ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
   if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
     std::lock_guard<std::mutex> goal_guard(goal_mtx_);

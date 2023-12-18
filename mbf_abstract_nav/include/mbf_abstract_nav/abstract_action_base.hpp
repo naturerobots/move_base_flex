@@ -39,10 +39,8 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 
-#include <boost/thread/thread.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/lock_guard.hpp>
-#include <boost/bind.hpp>
+#include <mutex>
+#include <functional>
 
 #include <memory>
 #include <string>
@@ -82,15 +80,14 @@ class AbstractActionBase
   struct ConcurrencySlot{
     ConcurrencySlot() : thread_ptr(NULL), in_use(false){}
     typename Execution::Ptr execution;
-    boost::thread* thread_ptr; ///< Owned pointer to a thread
+    std::thread* thread_ptr; ///< Owned pointer to a thread
     GoalHandlePtr goal_handle;
     bool in_use;
   };
 
 protected:
   // not part of the public interface
-  // todo change to unordered_map
-  typedef std::map<uint8_t, ConcurrencySlot> ConcurrencyMap;
+  typedef std::unordered_map<uint8_t, ConcurrencySlot> ConcurrencyMap;
 public:
 
   /**
@@ -112,18 +109,15 @@ public:
   {
     // cleanup threads used on executions
     // note: cannot call cancelAll, since our mutex is not recursive
-    boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
-    typename ConcurrencyMap::iterator slot_it = concurrency_slots_.begin();
-    for (; slot_it != concurrency_slots_.end(); ++slot_it)
+    std::lock_guard<std::mutex> guard(slot_map_mtx_);
+    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
     {
       // cancel and join all spawned threads.
-      slot_it->second.execution->cancel();
-      if(slot_it->second.thread_ptr->joinable())
-        slot_it->second.thread_ptr->join();
-
-      // unregister and delete
-      threads_.remove_thread(slot_it->second.thread_ptr);
-      delete slot_it->second.thread_ptr;
+      concurrency_slot.execution->cancel();
+      if(concurrency_slot.thread_ptr->joinable())
+        concurrency_slot.thread_ptr->join();
+      // delete
+      delete concurrency_slot.thread_ptr;
     }
   }
 
@@ -132,7 +126,7 @@ public:
       typename Execution::Ptr execution_ptr
   )
   {
-    uint8_t slot = goal_handle->get_goal()->concurrency_slot;
+    uint8_t slot_id = goal_handle->get_goal()->concurrency_slot;
 
     if(goal_handle->is_canceling())
     {
@@ -141,29 +135,28 @@ public:
     }
     else
     {
-      boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
-      typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
-      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
-        // if there is already a plugin running on the same slot, cancel it
-        slot_it->second.execution->cancel();
-
-        // TODO + WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
-        if (slot_it->second.thread_ptr->joinable()) {
-          slot_it->second.thread_ptr->join();
-        }
-      }
-
-      if(slot_it != concurrency_slots_.end())
+      std::lock_guard<std::mutex> guard(slot_map_mtx_);
+      typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot_id);
+      if (slot_it != concurrency_slots_.end())
       {
+        if (slot_it->second.in_use) {
+          // if there is already a plugin running on the same slot, cancel it
+          slot_it->second.execution->cancel();
+
+          // TODO + WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
+          if (slot_it->second.thread_ptr->joinable()) {
+            slot_it->second.thread_ptr->join();
+          }
+        }
+
         // cleanup previous execution; otherwise we will leak threads
-        threads_.remove_thread(concurrency_slots_[slot].thread_ptr);
-        delete concurrency_slots_[slot].thread_ptr;
+        delete concurrency_slots_[slot_id].thread_ptr;
       }
       else
       {
         // create a new map object in order to avoid costly lookups
         // note: currently unchecked
-        slot_it = concurrency_slots_.insert(std::make_pair(slot, ConcurrencySlot())).first;
+        slot_it = concurrency_slots_.insert(std::make_pair(slot_id, ConcurrencySlot())).first;
       }
 
       // fill concurrency slot with the new goal handle, execution, and working thread
@@ -171,8 +164,8 @@ public:
       slot_it->second.goal_handle = goal_handle;
       //slot_it->second.goal_handle->setAccepted(); TODO can probably be removed; accept should happen in handle_goal. Check: Move cancel-same-slot code there as well?
       slot_it->second.execution = execution_ptr;
-      slot_it->second.thread_ptr =
-        threads_.create_thread(boost::bind(&AbstractActionBase::run, this, boost::ref(concurrency_slots_[slot])));
+      slot_it->second.thread_ptr = new std::thread(
+        std::bind(&AbstractActionBase::run, this, std::ref(concurrency_slots_[slot_id])));
     }
   }
 
@@ -180,7 +173,7 @@ public:
   {
     uint8_t slot = goal_handle->get_goal()->concurrency_slot;
 
-    boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
+    std::lock_guard<std::mutex> guard(slot_map_mtx_);
     typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
     if (slot_it != concurrency_slots_.end())
     {
@@ -207,7 +200,7 @@ public:
   // virtual void reconfigureAll(
   //     mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
   // {
-  //   boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
+  //   std::lock_guard<std::mutex> guard(slot_map_mtx_);
 
   //   typename ConcurrencyMap::iterator iter;
   //   for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
@@ -219,13 +212,15 @@ public:
   virtual void cancelAll()
   {
     RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Cancel all goals for \"" << name_ << "\".");
-    boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
-    typename ConcurrencyMap::iterator iter;
-    for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
+    std::lock_guard<std::mutex> guard(slot_map_mtx_);
+    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
     {
-      iter->second.execution->cancel();
+      concurrency_slot.execution->cancel();
     }
-    threads_.join_all();
+    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
+    {
+      if (concurrency_slot.thread_ptr->joinable()) concurrency_slot.thread_ptr->join();
+    }
   }
 
 protected:
@@ -233,10 +228,9 @@ protected:
   const std::string name_;
   mbf_utility::RobotInformation::ConstPtr robot_info_;
 
-  boost::thread_group threads_;
   ConcurrencyMap concurrency_slots_;
 
-  boost::mutex slot_map_mtx_;
+  std::mutex slot_map_mtx_;
 
 };
 
