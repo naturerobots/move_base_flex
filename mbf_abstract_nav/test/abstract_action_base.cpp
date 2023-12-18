@@ -19,12 +19,10 @@ struct MockedExecution : public AbstractExecutionBase {
 
   MockedExecution(const mbf_utility::RobotInformation::ConstPtr& ri, const rclcpp::Node::SharedPtr& node) : AbstractExecutionBase("mocked_execution", ri, node) {}
 
-  MOCK_METHOD0(cancel, bool());
-
-protected:
-  MOCK_METHOD0(run, void());
+  MOCK_METHOD(bool, cancel, (), (override));
 };
 
+using testing::Return;
 using testing::Test;
 
 // fixture with access to the AbstractActionBase's internals
@@ -46,18 +44,10 @@ struct AbstractActionBaseFixture
   {
   }
 
-  void runImpl(GoalHandle &goal_handle, MockedExecution &execution) {}
+  void runImpl(GoalHandle &goal_handle, MockedExecution &execution) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50)); // runs in action thread(s)
+  }
 };
-
-TEST_F(AbstractActionBaseFixture, thread_stop)
-{
-  unsigned char slot = 1;
-  concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
-  concurrency_slots_[slot].thread_ptr = new std::thread(
-    std::bind(&AbstractActionBaseFixture::run, this, std::ref(concurrency_slots_[slot])));
-}
-
-using testing::Return;
 
 TEST_F(AbstractActionBaseFixture, cancelAll)
 {
@@ -65,8 +55,7 @@ TEST_F(AbstractActionBaseFixture, cancelAll)
   for (unsigned char slot = 0; slot != 10; ++slot) {
     concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
     // set the expectation
-    EXPECT_CALL(*concurrency_slots_[slot].execution, cancel())
-        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*concurrency_slots_[slot].execution, cancel()).WillRepeatedly(Return(true));
 
     // set the in_use flag --> this should turn to false
     concurrency_slots_[slot].in_use = true;

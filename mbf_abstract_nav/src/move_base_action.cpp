@@ -563,12 +563,11 @@ void MoveBaseAction::replanningThread()
   while (rclcpp::ok() && !replanning_thread_shutdown_)
   {
     const auto get_path_goal_handle = get_path_goal_handle_.get();
-    if (get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_ACCEPTED || get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_EXECUTING) // ->getState().isDone() : if PENDING or ACTIVE TODO rm comment
+    if (get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_ACCEPTED || get_path_goal_handle->get_status() == rclcpp_action::GoalStatus::STATUS_EXECUTING)
     {
       const auto get_path_result_future = action_client_get_path_->async_get_result(get_path_goal_handle);
       if (get_path_result_future.wait_for(update_preiod) == std::future_status::ready)
       {
-        //actionlib::SimpleClientGoalState state = action_client_get_path_.getState();
         const auto get_path_result = get_path_result_future.get();
         if (get_path_result.code == rclcpp_action::ResultCode::SUCCEEDED && replanningActive())
         {
