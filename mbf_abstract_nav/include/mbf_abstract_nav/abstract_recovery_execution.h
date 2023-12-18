@@ -178,6 +178,8 @@ namespace mbf_abstract_nav
 
     //! the node handle ptr
     rclcpp::Node::SharedPtr node_handle_;
+
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
   };
 
 } /* namespace mbf_abstract_nav */

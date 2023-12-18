@@ -109,10 +109,6 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, _1, _2),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1));
-
-  // XXX note that we don't start a dynamic reconfigure server, to avoid colliding with the one possibly created by
-  // the base class. If none, it should call startDynamicReconfigureServer method to start the one defined here for
-  // providing just the abstract server parameters
 }
 
 void AbstractNavigationServer::initializeServerComponents()
@@ -309,7 +305,7 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr AbstractNavigationServer::newPla
     const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
-                                                                      robot_info_, node_);//, last_config_); TODO reintroduce last_config feature?
+                                                                      robot_info_, node_);
 }
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::newControllerExecution(
@@ -317,7 +313,7 @@ mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::new
     const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
-                                                                         vel_pub_, goal_pub_, node_); // last_config_); TODO reintroduce last_config feature?
+                                                                         vel_pub_, goal_pub_, node_);
 }
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRecoveryExecution(
@@ -325,37 +321,8 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRe
     const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
   return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
-                                                                       robot_info_, node_); // last_config_); TODO reintroduce last_config feature?
+                                                                       robot_info_, node_);
 }
-
-// TODO add restore_defaults functionality again
-// void AbstractNavigationServer::reconfigure(
-//   mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
-// {
-//   std::lock_guard<std::mutex> guard(configuration_mutex_);
-// 
-//   // Make sure we have the original configuration the first time we're called, so we can restore it if needed
-//   if (!setup_reconfigure_)
-//   {
-//     default_config_ = config;
-//     setup_reconfigure_ = true;
-//   }
-// 
-//   
-//   if (config.restore_defaults)
-//   {
-//     config = default_config_;
-//     // if someone sets restore defaults on the parameter server, prevent looping
-//     config.restore_defaults = false;
-//   }
-// TODO can probably be removed - composite classes can use node handle to register callbacks for reacting on param changes themselves.
-//   planner_action_->reconfigureAll(config, level);
-//   controller_action_->reconfigureAll(config, level);
-//   recovery_action_->reconfigureAll(config, level);
-//   move_base_action_->reconfigure(config, level);
-// 
-//   last_config_ = config;
-// }
 
 void AbstractNavigationServer::stop(){
   planner_action_->cancelAll();

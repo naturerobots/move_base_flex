@@ -21,9 +21,6 @@ include_directories(
   include
 )
 
-# TODO install python via ament_cmake
-#ament_python_install_package(${PROJECT_NAME})
-
 set(MBF_ABSTRACT_SERVER_LIB mbf_abstract_server)
 add_library(${MBF_ABSTRACT_SERVER_LIB} SHARED
   src/controller_action.cpp

@@ -281,14 +281,6 @@ const std::string name_action_move_base = "move_base";
     bool transformPlanToGlobalFrame(std::vector<geometry_msgs::msg::PoseStamped> &plan,
                                     std::vector<geometry_msgs::msg::PoseStamped> &global_plan);
 
-    /**
-     * @brief Reconfiguration method called by dynamic reconfigure
-     * @param config Configuration parameters. See the MoveBaseFlexConfig definition.
-     * @param level bit mask, which parameters are set.
-     */
-    //void reconfigure(mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level);
-    // TODO restore defaults feature
-
     //! Ptr to node for logging, params and communication with other nodes
     rclcpp::Node::SharedPtr node_;
 
@@ -307,18 +299,6 @@ const std::string name_action_move_base = "move_base";
 
     //! shared pointer to the MoveBase action server
     ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
-
-    //! configuration mutex for derived classes and other threads.
-    //std::mutex configuration_mutex_;
-
-    ////! last configuration save
-    //mbf_abstract_nav::MoveBaseFlexConfig last_config_;
-
-    ////! the default parameter configuration save
-    //mbf_abstract_nav::MoveBaseFlexConfig default_config_;
-
-    //! true, if the dynamic reconfigure has been setup.
-    bool setup_reconfigure_;
 
     //! the robot frame, to get the current robot pose in the global_frame_
     std::string robot_frame_;

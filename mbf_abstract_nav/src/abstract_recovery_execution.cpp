@@ -62,6 +62,8 @@ AbstractRecoveryExecution::AbstractRecoveryExecution(const std::string& name,
   double patience;
   node_handle_->get_parameter("recovery_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
+
+  dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(std::bind(&AbstractRecoveryExecution::reconfigure, this, std::placeholders::_1));
 }
 
 AbstractRecoveryExecution::~AbstractRecoveryExecution()

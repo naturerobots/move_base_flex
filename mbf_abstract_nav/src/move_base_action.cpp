@@ -84,7 +84,6 @@ MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::s
   , replanning_period_(0, 0)
   , replanning_thread_(std::bind(&MoveBaseAction::replanningThread, this))
 { 
-  // TODO check, if parameterizable values get instantly set via reconfigure callback; otherwise, get param here. (Note that the params are declared in controller_action.)
   action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path");
   action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path");
   action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery");
