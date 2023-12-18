@@ -1,0 +1,3 @@
+# Move Base Flex Simple Navigation Core  {#mainpage}
+
+This package provides common interfaces for navigation specific robot actions. It contains the SimplePlanner, SimpleController and SimpleRecovery interfaces. The interfaces have to be implemented by the plugins to make them available for Move Base Flex using the mbf_simple_nav navigation implementation. That implementation inherits the [mbf_abstract_nav](wiki.ros.org/mbf_abstract_nav) implementation and binds the system to no map representation.

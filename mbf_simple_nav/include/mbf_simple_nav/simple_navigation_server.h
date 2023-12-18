@@ -42,8 +42,12 @@
 #define MBF_SIMPLE_NAV__SIMPLE_NAVIGATION_SERVER_H_
 
 #include <mbf_abstract_nav/abstract_navigation_server.h>
-#include <pluginlib/class_loader.h>
+#include <pluginlib/class_loader.hpp>
 #include <mbf_utility/types.h>
+
+#include <mbf_simple_core/simple_planner.h>
+#include <mbf_simple_core/simple_controller.h>
+#include <mbf_simple_core/simple_recovery.h>
 
 namespace mbf_simple_nav
 {
@@ -68,7 +72,7 @@ public:
    * @brief Constructor
    * @param tf_listener_ptr Shared pointer to a common TransformListener
    */
-  SimpleNavigationServer(const TFPtr &tf_listener_ptr);
+  SimpleNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node);
 
   /**
    * @brief Destructor
@@ -132,9 +136,9 @@ public:
   );
 
  private:
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractPlanner> planner_plugin_loader_;
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractController> controller_plugin_loader_;
-  pluginlib::ClassLoader<mbf_abstract_core::AbstractRecovery> recovery_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimplePlanner> planner_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimpleController> controller_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimpleRecovery> recovery_plugin_loader_;
 };
 
 } /* namespace mbf_simple_nav */

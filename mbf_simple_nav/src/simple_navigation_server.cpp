@@ -40,36 +40,34 @@
 
 #include "mbf_simple_nav/simple_navigation_server.h"
 
+
 namespace mbf_simple_nav
 {
 
-SimpleNavigationServer::SimpleNavigationServer(const TFPtr &tf_listener_ptr) :
-    mbf_abstract_nav::AbstractNavigationServer(tf_listener_ptr),
-    planner_plugin_loader_("mbf_abstract_core", "mbf_abstract_core::AbstractPlanner"),
-    controller_plugin_loader_("mbf_abstract_core", "mbf_abstract_core::AbstractController"),
-    recovery_plugin_loader_("mbf_abstract_core", "mbf_abstract_core::AbstractRecovery")
+SimpleNavigationServer::SimpleNavigationServer(const TFPtr& tf_listener_ptr, const rclcpp::Node::SharedPtr& node)
+  : mbf_abstract_nav::AbstractNavigationServer(tf_listener_ptr, node)
+  , planner_plugin_loader_("mbf_simple_core", "mbf_simple_core::SimplePlanner")
+  , controller_plugin_loader_("mbf_simple_core", "mbf_simple_core::SimpleController")
+  , recovery_plugin_loader_("mbf_simple_core", "mbf_simple_core::SimpleRecovery")
 {
   // initialize all plugins
   initializeServerComponents();
-
-  // start all action servers
-  startActionServers();
 }
 
 mbf_abstract_core::AbstractPlanner::Ptr SimpleNavigationServer::loadPlannerPlugin(const std::string& planner_type)
 {
   mbf_abstract_core::AbstractPlanner::Ptr planner_ptr;
-  ROS_INFO("Load global planner plugin.");
+  RCLCPP_INFO(node_->get_logger(), "Load global planner plugin.");
   try
   {
-    planner_ptr = planner_plugin_loader_.createInstance(planner_type);
+    planner_ptr = planner_plugin_loader_.createSharedInstance(planner_type);
   }
   catch (const pluginlib::PluginlibException &ex)
   {
-    ROS_FATAL_STREAM("Failed to load the " << planner_type << " planner, are you sure it is properly registered"
+    RCLCPP_FATAL_STREAM(node_->get_logger(), "Failed to load the " << planner_type << " planner, are you sure it is properly registered"
                                            << " and that the containing library is built? Exception: " << ex.what());
   }
-  ROS_INFO("Global planner plugin loaded.");
+  RCLCPP_INFO(node_->get_logger(), "Global planner plugin loaded.");
 
   return planner_ptr;
 }
@@ -79,6 +77,12 @@ bool SimpleNavigationServer::initializePlannerPlugin(
     const mbf_abstract_core::AbstractPlanner::Ptr&  planner_ptr
 )
 {
+  mbf_simple_core::SimplePlanner::Ptr simple_planner_ptr =
+      std::static_pointer_cast<mbf_simple_core::SimplePlanner>(planner_ptr);
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Initialize planner \"" << name << "\".");
+
+  simple_planner_ptr->initialize(name);
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Planner plugin \"" << name << "\" initialized.");
   return true;
 }
 
@@ -87,15 +91,15 @@ mbf_abstract_core::AbstractController::Ptr SimpleNavigationServer::loadControlle
     const std::string& controller_type)
 {
   mbf_abstract_core::AbstractController::Ptr controller_ptr;
-  ROS_DEBUG("Load controller plugin.");
+  RCLCPP_DEBUG(node_->get_logger(), "Load controller plugin.");
   try
   {
-    controller_ptr = controller_plugin_loader_.createInstance(controller_type);
-    ROS_INFO_STREAM("MBF_core-based local planner plugin " << controller_type << " loaded");
+    controller_ptr = controller_plugin_loader_.createSharedInstance(controller_type);
+    RCLCPP_INFO_STREAM(node_->get_logger(), "MBF_core-based local planner plugin " << controller_type << " loaded");
   }
   catch (const pluginlib::PluginlibException &ex)
   {
-    ROS_FATAL_STREAM("Failed to load the " << controller_type
+    RCLCPP_FATAL_STREAM(node_->get_logger(), "Failed to load the " << controller_type
                                            << " local planner, are you sure it's properly registered"
                                            << " and that the containing library is built? Exception: " << ex.what());
   }
@@ -106,6 +110,18 @@ bool SimpleNavigationServer::initializeControllerPlugin(
     const std::string& name,
     const mbf_abstract_core::AbstractController::Ptr& controller_ptr)
 {
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Initialize controller \"" << name << "\".");
+
+  if (!tf_listener_ptr_)
+  {
+    RCLCPP_FATAL_STREAM(node_->get_logger(), "The tf listener pointer has not been initialized!");
+    return false;
+  }
+
+  mbf_simple_core::SimpleController::Ptr simple_controller_ptr =
+      std::static_pointer_cast<mbf_simple_core::SimpleController>(controller_ptr);
+  simple_controller_ptr->initialize(name, tf_listener_ptr_.get());
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Controller plugin \"" << name << "\" initialized.");
   return true;
 }
 
@@ -116,12 +132,11 @@ mbf_abstract_core::AbstractRecovery::Ptr SimpleNavigationServer::loadRecoveryPlu
 
   try
   {
-    recovery_ptr = boost::static_pointer_cast<mbf_abstract_core::AbstractRecovery>(
-        recovery_plugin_loader_.createInstance(recovery_type));
+    recovery_ptr = recovery_plugin_loader_.createSharedInstance(recovery_type);
   }
   catch (pluginlib::PluginlibException &ex)
   {
-    ROS_FATAL_STREAM("Failed to load the " << recovery_type << " recovery behavior, are you sure it's properly registered"
+    RCLCPP_FATAL_STREAM(node_->get_logger(), "Failed to load the " << recovery_type << " recovery behavior, are you sure it's properly registered"
                                            << " and that the containing library is built? Exception: " << ex.what());
   }
   return recovery_ptr;
@@ -131,6 +146,18 @@ bool SimpleNavigationServer::initializeRecoveryPlugin(
     const std::string& name,
     const mbf_abstract_core::AbstractRecovery::Ptr& behavior_ptr)
 {
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Initialize recovery behavior \"" << name << "\".");
+
+  if (!tf_listener_ptr_)
+  {
+    RCLCPP_FATAL_STREAM(node_->get_logger(), "The tf listener pointer has not been initialized!");
+    return false;
+  }
+
+  mbf_simple_core::SimpleRecovery::Ptr behavior =
+      std::static_pointer_cast<mbf_simple_core::SimpleRecovery>(behavior_ptr);
+  behavior->initialize(name, tf_listener_ptr_.get());
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Recovery behavior plugin \"" << name << "\" initialized.");
   return true;
 }
 

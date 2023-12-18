@@ -39,31 +39,25 @@
  */
 
 #include "mbf_simple_nav/simple_navigation_server.h"
+
 #include <mbf_utility/types.h>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_listener.h>
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "mbf_simple_server");
+  rclcpp::init(argc, argv);
 
-  typedef boost::shared_ptr<mbf_simple_nav::SimpleNavigationServer> SimpleNavigationServerPtr;
-
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("mbf_simple_server");
+  node->declare_parameter<double>("tf_cache_time", 10.0);
 
   double cache_time;
-  private_nh.param("tf_cache_time", cache_time, 10.0);
-
-#ifdef USE_OLD_TF
-  TFPtr tf_listener_ptr(new TF(nh, ros::Duration(cache_time), true));
-#else
-  TFPtr tf_listener_ptr(new TF(ros::Duration(cache_time)));
+  node->get_parameter("tf_cache_time", cache_time);
+  TFPtr tf_listener_ptr(new TF(node->get_clock(), tf2::durationFromSec(cache_time)));
   tf2_ros::TransformListener tf_listener(*tf_listener_ptr);
-#endif 
-  
-  SimpleNavigationServerPtr controller_ptr(
-      new mbf_simple_nav::SimpleNavigationServer(tf_listener_ptr));
 
-  ros::spin();
+  mbf_simple_nav::SimpleNavigationServer simple_nav_server(tf_listener_ptr, node);
+
+  rclcpp::spin(node);
   return EXIT_SUCCESS;
 }
