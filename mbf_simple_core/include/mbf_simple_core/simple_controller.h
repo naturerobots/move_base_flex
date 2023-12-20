@@ -118,7 +118,7 @@ namespace mbf_simple_core {
        * @param name The name to give this instance of the local planner
        * @param tf A pointer to a transform listener
        */
-      virtual void initialize(std::string name, ::TF *tf) = 0;
+      virtual void initialize(const std::string name, ::TF* tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
 
       /**
        * @brief  Virtual destructor for the interface

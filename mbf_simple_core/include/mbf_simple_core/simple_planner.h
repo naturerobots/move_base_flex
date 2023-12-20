@@ -95,7 +95,7 @@ namespace mbf_simple_core {
        * @brief Initialization function for the SimplePlanner
        * @param name The name of this planner
        */
-      virtual void initialize(std::string name) = 0;
+      virtual void initialize(const std::string name, const rclcpp::Node::SharedPtr& node_handle) = 0;
 
       /**
        * @brief  Virtual destructor for the interface
