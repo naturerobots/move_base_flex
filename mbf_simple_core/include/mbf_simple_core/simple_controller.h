@@ -41,6 +41,7 @@
 
 #include <mbf_abstract_core/abstract_controller.h>
 #include <mbf_utility/types.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace mbf_simple_core {
   /**
@@ -117,6 +118,7 @@ namespace mbf_simple_core {
        * @brief Constructs the local planner
        * @param name The name to give this instance of the local planner
        * @param tf A pointer to a transform listener
+       * @param node_handle A pointer to the ROS node handle
        */
       virtual void initialize(const std::string name, ::TF* tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
 

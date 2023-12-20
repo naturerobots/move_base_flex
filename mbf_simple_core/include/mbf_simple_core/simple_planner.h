@@ -40,6 +40,7 @@
 #define MBF_SIMPLE_CORE__SIMPLE_PLANNER_H_
 
 #include <mbf_abstract_core/abstract_planner.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace mbf_simple_core {
   /**
@@ -94,6 +95,7 @@ namespace mbf_simple_core {
       /**
        * @brief Initialization function for the SimplePlanner
        * @param name The name of this planner
+       * @param node_handle Node handle instance
        */
       virtual void initialize(const std::string name, const rclcpp::Node::SharedPtr& node_handle) = 0;
 
