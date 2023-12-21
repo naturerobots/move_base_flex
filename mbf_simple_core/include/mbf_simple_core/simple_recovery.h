@@ -41,6 +41,7 @@
 
 #include <mbf_abstract_core/abstract_recovery.h>
 #include <mbf_utility/types.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace mbf_simple_core
 {
