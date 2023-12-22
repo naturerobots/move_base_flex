@@ -275,8 +275,6 @@ namespace mbf_abstract_nav
     virtual bool safetyCheck() { return true; };
 
   private:
-
-
     /**
      * @brief Publishes a velocity command with zero values to stop the robot.
      */
@@ -391,6 +389,7 @@ namespace mbf_abstract_nav
     //dynamic configuration
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 
+  protected:
     //node handle
     rclcpp::Node::SharedPtr node_handle_;
   };
