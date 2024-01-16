@@ -69,24 +69,58 @@ AbstractControllerExecution::AbstractControllerExecution(
 {
 
   // reconfigurable parameters
-  node_handle_->declare_parameter("force_stop_at_goal", false);
-  node_handle_->declare_parameter("force_stop_on_retry", true);
-  node_handle_->declare_parameter("force_stop_on_cancel",false);
-  node_handle_->declare_parameter("mbf_tolerance_check", false);
-  node_handle_->declare_parameter("dist_tolerance", 0.1);
-  node_handle_->declare_parameter("angle_tolerance", M_PI / 18.0);
-  node_handle_->declare_parameter("tf_timeout", 1.0);
-  node_handle_->declare_parameter("cmd_vel_ignored_tolerance", 5.0);
+
+  if(!node_handle_->has_parameter("force_stop_at_goal"))
+  {
+    node_handle_->declare_parameter("force_stop_at_goal", false);
+  }
+  if(!node_handle_->has_parameter("force_stop_on_retry"))
+  {
+    node_handle_->declare_parameter("force_stop_on_retry", true);
+  }
+  if(!node_handle_->has_parameter("force_stop_on_cancel"))
+  {
+    node_handle_->declare_parameter("force_stop_on_cancel", false);
+  }
+  if(!node_handle_->has_parameter("mbf_tolerance_check"))
+  {
+    node_handle_->declare_parameter("mbf_tolerance_check", false);
+  }
+  if(!node_handle_->has_parameter("dist_tolerance"))
+  {
+    node_handle_->declare_parameter("dist_tolerance", 0.1);
+  }
+  if(!node_handle_->has_parameter("angle_tolerance"))
+  {
+    node_handle_->declare_parameter("angle_tolerance", M_PI / 18.0);
+  }
+  if(!node_handle_->has_parameter("tf_timeout"))
+  {
+    node_handle_->declare_parameter("tf_timeout", 1.0);
+  }
+  if(!node_handle_->has_parameter("cmd_vel_ignored_tolerance"))
+  {
+    node_handle_->declare_parameter("cmd_vel_ignored_tolerance", 5.0);
+  }
 
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
-  param_desc.description = "The rate in Hz at which to run the control loop and send velocity commands to the base";
-  node_handle_->declare_parameter("controller_frequency", rclcpp::ParameterValue(20.0), param_desc);
-  param_desc.description = "How long the controller will wait in seconds without receiving a valid control before "
+  if (!node_handle_->has_parameter("controller_frequency"))
+  {
+    param_desc.description = "The rate in Hz at which to run the control loop and send velocity commands to the base";
+    node_handle_->declare_parameter("controller_frequency", rclcpp::ParameterValue(20.0), param_desc);
+  }
+  if (!node_handle_->has_parameter("controller_patience"))
+  {
+    param_desc.description = "How long the controller will wait in seconds without receiving a valid control before "
                            "giving up";
-  node_handle_->declare_parameter("controller_patience", rclcpp::ParameterValue(5.0), param_desc);
-  param_desc.description ="How many times we will recall the controller in an attempt to find a valid command before giving up";
-      node_handle_->declare_parameter("controller_max_retries", rclcpp::ParameterValue(-1), param_desc);
-
+    node_handle_->declare_parameter("controller_patience", rclcpp::ParameterValue(5.0), param_desc);
+    
+  }
+  if(!node_handle_->has_parameter("controller_max_retries"))
+  {
+    param_desc.description ="How many times we will recall the controller in an attempt to find a valid command before giving up";
+    node_handle_->declare_parameter("controller_max_retries", rclcpp::ParameterValue(-1), param_desc);
+  }
   node_handle_->get_parameter("robot_frame", robot_frame_);
   node_handle_->get_parameter("map_frame", global_frame_);
   node_handle_->get_parameter("force_stop_at_goal", force_stop_at_goal_);

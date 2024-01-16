@@ -55,13 +55,18 @@ AbstractRecoveryExecution::AbstractRecoveryExecution(const std::string& name,
 {
   // dynamically reconfigurable parameters
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
-  param_desc.description = "How much time we allow recovery behaviors to complete before canceling (or stopping if "
-                           "cancel fails";
-  node_handle_->declare_parameter("recovery_patience", rclcpp::ParameterValue(15.0), param_desc);
 
+  if (!node_handle_->has_parameter("recovery_patience"))
+  {  
+    param_desc.description = "How much time we allow recovery behaviors to complete before canceling (or stopping if "
+                           "cancel fails";
+    node_handle_->declare_parameter("recovery_patience", rclcpp::ParameterValue(15.0), param_desc);
+  }
+  
   double patience;
   node_handle_->get_parameter("recovery_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
+
 
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(std::bind(&AbstractRecoveryExecution::reconfigure, this, std::placeholders::_1));
 }
