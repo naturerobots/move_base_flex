@@ -104,7 +104,8 @@ namespace mbf_simple_core {
        */
       virtual ~SimplePlanner(){}
 
-      SimplePlanner() = delete;
+      protected:
+        SimplePlanner() {};
 
   };
 }  /* namespace mbf_simple_core */

@@ -82,7 +82,8 @@ class SimpleRecovery : public mbf_abstract_core::AbstractRecovery{
    */
   virtual ~SimpleRecovery(){}
 
-  SimpleRecovery() = delete;
+  protected:
+    SimpleRecovery() {};
 
 };
 }  /* namespace mbf_simple_core */

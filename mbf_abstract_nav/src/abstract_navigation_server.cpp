@@ -62,6 +62,8 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
           std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2),
           node)
 {
+  node_->declare_parameter<std::string>("global_frame", "map");
+  node_->declare_parameter<std::string>("robot_frame", "base_link");
   node_->declare_parameter<double>("tf_timeout", 3.0);
   node_->declare_parameter<std::string>("odom_topic", "odom");
 
@@ -150,7 +152,7 @@ rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from
 
 rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal) 
 {
-  return handleGoalHelper(goal->planner, controller_plugin_manager_, rclcpp::get_logger("get_path"));
+  return handleGoalHelper(goal->planner, planner_plugin_manager_, rclcpp::get_logger("get_path"));
 }
 
 rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal)

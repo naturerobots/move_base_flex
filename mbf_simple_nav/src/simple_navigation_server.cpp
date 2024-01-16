@@ -95,13 +95,13 @@ mbf_abstract_core::AbstractController::Ptr SimpleNavigationServer::loadControlle
   try
   {
     controller_ptr = controller_plugin_loader_.createSharedInstance(controller_type);
-    RCLCPP_INFO_STREAM(node_->get_logger(), "MBF_core-based local planner plugin " << controller_type << " loaded");
+    RCLCPP_INFO_STREAM(node_->get_logger(), "MBF_core-based controller plugin " << controller_type << " loaded");
   }
   catch (const pluginlib::PluginlibException &ex)
   {
-    RCLCPP_FATAL_STREAM(node_->get_logger(), "Failed to load the " << controller_type
-                                           << " local planner, are you sure it's properly registered"
-                                           << " and that the containing library is built? Exception: " << ex.what());
+    RCLCPP_FATAL_STREAM(node_->get_logger(),
+                        "Failed to load the " << controller_type << " controller, are you sure it's properly registered"
+                                              << " and that the containing library is built? Exception: " << ex.what());
   }
   return controller_ptr;
 }

@@ -8,15 +8,13 @@ set(dependencies
  mbf_abstract_core
  mbf_utility
  tf2
+ pluginlib
 )
 
 foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)
 endforeach()
 
-include_directories(
-  include
-)
 
 install(DIRECTORY include/
   DESTINATION include
