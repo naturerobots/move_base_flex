@@ -141,7 +141,7 @@ TEST_F(PlannerActionFixture, emptyPath)
   EXPECT_EQ(result.result->outcome, mbf_msgs::action::GetPath::Result::EMPTY_PATH);
 }
 
-TEST_F(PlannerActionFixture, success)
+TEST_F(PlannerActionFixture, plansPathSuccessfully)
 {
   // create a dummy path
   std::vector<geometry_msgs::msg::PoseStamped> path(10);
