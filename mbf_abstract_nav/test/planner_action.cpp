@@ -166,6 +166,36 @@ TEST_F(PlannerActionFixture, plansPathSuccessfully)
   EXPECT_EQ(result.result->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
 }
 
+TEST_F(PlannerActionFixture, plansConsecutivePathsSuccessfully)
+{
+  // create a dummy path
+  std::vector<geometry_msgs::msg::PoseStamped> path(10);
+  // set the frame such that we can skip tf
+  for (size_t ii = 0; ii != path.size(); ++ii)
+  {
+    path[ii].header.frame_id = global_frame_;
+    path[ii].pose.orientation.w = 1;
+  }
+
+  // goal with frames, so we can pass tf-lookup
+  mbf_msgs::action::GetPath::Goal goal;
+  goal.use_start_pose = true;
+  goal.start_pose.header.frame_id = goal.target_pose.header.frame_id = global_frame_;
+
+  // setup the expectation
+  EXPECT_CALL(*planner_, makePlan(_, _, _, _, _, _)).WillOnce(DoAll(SetArgReferee<3>(path), Return(0)));
+
+  rclcpp_action::Client<mbf_msgs::action::GetPath>::WrappedResult result;
+  sendGoalAndWaitForResult(goal, result);
+  EXPECT_EQ(result.code, rclcpp_action::ResultCode::SUCCEEDED);
+  EXPECT_EQ(result.result->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
+  rclcpp_action::Client<mbf_msgs::action::GetPath>::WrappedResult result2;
+  // calling the getPath action a second time should also work
+  sendGoalAndWaitForResult(goal, result2);
+  EXPECT_EQ(result2.code, rclcpp_action::ResultCode::SUCCEEDED);
+  EXPECT_EQ(result2.result->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
+}
+
 TEST_F(PlannerActionFixture, tfError)
 {
   // create a dummy path
