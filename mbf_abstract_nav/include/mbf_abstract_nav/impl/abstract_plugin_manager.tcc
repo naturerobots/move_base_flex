@@ -52,62 +52,64 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
 )
   : param_name_(param_name), loadPlugin_(loadPlugin), initPlugin_(initPlugin), node_handle_(node_handle)
 {
+  const auto plugin_names = node_handle_->declare_parameter(param_name, std::vector<std::string>());
+
+  const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
+  for(std::string name : plugin_names)
+  {
+    node_handle_->declare_parameter(name +".type", ros_param_type);
+  }
+
 }
 
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::loadPlugins()
 {
-  std::map<std::string, rclcpp::Parameter> plugin_param_list;
-
-  if (!node_handle_->get_parameters(param_name_, plugin_param_list))
+  //std::map<std::string, rclcpp::Parameter> plugin_param_list;
+  std::vector<std::string> plugin_param_list;
+  node_handle_->get_parameter(param_name_, plugin_param_list);
+  
+  if (plugin_param_list.empty())
   {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured! - Use the param \"" 
         << param_name_ << "\", which must be a list of tuples with a name and a type.");
     return false;
   }
 
-  try
+  for (const std::string& name : plugin_param_list)
   {
-    for (const auto &[name, param] : plugin_param_list)
+
+    if (plugins_.find(name) != plugins_.end())
     {
-      std::string type = param.get_type_name();
+      RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
+                    name.c_str());
+      return false;
+    }
 
-      if (plugins_.find(name) != plugins_.end())
-      {
-        RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
-                     name.c_str());
-        return false;
-      }
-      typename PluginType::Ptr plugin_ptr = loadPlugin_(type);
-      if(plugin_ptr && initPlugin_(name, plugin_ptr))
-      {
+    std::string type;
+    node_handle_->get_parameter(name + ".type", type);
 
-        plugins_.insert(
-            std::pair<std::string, typename PluginType::Ptr>(name, plugin_ptr));
+    typename PluginType::Ptr plugin_ptr = loadPlugin_(type);
+    if(plugin_ptr && initPlugin_(name, plugin_ptr))
+    {
 
-        plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
-        names_.push_back(name);
+      plugins_.insert(
+          std::pair<std::string, typename PluginType::Ptr>(name, plugin_ptr));
 
-        RCLCPP_INFO(node_handle_->get_logger(),
-                   "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
-                   name.c_str());
-      }
-      else
-      {
-        RCLCPP_ERROR(node_handle_->get_logger(), "Could not load the plugin with the name \"%s\" and the type \"%s\"!",
-                     name.c_str(), type.c_str());
-      }
+      plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
+      names_.push_back(name);
+
+      RCLCPP_INFO(node_handle_->get_logger(),
+                  "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
+                  name.c_str());
+    }
+    else
+    {
+      RCLCPP_ERROR(node_handle_->get_logger(), "Could not load the plugin with the name \"%s\" and the type \"%s\"!",
+                    name.c_str(), type.c_str());
     }
   }
-  catch (const std::exception& e)
-  {
-    RCLCPP_ERROR(node_handle_->get_logger(),
-                 "Invalid parameter structure. The \"%s\" parameter has to be a list of structs with fields \"name\" "
-                 "and \"type\" of !",
-                 param_name_.c_str());
-    RCLCPP_ERROR(node_handle_->get_logger(), "%s", e.what());
-    return false;
-  }
+  
   // is there any plugin in the map?
   return plugins_.empty() ? false : true;
 }

@@ -58,13 +58,21 @@ AbstractPlannerExecution::AbstractPlannerExecution(const std::string& name,
   , patience_(0, 0)
 {
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
-  param_desc.description = "The rate in Hz at which to run the planning loop";
-  node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0.0), param_desc);
-  param_desc.description = "How long the planner will wait in seconds in an attempt to find a valid plan before giving up";
-  node_handle_->declare_parameter("planner_patience", rclcpp::ParameterValue(5.0), param_desc);
-  param_desc.description = "How many times we will recall the planner in an attempt to find a valid plan before giving up";
-  node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
-
+  if(!node_handle_->has_parameter("planner_frequency"))
+  {
+    param_desc.description = "The rate in Hz at which to run the planning loop";
+    node_handle_->declare_parameter("planner_frequency", rclcpp::ParameterValue(0.0), param_desc);
+  }
+  if(!node_handle_->has_parameter("planner_patience"))
+  {
+    param_desc.description = "How long the planner will wait in seconds in an attempt to find a valid plan before giving up";
+    node_handle_->declare_parameter("planner_patience", rclcpp::ParameterValue(5.0), param_desc);
+  }
+  if(!node_handle_->has_parameter("planner_max_retries"))
+  {
+    param_desc.description = "How many times we will recall the planner in an attempt to find a valid plan before giving up";
+    node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
+  }
   node_handle_->get_parameter("planner_frequency", frequency_);
   double patience;
   node_handle_->get_parameter("planner_patience", patience);

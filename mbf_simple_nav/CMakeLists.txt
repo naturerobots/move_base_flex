@@ -26,6 +26,10 @@ include_directories(
   include
 )
 
+install(DIRECTORY include/
+  DESTINATION include
+)
+
 set(MBF_SIMPLE_SERVER_LIB mbf_simple_server)
 add_library(${MBF_SIMPLE_SERVER_LIB}
   src/simple_navigation_server.cpp
@@ -49,11 +53,10 @@ install(TARGETS
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY include/
-  DESTINATION include
-)
-
-ament_export_include_directories(include)
+ament_export_include_directories(
+  include
+  )
 ament_export_libraries(${MBF_SIMPLE_SERVER_LIB})
 ament_export_dependencies(${dependencies})
+
 ament_package()

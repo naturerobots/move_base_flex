@@ -142,13 +142,12 @@ public:
         if (slot_it->second.in_use) {
           // if there is already a plugin running on the same slot, cancel it
           slot_it->second.execution->cancel();
-
-          // TODO + WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
-          if (slot_it->second.thread_ptr->joinable()) {
-            slot_it->second.thread_ptr->join();
-          }
         }
 
+        // TODO + WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
+        if (slot_it->second.thread_ptr->joinable()) {
+          slot_it->second.thread_ptr->join();
+        }
         // cleanup previous execution; otherwise we will leak threads
         delete concurrency_slots_[slot_id].thread_ptr;
       }

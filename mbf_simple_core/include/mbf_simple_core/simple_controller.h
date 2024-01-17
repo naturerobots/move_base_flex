@@ -127,7 +127,8 @@ namespace mbf_simple_core {
        */
       virtual ~SimpleController(){}
 
-      SimpleController() = delete;
+      protected:
+        SimpleController() {};
 
   };
 }  /* namespace mbf_simple_core */
