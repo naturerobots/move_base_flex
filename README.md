@@ -1,5 +1,8 @@
 This repo is an internal hard fork of [Magazino's move_base_flex](https://github.com/magazino/move_base_flex), with our ROS2 migration changes on top.
-Mainly created in order to get a separate issues tracker. The `main` branch contains code that targets ROS2 `humble`.
+Mainly created in order to get a separate issues tracker.
+
+* The `main` branch contains code that targets ROS2 `humble`.
+* The `ros1` branch tracks code from [Magazino's move_base_flex](https://github.com/magazino/move_base_flex).
 
 # Move Base Flex: A Highly Flexible Navigation Framework:
 
