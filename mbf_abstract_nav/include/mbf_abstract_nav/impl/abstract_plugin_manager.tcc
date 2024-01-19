@@ -81,11 +81,7 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::loadPlugins()
 {
-  //std::map<std::string, rclcpp::Parameter> plugin_param_list;
-  std::vector<std::string> plugin_param_list;
-  node_handle_->get_parameter(param_name_, plugin_param_list);
-  
-  if (plugin_param_list.empty())
+  if (plugins_type_.size() == 0)
   {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured!"
       << " - Use the param \"" << param_name_ << "\", which must be a list of strings with plugin names. "
@@ -93,35 +89,30 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
     return false;
   }
 
-  for (const std::string& name : plugin_param_list)
+  for (const auto &[plugin_name, plugin_type] : plugins_type_)
   {
-
-    if (plugins_.find(name) != plugins_.end())
+    if (plugins_.find(plugin_name) != plugins_.end())
     {
       RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
-                    name.c_str());
+                    plugin_name.c_str());
       return false;
     }
 
-    std::string type;
-    node_handle_->get_parameter(name + ".type", type);
-
-    typename PluginType::Ptr plugin_ptr = loadPlugin_(type);
-    if(plugin_ptr && initPlugin_(name, plugin_ptr))
+    typename PluginType::Ptr plugin_ptr = loadPlugin_(plugin_type);
+    if(plugin_ptr && initPlugin_(plugin_name, plugin_ptr))
     {
-
       plugins_.insert(
-          std::pair<std::string, typename PluginType::Ptr>(name, plugin_ptr));
-      names_.push_back(name);
+          std::pair<std::string, typename PluginType::Ptr>(plugin_name, plugin_ptr));
+      names_.push_back(plugin_name);
 
       RCLCPP_INFO(node_handle_->get_logger(),
-                  "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
-                  name.c_str());
+                  "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", plugin_type.c_str(),
+                  plugin_name.c_str());
     }
     else
     {
       RCLCPP_ERROR(node_handle_->get_logger(), "Could not load the plugin with the name \"%s\" and the type \"%s\"!",
-                    name.c_str(), type.c_str());
+                    plugin_name.c_str(), plugin_type.c_str());
     }
   }
   
