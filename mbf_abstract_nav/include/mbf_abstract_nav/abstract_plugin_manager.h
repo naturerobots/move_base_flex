@@ -76,9 +76,9 @@ class AbstractPluginManager
 
  protected:
   //! maps plugin names to plugin types, as defined by ros params.
-  std::unordered_map<std::string, std::string> plugins_type_;
+  std::unordered_map<std::string, std::string> configured_plugins_;
   //! maps plugin names to instances of loaded plugins
-  std::unordered_map<std::string, typename PluginType::Ptr> plugins_;
+  std::unordered_map<std::string, typename PluginType::Ptr> loaded_plugins_;
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;

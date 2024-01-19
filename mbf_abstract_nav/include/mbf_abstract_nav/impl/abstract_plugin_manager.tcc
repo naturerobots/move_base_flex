@@ -71,7 +71,7 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
   for(const std::string& plugin_name : plugin_names)
   {
-    if (plugins_type_.find(plugin_name) != plugins_type_.end())
+    if (configured_plugins_.find(plugin_name) != configured_plugins_.end())
     {
       throw rclcpp::exceptions::InvalidParametersException("The plugin name " + plugin_name + " is used more than once. Plugin names must be unique!");
     }
@@ -79,11 +79,11 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
     const std::string plugin_type = node_handle_->declare_parameter(plugin_name + ".type", ros_param_type).get<std::string>();
 
     // populate map from plugin name to plugin type, which will be used in loadPlugins()
-    plugins_type_.emplace(plugin_name, plugin_type);
+    configured_plugins_.emplace(plugin_name, plugin_type);
   }
 
   // Output warning is no plugins are configured
-  if (plugins_type_.size() == 0)
+  if (configured_plugins_.size() == 0)
   {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured!"
       << " - Use the param \"" << param_name_ << "\", which must be a list of strings with plugin names. "
@@ -94,12 +94,12 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::loadPlugins()
 {
-  for (const auto &[plugin_name, plugin_type] : plugins_type_)
+  for (const auto &[plugin_name, plugin_type] : configured_plugins_)
   {
     typename PluginType::Ptr plugin_ptr = loadPlugin_(plugin_type);
     if(plugin_ptr && initPlugin_(plugin_name, plugin_ptr))
     {
-      plugins_.emplace(plugin_name, plugin_ptr);
+      loaded_plugins_.emplace(plugin_name, plugin_ptr);
 
       RCLCPP_INFO(node_handle_->get_logger(),
                   "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", plugin_type.c_str(),
@@ -113,15 +113,15 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
   }
   
   // is there any plugin in the map?
-  return plugins_.empty() ? false : true;
+  return loaded_plugins_.empty() ? false : true;
 }
 
 template <typename PluginType>
 std::vector<std::string> AbstractPluginManager<PluginType>::getLoadedNames() const
 {
   std::vector<std::string> names;
-  names.reserve(plugins_.size());
-  for (const auto& [plugin_name, _] : plugins_) {
+  names.reserve(loaded_plugins_.size());
+  for (const auto& [plugin_name, _] : loaded_plugins_) {
     names.push_back(plugin_name);
   }
   return names;
@@ -130,13 +130,13 @@ std::vector<std::string> AbstractPluginManager<PluginType>::getLoadedNames() con
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::hasPlugin(const std::string &name) const
 {
-  return static_cast<bool>(plugins_.count(name)); // returns 1 or 0;
+  return static_cast<bool>(loaded_plugins_.count(name)); // returns 1 or 0;
 }
 
 template <typename PluginType>
 std::string AbstractPluginManager<PluginType>::getType(const std::string &name) const
 {
-  const auto iter = plugins_type_.find(name);
+  const auto iter = configured_plugins_.find(name);
   return iter->second;
 }
 
@@ -145,8 +145,8 @@ template <typename PluginType>
 typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std::string &name)
 {
   typename std::unordered_map<std::string, typename PluginType::Ptr>::iterator new_plugin
-      = plugins_.find(name);
-  if(new_plugin != plugins_.end())
+      = loaded_plugins_.find(name);
+  if(new_plugin != loaded_plugins_.end())
   {
     RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Found plugin with the name \"" << name << "\".");
     return new_plugin->second;
@@ -160,8 +160,8 @@ typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std:
 
 template <typename PluginType>
 void AbstractPluginManager<PluginType>::clearPlugins() {
-  plugins_.clear();
-  plugins_type_.clear();
+  loaded_plugins_.clear();
+  configured_plugins_.clear();
 }
 
 } /* namespace mbf_abstract_nav */
