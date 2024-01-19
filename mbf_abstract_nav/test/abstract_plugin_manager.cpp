@@ -85,6 +85,16 @@ TEST_F(PluginManagerTest, throwsWhenAPluginIsMissingItsTypeMultiplePlugins)
     rclcpp::ParameterTypeException);
 }
 
+TEST_F(PluginManagerTest, throwsWhenPluginNamesAreNotUnique)
+{
+  const std::vector<std::string> plugin_names{"myPlugin", "myPlugin"};
+  EXPECT_THROW(
+    initNodeAndPluginManager(rclcpp::NodeOptions()
+      .append_parameter_override("test_plugins", plugin_names)
+      .append_parameter_override("myPlugin.type", "TestPlugin")),
+    rclcpp::exceptions::InvalidParametersException);
+}
+
 TEST_F(PluginManagerTest, populatesPluginNameToTypeMap)
 {
   const std::vector<std::string> plugin_names{"plugin1", "plugin2", "plugin3"};

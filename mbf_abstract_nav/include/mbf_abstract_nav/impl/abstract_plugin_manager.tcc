@@ -71,8 +71,13 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
   for(std::string plugin_name : plugin_names)
   {
-    // intentionally throws rclcpp::ParameterValue exception if plugin_name.type is not set
+    if (plugins_type_.find(plugin_name) != plugins_type_.end())
+    {
+      throw rclcpp::exceptions::InvalidParametersException("The plugin name " + plugin_name + " is used more than once. Plugin names must be unique!");
+    }
+    // This will throws rclcpp::ParameterValue exception if plugin_name.type is not set
     const std::string plugin_type = node_handle_->declare_parameter(plugin_name + ".type", ros_param_type).get<std::string>();
+
     // populate map from plugin name to plugin type, which will be used in loadPlugins()
     plugins_type_.insert(std::pair<std::string, std::string>(plugin_name, plugin_type));
   }
@@ -91,13 +96,6 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
 {
   for (const auto &[plugin_name, plugin_type] : plugins_type_)
   {
-    if (plugins_.find(plugin_name) != plugins_.end())
-    {
-      RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
-                    plugin_name.c_str());
-      return false;
-    }
-
     typename PluginType::Ptr plugin_ptr = loadPlugin_(plugin_type);
     if(plugin_ptr && initPlugin_(plugin_name, plugin_ptr))
     {
