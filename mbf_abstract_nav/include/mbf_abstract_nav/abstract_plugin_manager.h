@@ -40,6 +40,7 @@
 #define MBF_ABSTRACT_NAV__ABSTRACT_PLUGIN_MANAGER_H_
 
 #include <functional>
+#include <unordered_map>
 #include <rclcpp/rclcpp.hpp>
 
 namespace mbf_abstract_nav
@@ -75,9 +76,9 @@ class AbstractPluginManager
 
  protected:
   //! maps plugin names to plugin types, as defined by ros params.
-  std::map<std::string, std::string> plugins_type_;
+  std::unordered_map<std::string, std::string> plugins_type_;
   //! maps plugin names to instances of loaded plugins
-  std::map<std::string, typename PluginType::Ptr> plugins_;
+  std::unordered_map<std::string, typename PluginType::Ptr> plugins_;
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;

@@ -147,7 +147,7 @@ std::string AbstractPluginManager<PluginType>::getType(const std::string &name) 
 template <typename PluginType>
 typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std::string &name)
 {
-  typename std::map<std::string, typename PluginType::Ptr>::iterator new_plugin
+  typename std::unordered_map<std::string, typename PluginType::Ptr>::iterator new_plugin
       = plugins_.find(name);
   if(new_plugin != plugins_.end())
   {

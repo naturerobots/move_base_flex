@@ -7,7 +7,7 @@
 #include <mbf_abstract_nav/abstract_plugin_manager.h>
 
 using namespace std::placeholders;
-using testing::ElementsAre;
+using testing::UnorderedElementsAre;
 
 struct TestPlugin {
   using Ptr = std::shared_ptr<TestPlugin>;
@@ -120,7 +120,7 @@ TEST_F(PluginManagerTest, loadsPlugins)
   );
 
   ASSERT_EQ(plugin_manager_ptr_->loadPlugins(), true);
-  EXPECT_THAT(plugin_manager_ptr_->getLoadedNames(), ElementsAre("plugin1", "plugin2", "plugin3"));
+  EXPECT_THAT(plugin_manager_ptr_->getLoadedNames(), UnorderedElementsAre("plugin1", "plugin2", "plugin3"));
 }
 
 TEST_F(PluginManagerTest, initializesPlugins)
