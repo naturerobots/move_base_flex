@@ -69,9 +69,12 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   const auto plugin_names = node_handle_->declare_parameter(param_name, std::vector<std::string>());
 
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
-  for(std::string name : plugin_names)
+  for(std::string plugin_name : plugin_names)
   {
-    node_handle_->declare_parameter(name +".type", ros_param_type);
+    // intentionally throws exception rclcpp::ParameterValue exception if plugin_name.type is not set
+    const std::string plugin_type = node_handle_->declare_parameter(plugin_name + ".type", ros_param_type).get<std::string>();
+    // populate map from plugin name to plugin type, which will be used in loadPlugins()
+    plugins_type_.insert(std::pair<std::string, std::string>(plugin_name, plugin_type));
   }
 }
 
@@ -108,8 +111,6 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
 
       plugins_.insert(
           std::pair<std::string, typename PluginType::Ptr>(name, plugin_ptr));
-
-      plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
       names_.push_back(name);
 
       RCLCPP_INFO(node_handle_->get_logger(),
