@@ -76,19 +76,19 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
     // populate map from plugin name to plugin type, which will be used in loadPlugins()
     plugins_type_.insert(std::pair<std::string, std::string>(plugin_name, plugin_type));
   }
-}
 
-template <typename PluginType>
-bool AbstractPluginManager<PluginType>::loadPlugins()
-{
+  // Output warning is no plugins are configured
   if (plugins_type_.size() == 0)
   {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured!"
       << " - Use the param \"" << param_name_ << "\", which must be a list of strings with plugin names. "
       << "For each plugin_name, also define plugin_name.type with the respective type that shall be loaded via pluginlib.");
-    return false;
   }
+}
 
+template <typename PluginType>
+bool AbstractPluginManager<PluginType>::loadPlugins()
+{
   for (const auto &[plugin_name, plugin_type] : plugins_type_)
   {
     if (plugins_.find(plugin_name) != plugins_.end())
