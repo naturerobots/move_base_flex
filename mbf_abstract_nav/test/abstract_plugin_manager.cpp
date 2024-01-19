@@ -90,5 +90,3 @@ int main(int argc, char** argv)
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
-
-// TODO fix error msg when no params are configured (it still talks about tuples)

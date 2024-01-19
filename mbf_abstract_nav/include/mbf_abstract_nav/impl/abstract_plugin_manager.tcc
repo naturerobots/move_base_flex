@@ -71,7 +71,7 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
   for(std::string plugin_name : plugin_names)
   {
-    // intentionally throws exception rclcpp::ParameterValue exception if plugin_name.type is not set
+    // intentionally throws rclcpp::ParameterValue exception if plugin_name.type is not set
     const std::string plugin_type = node_handle_->declare_parameter(plugin_name + ".type", ros_param_type).get<std::string>();
     // populate map from plugin name to plugin type, which will be used in loadPlugins()
     plugins_type_.insert(std::pair<std::string, std::string>(plugin_name, plugin_type));
@@ -87,8 +87,9 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
   
   if (plugin_param_list.empty())
   {
-    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured! - Use the param \"" 
-        << param_name_ << "\", which must be a list of tuples with a name and a type.");
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured!"
+      << " - Use the param \"" << param_name_ << "\", which must be a list of strings with plugin names. "
+      << "For each plugin_name, also define plugin_name.type with the respective type that shall be loaded via pluginlib.");
     return false;
   }
 
