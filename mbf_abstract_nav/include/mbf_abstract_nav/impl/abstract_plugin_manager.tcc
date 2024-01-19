@@ -52,6 +52,20 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
 )
   : param_name_(param_name), loadPlugin_(loadPlugin), initPlugin_(initPlugin), node_handle_(node_handle)
 {
+  /*
+   * The names in the param_name list can be arbitrary strings (i.e. "my_plugin_name").
+   * For each of these names, mbf requires name.type to be set to a string that matches the plugin name that shall be loaded for it (i.e. straight_line_planner).
+   *
+   * Expects plugin definitions like this, e.g. for param_name == "planners":
+   *
+   * ros__parameters:
+   *   planners: ["my_plugin_name", ...]
+   *
+   *   my_plugin_name:
+   *     type: "straight_line_planner"
+   *     other_straight_line_planner_param: "foo"
+   *     ...
+   */
   const auto plugin_names = node_handle_->declare_parameter(param_name, std::vector<std::string>());
 
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
@@ -59,7 +73,6 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   {
     node_handle_->declare_parameter(name +".type", ros_param_type);
   }
-
 }
 
 template <typename PluginType>

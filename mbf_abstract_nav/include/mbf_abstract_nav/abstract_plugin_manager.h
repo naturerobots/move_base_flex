@@ -60,6 +60,7 @@ class AbstractPluginManager
       const rclcpp::Node::SharedPtr& node_handle
   );
 
+  //! Returns false if no plugins were loaded. Returns true if at least one plugin was loaded.
   bool loadPlugins();
 
   bool hasPlugin(const std::string &name) const;
@@ -73,8 +74,11 @@ class AbstractPluginManager
   void clearPlugins();
 
  protected:
-  std::map<std::string, typename PluginType::Ptr> plugins_;
+  //! maps plugin names to plugin types, as defined by ros params.
   std::map<std::string, std::string> plugins_type_;
+  //! maps plugin names to instances of loaded plugins
+  std::map<std::string, typename PluginType::Ptr> plugins_;
+  //! list of plugin names that are loaded
   std::vector<std::string> names_;
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
