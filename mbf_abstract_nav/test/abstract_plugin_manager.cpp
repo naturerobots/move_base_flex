@@ -99,6 +99,16 @@ TEST_F(PluginManagerTest, populatesPluginNameToTypeMap)
   EXPECT_EQ(plugin_manager_ptr_->getType("plugin3"), "TestPlugin");
 }
 
+TEST_F(PluginManagerTest, doesNotShowNamesOfUnloadedPlugins)
+{
+  const std::vector<std::string> plugin_names{"plugin1"};
+  initNodeAndPluginManager(rclcpp::NodeOptions()
+    .append_parameter_override("test_plugins", plugin_names)
+    .append_parameter_override("plugin1.type", "TestPlugin")
+  );
+  EXPECT_EQ(plugin_manager_ptr_->getLoadedNames().size(), 0);
+}
+
 TEST_F(PluginManagerTest, loadsPlugins)
 {
   const std::vector<std::string> plugin_names{"plugin1", "plugin2", "plugin3"};

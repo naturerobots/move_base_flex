@@ -103,7 +103,6 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
     {
       plugins_.insert(
           std::pair<std::string, typename PluginType::Ptr>(plugin_name, plugin_ptr));
-      names_.push_back(plugin_name);
 
       RCLCPP_INFO(node_handle_->get_logger(),
                   "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", plugin_type.c_str(),
@@ -121,9 +120,14 @@ bool AbstractPluginManager<PluginType>::loadPlugins()
 }
 
 template <typename PluginType>
-const std::vector<std::string>& AbstractPluginManager<PluginType>::getLoadedNames() const
+std::vector<std::string> AbstractPluginManager<PluginType>::getLoadedNames() const
 {
-  return names_;
+  std::vector<std::string> names;
+  names.reserve(plugins_.size());
+  for (const auto& [plugin_name, _] : plugins_) {
+    names.push_back(plugin_name);
+  }
+  return names;
 }
 
 template <typename PluginType>
@@ -161,7 +165,6 @@ template <typename PluginType>
 void AbstractPluginManager<PluginType>::clearPlugins() {
   plugins_.clear();
   plugins_type_.clear();
-  names_.clear();
 }
 
 } /* namespace mbf_abstract_nav */

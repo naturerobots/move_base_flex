@@ -67,7 +67,7 @@ class AbstractPluginManager
 
   std::string getType(const std::string &name) const;
 
-  const std::vector<std::string>& getLoadedNames() const;
+  std::vector<std::string> getLoadedNames() const;
 
   typename PluginType::Ptr getPlugin(const std::string &name);
 
@@ -78,8 +78,6 @@ class AbstractPluginManager
   std::map<std::string, std::string> plugins_type_;
   //! maps plugin names to instances of loaded plugins
   std::map<std::string, typename PluginType::Ptr> plugins_;
-  //! list of plugin names that are loaded
-  std::vector<std::string> names_;
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;
