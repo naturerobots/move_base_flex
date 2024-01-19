@@ -69,7 +69,7 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
   const auto plugin_names = node_handle_->declare_parameter(param_name, std::vector<std::string>());
 
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
-  for(std::string plugin_name : plugin_names)
+  for(const std::string& plugin_name : plugin_names)
   {
     if (plugins_type_.find(plugin_name) != plugins_type_.end())
     {
