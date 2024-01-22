@@ -79,10 +79,10 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   planner_action_ = std::make_shared<PlannerAction>(node, name_action_get_path, robot_info_);
   recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, robot_info_);
   move_base_action_ = std::make_shared<MoveBaseAction>(node, name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames());
-  goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
+  goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
-  vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+  vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("~/cmd_vel", 1);
 
   action_server_get_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::GetPath>(
     node_,

@@ -58,13 +58,13 @@ namespace mbf_abstract_nav
 {
 
 //! ExePath action topic name
-const std::string name_action_exe_path = "exe_path";
+const std::string name_action_exe_path = "~/exe_path";
 //! GetPath action topic name
-const std::string name_action_get_path = "get_path";
+const std::string name_action_get_path = "~/get_path";
 //! Recovery action topic name
-const std::string name_action_recovery = "recovery";
+const std::string name_action_recovery = "~/recovery";
 //! MoveBase action topic name
-const std::string name_action_move_base = "move_base";
+const std::string name_action_move_base = "~/move_base";
 
 class MoveBaseAction
 {
