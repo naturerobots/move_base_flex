@@ -94,15 +94,6 @@ typedef rclcpp_action::Server<mbf_msgs::action::MoveBase> ActionServerMoveBase;
 typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> ServerGoalHandleMoveBase;
 typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
 
-//! ExePath action topic name
-const std::string name_action_exe_path = "exe_path";
-//! GetPath action topic name
-const std::string name_action_get_path = "get_path";
-//! Recovery action topic name
-const std::string name_action_recovery = "recovery";
-//! MoveBase action topic name
-const std::string name_action_move_base = "move_base";
-
 
 /**
  * @brief The AbstractNavigationServer is the abstract base class for all navigation servers in move_base_flex
