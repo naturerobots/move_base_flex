@@ -52,84 +52,91 @@ AbstractPluginManager<PluginType>::AbstractPluginManager(
 )
   : param_name_(param_name), loadPlugin_(loadPlugin), initPlugin_(initPlugin), node_handle_(node_handle)
 {
+  /*
+   * The names in the param_name list can be arbitrary strings (i.e. "my_plugin_name").
+   * For each of these names, mbf requires name.type to be set to a string that matches the plugin name that shall be loaded for it (i.e. straight_line_planner).
+   *
+   * Expects plugin definitions like this, e.g. for param_name == "planners":
+   *
+   * ros__parameters:
+   *   planners: ["my_plugin_name", ...]
+   *
+   *   my_plugin_name:
+   *     type: "straight_line_planner"
+   *     other_straight_line_planner_param: "foo"
+   *     ...
+   */
   const auto plugin_names = node_handle_->declare_parameter(param_name, std::vector<std::string>());
 
   const rclcpp::ParameterType ros_param_type = rclcpp::ParameterType::PARAMETER_STRING;
-  for(std::string name : plugin_names)
+  for(const std::string& plugin_name : plugin_names)
   {
-    node_handle_->declare_parameter(name +".type", ros_param_type);
+    if (configured_plugins_.find(plugin_name) != configured_plugins_.end())
+    {
+      throw rclcpp::exceptions::InvalidParametersException("The plugin name " + plugin_name + " is used more than once. Plugin names must be unique!");
+    }
+    // This will throws rclcpp::ParameterValue exception if plugin_name.type is not set
+    const std::string plugin_type = node_handle_->declare_parameter(plugin_name + ".type", ros_param_type).get<std::string>();
+
+    // populate map from plugin name to plugin type, which will be used in loadPlugins()
+    configured_plugins_.emplace(plugin_name, plugin_type);
   }
 
+  // Output warning is no plugins are configured
+  if (configured_plugins_.size() == 0)
+  {
+    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured!"
+      << " - Use the param \"" << param_name_ << "\", which must be a list of strings with plugin names. "
+      << "For each plugin_name, also define plugin_name.type with the respective type that shall be loaded via pluginlib.");
+  }
 }
 
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::loadPlugins()
 {
-  //std::map<std::string, rclcpp::Parameter> plugin_param_list;
-  std::vector<std::string> plugin_param_list;
-  node_handle_->get_parameter(param_name_, plugin_param_list);
-  
-  if (plugin_param_list.empty())
+  for (const auto &[plugin_name, plugin_type] : configured_plugins_)
   {
-    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No " << param_name_ << " plugins configured! - Use the param \"" 
-        << param_name_ << "\", which must be a list of tuples with a name and a type.");
-    return false;
-  }
-
-  for (const std::string& name : plugin_param_list)
-  {
-
-    if (plugins_.find(name) != plugins_.end())
+    typename PluginType::Ptr plugin_ptr = loadPlugin_(plugin_type);
+    if(plugin_ptr && initPlugin_(plugin_name, plugin_ptr))
     {
-      RCLCPP_ERROR(node_handle_->get_logger(), "The plugin \"%s\" has already been loaded! Names must be unique!",
-                    name.c_str());
-      return false;
-    }
-
-    std::string type;
-    node_handle_->get_parameter(name + ".type", type);
-
-    typename PluginType::Ptr plugin_ptr = loadPlugin_(type);
-    if(plugin_ptr && initPlugin_(name, plugin_ptr))
-    {
-
-      plugins_.insert(
-          std::pair<std::string, typename PluginType::Ptr>(name, plugin_ptr));
-
-      plugins_type_.insert(std::pair<std::string, std::string>(name, type)); // save name to type mapping
-      names_.push_back(name);
+      loaded_plugins_.emplace(plugin_name, plugin_ptr);
 
       RCLCPP_INFO(node_handle_->get_logger(),
-                  "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", type.c_str(),
-                  name.c_str());
+                  "The plugin with the type \"%s\" has been loaded successfully under the name \"%s\".", plugin_type.c_str(),
+                  plugin_name.c_str());
     }
     else
     {
       RCLCPP_ERROR(node_handle_->get_logger(), "Could not load the plugin with the name \"%s\" and the type \"%s\"!",
-                    name.c_str(), type.c_str());
+                    plugin_name.c_str(), plugin_type.c_str());
     }
   }
   
   // is there any plugin in the map?
-  return plugins_.empty() ? false : true;
+  return loaded_plugins_.empty() ? false : true;
 }
 
 template <typename PluginType>
-const std::vector<std::string>& AbstractPluginManager<PluginType>::getLoadedNames() const
+std::vector<std::string> AbstractPluginManager<PluginType>::getLoadedNames() const
 {
-  return names_;
+  std::vector<std::string> names;
+  names.reserve(loaded_plugins_.size());
+  for (const auto& [plugin_name, _] : loaded_plugins_) {
+    names.push_back(plugin_name);
+  }
+  return names;
 }
 
 template <typename PluginType>
 bool AbstractPluginManager<PluginType>::hasPlugin(const std::string &name) const
 {
-  return static_cast<bool>(plugins_.count(name)); // returns 1 or 0;
+  return static_cast<bool>(loaded_plugins_.count(name)); // returns 1 or 0;
 }
 
 template <typename PluginType>
 std::string AbstractPluginManager<PluginType>::getType(const std::string &name) const
 {
-  const auto iter = plugins_type_.find(name);
+  const auto iter = configured_plugins_.find(name);
   return iter->second;
 }
 
@@ -137,9 +144,9 @@ std::string AbstractPluginManager<PluginType>::getType(const std::string &name) 
 template <typename PluginType>
 typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std::string &name)
 {
-  typename std::map<std::string, typename PluginType::Ptr>::iterator new_plugin
-      = plugins_.find(name);
-  if(new_plugin != plugins_.end())
+  typename std::unordered_map<std::string, typename PluginType::Ptr>::iterator new_plugin
+      = loaded_plugins_.find(name);
+  if(new_plugin != loaded_plugins_.end())
   {
     RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Found plugin with the name \"" << name << "\".");
     return new_plugin->second;
@@ -153,9 +160,8 @@ typename PluginType::Ptr AbstractPluginManager<PluginType>::getPlugin(const std:
 
 template <typename PluginType>
 void AbstractPluginManager<PluginType>::clearPlugins() {
-  plugins_.clear();
-  plugins_type_.clear();
-  names_.clear();
+  loaded_plugins_.clear();
+  configured_plugins_.clear();
 }
 
 } /* namespace mbf_abstract_nav */
