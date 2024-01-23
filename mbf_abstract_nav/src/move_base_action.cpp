@@ -84,9 +84,9 @@ MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::s
   , replanning_period_(0, 0)
   , replanning_thread_(std::bind(&MoveBaseAction::replanningThread, this))
 { 
-  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, "exe_path");
-  action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, "get_path");
-  action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, "recovery");
+  action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, name_action_exe_path);
+  action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, name_action_get_path);
+  action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, name_action_recovery);
   dyn_params_handler_ = node_->add_on_set_parameters_callback(std::bind(&MoveBaseAction::reconfigure, this, _1));
 
   get_path_send_goal_options_.goal_response_callback = std::bind(&MoveBaseAction::actionGetPathGoalResponse, this, _1);
