@@ -63,7 +63,8 @@ namespace mbf_abstract_core{
        * compute velocity commands to send to the base.
        * @param pose The current pose of the robot.
        * @param velocity The current velocity of the robot.
-       * @param cmd_vel Will be filled with the velocity command to be passed to the robot base.
+       * @param cmd_vel Will be filled with the velocity command to be passed to the robot base. The frame id will set
+       * to the robot frame id by default, but can be added inside the implementation.
        * @param message Optional more detailed outcome as a string
        * @return Result code as described on ExePath action result:
        *         SUCCESS           = 0

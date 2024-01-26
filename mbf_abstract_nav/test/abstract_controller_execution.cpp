@@ -38,7 +38,7 @@ struct AbstractControllerMock : public AbstractController
 
 // some global variables for the test
 rclcpp::Node::SharedPtr NODE;
-rclcpp::Publisher<Twist>::SharedPtr VEL_PUB;
+rclcpp::Publisher<TwistStamped>::SharedPtr VEL_PUB;
 rclcpp::Publisher<PoseStamped>::SharedPtr GOAL_PUB;
 TFPtr TF_PTR;
 mbf_utility::RobotInformation::Ptr ROBOT_INFO;
@@ -48,7 +48,7 @@ void init_global_objects()
   NODE = std::make_shared<rclcpp::Node>("read_types");
   // suppress the logging since we don't want warnings to pollute the test-outcome
   NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
-  VEL_PUB = NODE->create_publisher<Twist>("vel", 1);
+  VEL_PUB = NODE->create_publisher<TwistStamped>("vel", 1);
   GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
   TF_PTR = std::make_shared<TF>(NODE->get_clock());
   TF_PTR->setUsingDedicatedThread(true);

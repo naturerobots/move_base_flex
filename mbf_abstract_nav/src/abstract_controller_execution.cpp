@@ -53,7 +53,7 @@ const double AbstractControllerExecution::DEFAULT_CONTROLLER_FREQUENCY = 100.0; 
 AbstractControllerExecution::AbstractControllerExecution(
     const std::string& name, const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
     const mbf_utility::RobotInformation::ConstPtr& robot_info,
-    const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
+    const rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr& vel_pub,
     const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
     const rclcpp::Node::SharedPtr& node_handle)
   : AbstractExecutionBase(name, robot_info, node_handle)
@@ -260,8 +260,10 @@ void AbstractControllerExecution::setVelocityCmd(const geometry_msgs::msg::Twist
 {
   std::lock_guard<std::mutex> guard(vel_cmd_mtx_);
   vel_cmd_stamped_ = vel_cmd;
-  if (vel_cmd_stamped_.header.stamp.sec == 0 && vel_cmd_stamped_.header.stamp.nanosec == 0)
+  if (vel_cmd_stamped_.header.stamp.sec == 0 && vel_cmd_stamped_.header.stamp.nanosec == 0){
     vel_cmd_stamped_.header.stamp =  node_handle_->now();
+    vel_cmd_stamped_.header.frame_id = robot_frame_;
+  }
   // TODO what happen with frame id?
   // TODO Add a queue here for handling the outcome, message and cmd_vel values bundled,
   // TODO so there should be no loss of information in the feedback stream
@@ -517,10 +519,15 @@ bool AbstractControllerExecution::cancel()
           robot_info_->getRobotVelocity(robot_velocity);
           outcome_ = computeVelocityCmd(robot_pose_, robot_velocity, cmd_vel_stamped, message_ = "");
 
+          if (cmd_vel_stamped.header.frame_id.empty())
+          {
+            cmd_vel_stamped.header.frame_id = robot_frame_;
+          }
+
           if (outcome_ < 10)
           {
             setState(GOT_LOCAL_CMD);
-            vel_pub_->publish(cmd_vel_stamped.twist);
+            vel_pub_->publish(cmd_vel_stamped);
             last_valid_cmd_time_ =  node_handle_->now();
             retries = 0;
             // check if robot is ignoring velocity command
@@ -566,7 +573,7 @@ bool AbstractControllerExecution::cancel()
             {
               // we are retrying compute velocity commands; we keep sending the command calculated by the plugin
               // with the expectation that it's a sensible one (e.g. slow down while respecting acceleration limits)
-              vel_pub_->publish(cmd_vel_stamped.twist);
+              vel_pub_->publish(cmd_vel_stamped);
             }
           }
 
@@ -631,13 +638,15 @@ void AbstractControllerExecution::handle_thread_interrupted()
 
 void AbstractControllerExecution::publishZeroVelocity()
 {
-  geometry_msgs::msg::Twist cmd_vel;
-  cmd_vel.linear.x = 0;
-  cmd_vel.linear.y = 0;
-  cmd_vel.linear.z = 0;
-  cmd_vel.angular.x = 0;
-  cmd_vel.angular.y = 0;
-  cmd_vel.angular.z = 0;
+  geometry_msgs::msg::TwistStamped cmd_vel;
+  cmd_vel.header.stamp = node_handle_->now();
+  cmd_vel.header.frame_id = robot_frame_;
+  cmd_vel.twist.linear.x = 0;
+  cmd_vel.twist.linear.y = 0;
+  cmd_vel.twist.linear.z = 0;
+  cmd_vel.twist.angular.x = 0;
+  cmd_vel.twist.angular.y = 0;
+  cmd_vel.twist.angular.z = 0;
   vel_pub_->publish(cmd_vel);
 }
 
