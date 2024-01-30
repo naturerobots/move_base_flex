@@ -40,6 +40,7 @@
 #define MBF_ABSTRACT_NAV__ABSTRACT_PLUGIN_MANAGER_H_
 
 #include <functional>
+#include <unordered_map>
 #include <rclcpp/rclcpp.hpp>
 
 namespace mbf_abstract_nav
@@ -60,22 +61,24 @@ class AbstractPluginManager
       const rclcpp::Node::SharedPtr& node_handle
   );
 
+  //! Returns false if no plugins were loaded. Returns true if at least one plugin was loaded.
   bool loadPlugins();
 
   bool hasPlugin(const std::string &name) const;
 
   std::string getType(const std::string &name) const;
 
-  const std::vector<std::string>& getLoadedNames() const;
+  std::vector<std::string> getLoadedNames() const;
 
   typename PluginType::Ptr getPlugin(const std::string &name);
 
   void clearPlugins();
 
  protected:
-  std::map<std::string, typename PluginType::Ptr> plugins_;
-  std::map<std::string, std::string> plugins_type_;
-  std::vector<std::string> names_;
+  //! maps plugin names to plugin types, as defined by ros params.
+  std::unordered_map<std::string, std::string> configured_plugins_;
+  //! maps plugin names to instances of loaded plugins
+  std::unordered_map<std::string, typename PluginType::Ptr> loaded_plugins_;
   const std::string param_name_;
   const loadPluginFunction loadPlugin_;
   const initPluginFunction initPlugin_;

@@ -52,7 +52,7 @@ PlannerAction::PlannerAction(
   : AbstractActionBase(node, name, robot_info)
 {
   // informative topics: current navigation goal
-  current_goal_pub_ = node->create_publisher<geometry_msgs::msg::PoseStamped>("current_goal", 1);
+  current_goal_pub_ = node->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 }
 
 void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &execution)

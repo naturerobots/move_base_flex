@@ -77,6 +77,10 @@ if(BUILD_TESTING)
   ament_add_gmock(planner_action_test
     test/planner_action.cpp)
   target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
+
+  ament_add_gmock(abstract_plugin_manager_test
+    test/abstract_plugin_manager.cpp)
+  target_link_libraries(abstract_plugin_manager_test ${MBF_ABSTRACT_SERVER_LIB})
 endif()
 
 ament_export_include_directories(include) 
