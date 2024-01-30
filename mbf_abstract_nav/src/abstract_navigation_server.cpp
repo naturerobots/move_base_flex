@@ -82,7 +82,7 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
-  vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("~/cmd_vel", 1);
+  vel_pub_ = node_->create_publisher<geometry_msgs::msg::TwistStamped>("~/cmd_vel", 1);
 
   action_server_get_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::GetPath>(
     node_,
