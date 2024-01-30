@@ -51,7 +51,7 @@
 #include <rclcpp/rate.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
 
 #include <mbf_utility/navigation_utility.h>
 #include <mbf_abstract_core/abstract_controller.h>
@@ -95,7 +95,7 @@ namespace mbf_abstract_nav
     AbstractControllerExecution(const std::string& name,
                                 const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
                                 const mbf_utility::RobotInformation::ConstPtr& robot_info,
-                                const rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr& vel_pub,
+                                const rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr& vel_pub,
                                 const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
                                 const rclcpp::Node::SharedPtr& node_handle);
 
@@ -332,10 +332,7 @@ namespace mbf_abstract_nav
     std::shared_ptr<rclcpp::Rate> loop_rate_;
 
     //! publisher for the current velocity command
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr vel_pub_;
-
-    //! publisher for the current goal
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr goal_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_;
 
     //! publisher for the current goal
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr current_goal_pub_;
