@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(mbf_simple_nav)
 
-find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_ros REQUIRED)
 set(dependencies
   geometry_msgs
   mbf_abstract_core
@@ -22,41 +22,64 @@ foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)
 endforeach()
 
-include_directories(
-  include
-)
 
-install(DIRECTORY include/
-  DESTINATION include
-)
-
-set(MBF_SIMPLE_SERVER_LIB mbf_simple_server)
-add_library(${MBF_SIMPLE_SERVER_LIB}
+add_library(${PROJECT_NAME}_lib
   src/simple_navigation_server.cpp
 )
-ament_target_dependencies(${MBF_SIMPLE_SERVER_LIB} ${dependencies})
+target_compile_features(${PROJECT_NAME}_lib PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_include_directories(${PROJECT_NAME}_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(${PROJECT_NAME}_lib ${dependencies})
 
-set(MBF_SIMPLE_SERVER_NODE mbf_simple_nav)
-add_executable(${MBF_SIMPLE_SERVER_NODE} src/simple_server_node.cpp)
-target_link_libraries(${MBF_SIMPLE_SERVER_NODE} ${MBF_SIMPLE_SERVER_LIB})
-ament_target_dependencies(${MBF_SIMPLE_SERVER_NODE} ${dependencies})
+add_executable(${PROJECT_NAME}_node
+  src/simple_server_node.cpp
+)
+target_compile_features(${PROJECT_NAME}_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_include_directories(${PROJECT_NAME}_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_lib)
+ament_target_dependencies(${PROJECT_NAME}_node ${dependencies})
 
-install(TARGETS
-  ${MBF_SIMPLE_SERVER_LIB}
+install(DIRECTORY include/ DESTINATION include)
+install(TARGETS 
+  ${PROJECT_NAME}_lib
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+install(TARGETS ${PROJECT_NAME}_node
+  DESTINATION lib/${PROJECT_NAME})
 
-install(TARGETS 
- ${MBF_SIMPLE_SERVER_NODE}
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
-ament_export_include_directories(
-  include
+if(BUILD_TESTING)
+  # Add test lib with plugin(s)
+  add_library(${PROJECT_NAME}_test_plugins
+    test/plugins/test_planner.cpp
+    test/plugins/test_controller.cpp
+    test/plugins/test_recovery.cpp
   )
-ament_export_libraries(${MBF_SIMPLE_SERVER_LIB})
+  ament_target_dependencies(${PROJECT_NAME}_test_plugins pluginlib mbf_simple_core)
+  pluginlib_export_plugin_description_file(mbf_simple_core test/plugins/mbf_simple_nav_test_plugins.xml)
+  install(TARGETS 
+    ${PROJECT_NAME}_test_plugins
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+
+  # add gmock test suites
+  find_package(ament_cmake_gmock REQUIRED)
+  ament_add_gmock(${PROJECT_NAME}_test test/simple_nav_test.cpp)
+  target_include_directories(${PROJECT_NAME}_test PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME}_lib)
+endif()
+
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(${dependencies})
 
 ament_package()

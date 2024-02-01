@@ -1,0 +1,23 @@
+<library path="mbf_simple_nav_test_plugins">
+    <class name="mbf_simple_nav/TestPlanner"
+            type="mbf_simple_nav::TestPlanner"
+            base_class_type="mbf_simple_core::SimplePlanner">
+        <description>
+            A planner meant for unit testing.
+        </description>
+    </class>
+    <class name="mbf_simple_nav/TestController"
+            type="mbf_simple_nav::TestController"
+            base_class_type="mbf_simple_core::SimpleController">
+        <description>
+            A controller meant for unit testing.
+        </description>
+    </class>
+    <class name="mbf_simple_nav/TestRecovery"
+            type="mbf_simple_nav::TestRecovery"
+            base_class_type="mbf_simple_core::SimpleRecovery">
+        <description>
+            A recovery behavior meant for unit testing.
+        </description>
+    </class>
+</library>
