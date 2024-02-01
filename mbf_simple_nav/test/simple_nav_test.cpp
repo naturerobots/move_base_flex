@@ -10,14 +10,13 @@ struct SimpleNavTest : public Test
 {
 protected:
   SimpleNavTest()
-    : default_node_options_(
-          rclcpp::NodeOptions()
-              .append_parameter_override("planners", std::vector<std::string>{ "planner" })
-              .append_parameter_override("planner.type", "mbf_simple_nav/TestPlanner")
-              .append_parameter_override("controllers", std::vector<std::string>{ "controller" })
-              .append_parameter_override("controller.type", "mbf_simple_nav/TestController")
-              .append_parameter_override("recovery_behaviors", std::vector<std::string>{ "recovery" })
-              .append_parameter_override("recovery.type", "mbf_simple_nav/TestRecovery"))
+    : default_node_options_(rclcpp::NodeOptions()
+                                .append_parameter_override("planners", std::vector<std::string>{ "planner" })
+                                .append_parameter_override("planner.type", "mbf_simple_nav/TestPlanner")
+                                .append_parameter_override("controllers", std::vector<std::string>{ "controller" })
+                                .append_parameter_override("controller.type", "mbf_simple_nav/TestController")
+                                .append_parameter_override("recovery_behaviors", std::vector<std::string>{ "recovery" })
+                                .append_parameter_override("recovery.type", "mbf_simple_nav/TestRecovery"))
   {
   }
 
