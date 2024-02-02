@@ -23,7 +23,7 @@ public:
     : Node("robot_simulator")
     , tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock()))
     , tf_listener_(std::make_unique<tf2_ros::TransformListener>(*tf_buffer_))
-    , tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*tf_buffer_))
+    , tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
     , t_last_update_(now())
   {
     trf_parent_robot_.header.frame_id = config_.parent_frame_id;
@@ -31,7 +31,7 @@ public:
     startUpdateRobotPoseTimer();
   }
 
-  void velocityCallback(const geometry_msgs::msg::TwistStamped::ConstPtr& vel)
+  void velocityCallback(const geometry_msgs::msg::TwistStamped::ConstUniquePtr& vel)
   {
     // TODO trf
     if (vel->header.frame_id != config_.parent_frame_id)
@@ -44,7 +44,7 @@ public:
 
   void startUpdateRobotPoseTimer()
   {
-    update_robot_pose_timer_ = create_wall_timer(10ms, std::bind(&RobotSimulator::update_robot_pose_timer_, this));
+    update_robot_pose_timer_ = create_wall_timer(10ms, std::bind(&RobotSimulator::updateRobotPose, this));
   }
 
   void updateRobotPose()
@@ -61,7 +61,7 @@ protected:
 
   geometry_msgs::msg::Twist current_velocity_;
   rclcpp::Time t_last_update_;
-  rclcpp::TimerBase::UniquePtr update_robot_pose_timer_;
+  rclcpp::TimerBase::SharedPtr update_robot_pose_timer_;
   geometry_msgs::msg::TransformStamped trf_parent_robot_;
 
   struct
