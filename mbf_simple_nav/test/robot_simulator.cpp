@@ -21,14 +21,14 @@ namespace mbf_simple_nav
 class RobotSimulator : public rclcpp::Node
 {
 public:
-  void velocityCallback(const geometry_msgs::msg::Twist::SharedPtr vel)
+  void velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel)
   {
-    // if (vel->header.frame_id != config_.parent_frame_id)
-    //{
-    //   RCLCPP_ERROR_STREAM(get_logger(), "Dropping velocity msg, expecting frame id "
-    //                                         << config_.parent_frame_id << ", got " << vel->header.frame_id);
-    // }
-    current_velocity_ = *vel;  // TODO use TwistStamped? keyboard teleop publishes Twist, mbf TwistStamped
+    if (vel->header.frame_id != config_.robot_frame_id)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ("
+                                            << config_.robot_frame_id << "(, but got frame " << vel->header.frame_id);
+    }
+    current_velocity_ = vel->twist;
   }
 
   RobotSimulator()
@@ -41,7 +41,7 @@ public:
     trf_parent_robot_.header.frame_id = config_.parent_frame_id;
     trf_parent_robot_.child_frame_id = config_.robot_frame_id;
     startUpdateRobotPoseTimer();
-    cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
+    cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         "cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
   }
 
@@ -81,7 +81,7 @@ protected:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscription_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;
 
   geometry_msgs::msg::Twist current_velocity_;
   rclcpp::TimerBase::SharedPtr update_robot_pose_timer_;
