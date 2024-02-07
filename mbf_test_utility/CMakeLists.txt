@@ -21,13 +21,24 @@ target_include_directories(${PROJECT_NAME}_sim PUBLIC
   $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(${PROJECT_NAME}_sim geometry_msgs rclcpp tf2_ros tf2_geometry_msgs)
 
+add_executable(${PROJECT_NAME}_sim_node
+  src/robot_simulator_node.cpp
+)
+target_compile_features(${PROJECT_NAME}_sim_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_include_directories(${PROJECT_NAME}_sim_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(${PROJECT_NAME}_sim_node ${PROJECT_NAME}_sim)
+
 install(DIRECTORY include/ DESTINATION include)
-install(TARGETS 
-  ${PROJECT_NAME}_sim
+install(TARGETS ${PROJECT_NAME}_sim
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+install(TARGETS ${PROJECT_NAME}_sim_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
