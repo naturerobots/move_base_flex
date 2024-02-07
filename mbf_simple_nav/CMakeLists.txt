@@ -42,17 +42,6 @@ target_include_directories(${PROJECT_NAME}_node PUBLIC
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_lib)
 ament_target_dependencies(${PROJECT_NAME}_node ${dependencies})
 
-find_package(tf2_geometry_msgs REQUIRED)
-add_executable(${PROJECT_NAME}_sim_node
-  test/robot_simulator.cpp
-)
-target_compile_features(${PROJECT_NAME}_sim_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-target_include_directories(${PROJECT_NAME}_sim_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_link_libraries(${PROJECT_NAME}_sim_node ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PROJECT_NAME}_sim_node ${dependencies} tf2_geometry_msgs)
-
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS 
   ${PROJECT_NAME}_lib
@@ -61,8 +50,6 @@ install(TARGETS
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-install(TARGETS ${PROJECT_NAME}_node ${PROJECT_NAME}_sim_node
-  DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   # Add test lib with plugin(s)
@@ -82,11 +69,13 @@ if(BUILD_TESTING)
 
   # add gmock test suites
   find_package(ament_cmake_gmock REQUIRED)
+  find_package(mbf_test_utility REQUIRED)
   ament_add_gmock(${PROJECT_NAME}_test test/simple_nav_test.cpp)
   target_include_directories(${PROJECT_NAME}_test PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
   )
+  ament_target_dependencies(${PROJECT_NAME}_test mbf_test_utility rclcpp)
   target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME}_lib)
 endif()
 

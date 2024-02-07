@@ -27,7 +27,7 @@
     <depend>tf2_ros</depend>
     <depend>tf2</depend>
 
-    <test_depend>tf2_geometry_msgs</test_depend>
+    <test_depend>mbf_test_utility</test_depend>
 
     <export>
       <!-- TODO <rosdoc config="rosdoc.yaml" /> -->
