@@ -26,8 +26,9 @@ void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::Sh
 {
   if (vel->header.frame_id != config_.robot_frame_id)
   {
-    RCLCPP_ERROR_STREAM(get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ("
-                                          << config_.robot_frame_id << "(, but got frame " << vel->header.frame_id);
+    RCLCPP_ERROR_STREAM(get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ('"
+                                          << config_.robot_frame_id << "'), but got frame '" << vel->header.frame_id
+                                          << "'");
   }
   current_velocity_ = vel->twist;
 }
