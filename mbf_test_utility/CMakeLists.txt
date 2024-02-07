@@ -54,6 +54,6 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-# TODO add ament_export_dependencies(X)
+ament_export_dependencies(rclcpp geometry_msgs tf2_ros)
 
 ament_package()
