@@ -8,7 +8,7 @@
     This package should only be used as a test dependency.
     If some tool shall be used in production, move it into mbf_utility for example.
   </description>
-  <maintainer email="matthias.holoch@naturerobots.com">docker</maintainer>
+  <maintainer email="matthias.holoch@naturerobots.com">Matthias Holoch</maintainer>
   <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
