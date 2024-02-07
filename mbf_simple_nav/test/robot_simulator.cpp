@@ -1,13 +1,11 @@
 #include <chrono>
-#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
-#include <geometry_msgs/msg/vector3.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
 
 using namespace std::chrono_literals;
 
@@ -33,8 +31,6 @@ public:
 
   RobotSimulator()
     : Node("robot_simulator")
-    , tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock()))
-    , tf_listener_(std::make_unique<tf2_ros::TransformListener>(*tf_buffer_))
     , tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
   {
     trf_parent_robot_.header.stamp = now();
@@ -78,8 +74,6 @@ public:
   };
 
 protected:
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;
 
