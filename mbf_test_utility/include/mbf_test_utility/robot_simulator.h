@@ -20,8 +20,8 @@ public:
 protected:
   //! Handle new command velocities. Incoming msgs need to be in the robot's frame.
   void velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel);
-  void startUpdateRobotPoseTimer();
-  void updateRobotPose();
+  //! Regularly (via timer) updates the robot's pose based on current_velocity and publishes it via tf2.
+  void continuouslyUpdateRobotPose();
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;

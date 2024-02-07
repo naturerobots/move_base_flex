@@ -17,7 +17,7 @@ RobotSimulator::RobotSimulator()
   trf_parent_robot_.header.stamp = now();
   trf_parent_robot_.header.frame_id = config_.parent_frame_id;
   trf_parent_robot_.child_frame_id = config_.robot_frame_id;
-  startUpdateRobotPoseTimer();
+  continuouslyUpdateRobotPose();
   cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
       "cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
 }
@@ -30,15 +30,16 @@ void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::Sh
                                           << config_.robot_frame_id << "'), but got frame '" << vel->header.frame_id
                                           << "'");
   }
+  /* Update the robot pose before updating to the new velocity.
+   * This ensures that the robot will move according to the old velocity for time interval [t_last_update, t_now].
+   * Otherwise, the robot would move based on the new velocity for
+   * [t_last_update, t_next_update] (with t_now being somewhere in that interval).
+   */
+  continuouslyUpdateRobotPose();
   current_velocity_ = vel->twist;
 }
 
-void RobotSimulator::startUpdateRobotPoseTimer()
-{
-  update_robot_pose_timer_ = create_wall_timer(10ms, std::bind(&RobotSimulator::updateRobotPose, this));
-}
-
-void RobotSimulator::updateRobotPose()
+void RobotSimulator::continuouslyUpdateRobotPose()
 {
   const auto t_now = now();
 
@@ -61,7 +62,8 @@ void RobotSimulator::updateRobotPose()
   trf_parent_robot_.header.stamp = t_now;
   tf_broadcaster_->sendTransform(trf_parent_robot_);
 
-  startUpdateRobotPoseTimer();  // restart timer for continuous updates
+  // restart timer for continuous updates
+  update_robot_pose_timer_ = create_wall_timer(10ms, std::bind(&RobotSimulator::continuouslyUpdateRobotPose, this));
 }
 
 }  // namespace mbf_simple_nav
