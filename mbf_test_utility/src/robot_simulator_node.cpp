@@ -1,4 +1,4 @@
-#include "mbf_test_utility/robot_simulator.h"
+#include "mbf_test_utility/robot_simulator.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 

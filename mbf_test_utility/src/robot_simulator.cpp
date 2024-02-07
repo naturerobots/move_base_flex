@@ -1,4 +1,4 @@
-#include "mbf_test_utility/robot_simulator.h"
+#include "mbf_test_utility/robot_simulator.hpp"
 
 #include <chrono>
 #include <geometry_msgs/msg/quaternion.hpp>
