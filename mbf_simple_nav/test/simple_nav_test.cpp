@@ -10,13 +10,13 @@ struct SimpleNavTest : public Test
 {
 protected:
   SimpleNavTest()
-    : default_node_options_(rclcpp::NodeOptions()
-                                .append_parameter_override("planners", std::vector<std::string>{ "planner" })
-                                .append_parameter_override("planner.type", "mbf_simple_nav/TestPlanner")
-                                .append_parameter_override("controllers", std::vector<std::string>{ "controller" })
-                                .append_parameter_override("controller.type", "mbf_simple_nav/TestController")
-                                .append_parameter_override("recovery_behaviors", std::vector<std::string>{ "recovery" })
-                                .append_parameter_override("recovery.type", "mbf_simple_nav/TestRecovery"))
+  : default_node_options_(rclcpp::NodeOptions()
+      .append_parameter_override("planners", std::vector<std::string> {"planner"})
+      .append_parameter_override("planner.type", "mbf_simple_nav/TesPlanner")
+      .append_parameter_override("controllers", std::vector<std::string> {"controller"})
+      .append_parameter_override("controller.type", "mbf_simple_nav/TestController")
+      .append_parameter_override("recovery_behaviors", std::vector<std::string> {"recovery"})
+      .append_parameter_override("recovery.type", "mbf_simple_nav/TestRecovery"))
   {
   }
 
@@ -30,9 +30,14 @@ protected:
   // launch file for example)
   void initNodeAndMeshMap(std::optional<rclcpp::NodeOptions> node_options)
   {
-    node_ptr_ = std::make_shared<rclcpp::Node>("simple_nav", "", node_options.value_or(default_node_options_));
+    node_ptr_ =
+      std::make_shared<rclcpp::Node>(
+      "simple_nav", "",
+      node_options.value_or(default_node_options_));
     tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(node_ptr_->get_clock());
-    nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(tf_buffer_ptr_, node_ptr_);
+    nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(
+      tf_buffer_ptr_,
+      node_ptr_);
   }
 
   void TearDown() override
@@ -49,8 +54,7 @@ protected:
   const rclcpp::NodeOptions default_node_options_;
 };
 
-TEST_F(SimpleNavTest, loadsPluginsFromConfig)
+TEST_F(SimpleNavTest, loadsPluginsFromConfigAndInitializesThem)
 {
   initNodeAndMeshMap({});
-  ASSERT_TRUE(false);
 }

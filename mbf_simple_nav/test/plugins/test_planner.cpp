@@ -8,16 +8,19 @@ namespace mbf_simple_nav
 class TestPlanner : public mbf_simple_core::SimplePlanner
 {
   //! Returns a plan that consists only of the start pose and the goal pose
-  virtual uint32_t makePlan(const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal,
-                            double tolerance, std::vector<geometry_msgs::msg::PoseStamped>& plan, double& cost,
-                            std::string& message) override
+  virtual uint32_t makePlan(
+    const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal,
+    double tolerance, std::vector<geometry_msgs::msg::PoseStamped> & plan, double & cost,
+    std::string & message) override
   {
     plan.push_back(start);
     plan.push_back(goal);
     return mbf_msgs::action::GetPath::Result::SUCCESS;
-  };
-  virtual bool cancel() override{};
-  virtual void initialize(const std::string name, const rclcpp::Node::SharedPtr& node_handle) override{};
+  }
+  virtual bool cancel() override {}
+  virtual void initialize(
+    const std::string name,
+    const rclcpp::Node::SharedPtr & node_handle) override {}
 };
 
 }  // namespace mbf_simple_nav

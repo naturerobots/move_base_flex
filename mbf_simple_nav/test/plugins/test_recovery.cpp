@@ -10,11 +10,13 @@ public:
   TestRecovery() = default;
   virtual ~TestRecovery() = default;
 
-  virtual void initialize(const std::string name, TF* tf, const rclcpp::Node::SharedPtr& node_handle){};
+  virtual void initialize(
+    const std::string name, TF * tf,
+    const rclcpp::Node::SharedPtr & node_handle) {}
 
-  virtual uint32_t runBehavior(std::string& message){};
+  virtual uint32_t runBehavior(std::string & message) {}
 
-  virtual bool cancel(){};
+  virtual bool cancel() {}
 };
 
 }  // namespace mbf_simple_nav
