@@ -36,7 +36,7 @@
 
 using namespace std::chrono_literals;
 
-namespace mbf_simple_nav
+namespace mbf_test_utility
 {
 
 RobotSimulator::RobotSimulator()
@@ -98,4 +98,4 @@ void RobotSimulator::continuouslyUpdateRobotPose()
     create_wall_timer(10ms, std::bind(&RobotSimulator::continuouslyUpdateRobotPose, this));
 }
 
-}  // namespace mbf_simple_nav
+}  // namespace mbf_test_utility

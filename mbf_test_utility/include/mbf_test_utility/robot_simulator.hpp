@@ -33,7 +33,7 @@
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
-namespace mbf_simple_nav
+namespace mbf_test_utility
 {
 
 /**
@@ -67,4 +67,4 @@ protected:
   } config_;
 };
 
-}  // namespace mbf_simple_nav
+}  // namespace mbf_test_utility
