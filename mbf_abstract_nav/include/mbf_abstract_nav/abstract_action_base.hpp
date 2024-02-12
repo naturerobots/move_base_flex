@@ -95,9 +95,6 @@ public:
    *
    * @param name name of the AbstractActionBase
    * @param robot_info robot information
-   *
-   * @warning Both arguments are stored by ref. You have to ensure, that
-   * the lifetime of name and robot_info exceeds the lifetime of this object.
    */
   AbstractActionBase(
       const rclcpp::Node::SharedPtr& node,
