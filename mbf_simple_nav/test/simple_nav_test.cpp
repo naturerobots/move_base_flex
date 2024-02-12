@@ -12,6 +12,7 @@ struct SimpleNavTest : public Test
 protected:
   SimpleNavTest()
   : default_node_options_(rclcpp::NodeOptions()
+      .append_parameter_override("global_frame", "odom")
       .append_parameter_override("planners", std::vector<std::string> {"test_planner"})
       .append_parameter_override("test_planner.type", "mbf_simple_nav/TestPlanner")
       .append_parameter_override("controllers", std::vector<std::string> {"test_controller"})
@@ -114,5 +115,34 @@ TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
+// TODO re-enable test
+// TEST_F(SimpleNavTest, acceptsGoalsAfterLoadingTestPlugins)
+// {
+//   initRosNode(default_node_options_);
+//   mbf_msgs::action::GetPath::Goal planner_goal;
+//   planner_goal.planner = "test_planner";
+//   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(planner_goal);
+//   ASSERT_EQ(
+//     rclcpp::spin_until_future_complete(
+//       node_ptr_, goal_handle,
+//       std::chrono::milliseconds(100)), rclcpp::FutureReturnCode::SUCCESS);
+//   EXPECT_THAT(goal_handle.get(), NotNull()); // goal was not rejected
+// }
+// TODO add analogous test for exe path and recovery
+
+TEST_F(SimpleNavTest, getPathReturnsPlan)
 {
+  initRosNode(default_node_options_);
+  const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
+  ASSERT_EQ(
+    rclcpp::spin_until_future_complete(
+      node_ptr_, goal_handle,
+      std::chrono::milliseconds(100)), rclcpp::FutureReturnCode::SUCCESS);
+  const auto future_result = action_client_get_path_ptr_->async_get_result(goal_handle.get());
+  ASSERT_EQ(rclcpp::spin_until_future_complete(node_ptr_, future_result, std::chrono::seconds(1)), rclcpp::FutureReturnCode::SUCCESS);
+  // action is finished, result is available
+  const mbf_msgs::action::GetPath::Result::SharedPtr result_ptr = future_result.get().result;
+  EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
+  EXPECT_EQ(result_ptr->path.poses[0], get_path_goal_.start_pose);
+  EXPECT_EQ(result_ptr->path.poses[result_ptr->path.poses.size() - 1], get_path_goal_.target_pose);
 }
