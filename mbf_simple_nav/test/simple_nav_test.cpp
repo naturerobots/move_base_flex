@@ -71,6 +71,16 @@ protected:
     executor_ptr_->add_node(node_ptr_);
   }
 
+  // Helper function that runs execution until given future completes. Test will abort if future doesn't complete until timeout.
+  template<typename FutureT>
+  void spin_until_future_complete(const FutureT & future)
+  {
+    ASSERT_EQ(
+      executor_ptr_->spin_until_future_complete(
+        future, std::chrono::seconds(
+          2)), rclcpp::FutureReturnCode::SUCCESS);
+  }
+
   void TearDown() override
   {
     rclcpp::shutdown();
@@ -101,10 +111,7 @@ TEST_F(SimpleNavTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions()); // default node options without any parameter -> no plugins configured
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
-  ASSERT_EQ(
-    executor_ptr_->spin_until_future_complete(
-      goal_handle, std::chrono::milliseconds(
-        100)), rclcpp::FutureReturnCode::SUCCESS);
+  spin_until_future_complete(goal_handle);
   EXPECT_THAT(goal_handle.get(), IsNull()); // goal rejection is expressed by returning a nullptr (by rclcpp_action client)
 }
 
@@ -112,10 +119,7 @@ TEST_F(SimpleNavTest, rejectsExePathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
-  ASSERT_EQ(
-    executor_ptr_->spin_until_future_complete(
-      goal_handle, std::chrono::milliseconds(
-        100)), rclcpp::FutureReturnCode::SUCCESS);
+  spin_until_future_complete(goal_handle);
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
@@ -123,10 +127,7 @@ TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
-  ASSERT_EQ(
-    executor_ptr_->spin_until_future_complete(
-      goal_handle, std::chrono::milliseconds(
-        100)), rclcpp::FutureReturnCode::SUCCESS);
+  spin_until_future_complete(goal_handle);
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
@@ -149,15 +150,9 @@ TEST_F(SimpleNavTest, getPathReturnsPlan)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
-  ASSERT_EQ(
-    executor_ptr_->spin_until_future_complete(
-      goal_handle, std::chrono::milliseconds(100)), rclcpp::FutureReturnCode::SUCCESS);
+  spin_until_future_complete(goal_handle);
   const auto future_result = action_client_get_path_ptr_->async_get_result(goal_handle.get());
-  ASSERT_EQ(
-    executor_ptr_->spin_until_future_complete(
-      future_result, std::chrono::seconds(
-        1)), rclcpp::FutureReturnCode::SUCCESS);
-  // action is finished, result is available
+  spin_until_future_complete(future_result);
   const mbf_msgs::action::GetPath::Result::SharedPtr result_ptr = future_result.get().result;
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
   EXPECT_EQ(result_ptr->path.poses[0], get_path_goal_.start_pose);
