@@ -26,9 +26,10 @@ protected:
   void SetUp() override
   {
     rclcpp::init(0, nullptr);
-    executor_ptr_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
-    executor_ptr_->add_node(std::make_shared<mbf_test_utility::RobotSimulator>());
-    // node with simple server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
+    executor_ptr_ = std::make_unique<rclcpp::executors::MultiThreadedExecutor>();
+    robot_sim_node_ptr_ = std::make_shared<mbf_test_utility::RobotSimulator>();
+    executor_ptr_->add_node(robot_sim_node_ptr_);
+    // node with simple navigation server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
 
     get_path_goal_.planner = "test_planner";
     get_path_goal_.use_start_pose = true;
@@ -53,22 +54,23 @@ protected:
   // launch file for example)
   void initRosNode(rclcpp::NodeOptions node_options)
   {
-    node_ptr_ =
+    nav_server_node_ptr_ =
       std::make_shared<rclcpp::Node>("simple_nav", "", node_options);
-    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(node_ptr_->get_clock());
+    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(nav_server_node_ptr_->get_clock());
+    tf_buffer_ptr_->setUsingDedicatedThread(true);
     nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(
       tf_buffer_ptr_,
-      node_ptr_);
+      nav_server_node_ptr_);
     action_client_get_path_ptr_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
-      node_ptr_,
+      nav_server_node_ptr_,
       "simple_nav/get_path");
     action_client_exe_path_ptr_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
-      node_ptr_,
+      nav_server_node_ptr_,
       "simple_nav/exe_path");
     action_client_recovery_ptr_ = rclcpp_action::create_client<mbf_msgs::action::Recovery>(
-      node_ptr_,
+      nav_server_node_ptr_,
       "simple_nav/recovery");
-    executor_ptr_->add_node(node_ptr_);
+    executor_ptr_->add_node(nav_server_node_ptr_);
   }
 
   // Helper function that runs execution until given future completes. Test will abort if future doesn't complete until timeout.
@@ -78,7 +80,7 @@ protected:
     ASSERT_EQ(
       executor_ptr_->spin_until_future_complete(
         future, std::chrono::seconds(
-          2)), rclcpp::FutureReturnCode::SUCCESS);
+          5)), rclcpp::FutureReturnCode::SUCCESS);
   }
 
   void TearDown() override
@@ -86,13 +88,15 @@ protected:
     rclcpp::shutdown();
     nav_server_ptr_.reset();
     tf_buffer_ptr_.reset();
-    node_ptr_.reset();
+    nav_server_node_ptr_.reset();
+    robot_sim_node_ptr_.reset();
   }
 
   std::shared_ptr<mbf_simple_nav::SimpleNavigationServer> nav_server_ptr_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr_;
-  rclcpp::Node::SharedPtr node_ptr_;
-  std::unique_ptr<rclcpp::executors::SingleThreadedExecutor> executor_ptr_;
+  rclcpp::Node::SharedPtr nav_server_node_ptr_;
+  rclcpp::Node::SharedPtr robot_sim_node_ptr_;
+  std::unique_ptr<rclcpp::executors::MultiThreadedExecutor> executor_ptr_;
 
   // default parameterization for the tests
   const rclcpp::NodeOptions default_node_options_;
@@ -157,4 +161,19 @@ TEST_F(SimpleNavTest, getPathReturnsPlan)
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
   EXPECT_EQ(result_ptr->path.poses[0], get_path_goal_.start_pose);
   EXPECT_EQ(result_ptr->path.poses[result_ptr->path.poses.size() - 1], get_path_goal_.target_pose);
+}
+
+TEST_F(SimpleNavTest, exePathMovesRobotToGoal)
+{
+  initRosNode(default_node_options_);
+  exe_path_goal_.path.header.stamp = nav_server_node_ptr_->now();
+  exe_path_goal_.path.poses[0].header.stamp = exe_path_goal_.path.header.stamp;
+  exe_path_goal_.path.poses[1].header.stamp = exe_path_goal_.path.header.stamp;
+  const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
+  spin_until_future_complete(goal_handle);
+  const auto future_result = action_client_exe_path_ptr_->async_get_result(goal_handle.get());
+  spin_until_future_complete(future_result);
+  const mbf_msgs::action::ExePath::Result::SharedPtr result_ptr = future_result.get().result;
+  EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::ExePath::Result::SUCCESS);
+  EXPECT_LE(result_ptr->dist_to_goal, exe_path_goal_.dist_tolerance);
 }
