@@ -5,6 +5,7 @@
 #include <optional>
 #include <rclcpp_action/client.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/transform_listener.h>
 
 using namespace ::testing;
 
@@ -31,6 +32,9 @@ protected:
     executor_ptr_->add_node(robot_sim_node_ptr_);
     // node with simple navigation server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
 
+    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(robot_sim_node_ptr_->get_clock());
+    tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+
     get_path_goal_.planner = "test_planner";
     get_path_goal_.use_start_pose = true;
     get_path_goal_.start_pose.header.frame_id = "odom";
@@ -56,8 +60,6 @@ protected:
   {
     nav_server_node_ptr_ =
       std::make_shared<rclcpp::Node>("simple_nav", "", node_options);
-    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(nav_server_node_ptr_->get_clock());
-    tf_buffer_ptr_->setUsingDedicatedThread(true);
     nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(
       tf_buffer_ptr_,
       nav_server_node_ptr_);
@@ -86,13 +88,10 @@ protected:
   void TearDown() override
   {
     rclcpp::shutdown();
-    nav_server_ptr_.reset();
-    tf_buffer_ptr_.reset();
-    nav_server_node_ptr_.reset();
-    robot_sim_node_ptr_.reset();
   }
 
   std::shared_ptr<mbf_simple_nav::SimpleNavigationServer> nav_server_ptr_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr_;
   rclcpp::Node::SharedPtr nav_server_node_ptr_;
   rclcpp::Node::SharedPtr robot_sim_node_ptr_;
