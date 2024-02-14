@@ -166,7 +166,7 @@ TEST_F(SimpleNavTest, getPathReturnsPlan)
   EXPECT_EQ(result_ptr->path.poses[result_ptr->path.poses.size() - 1], get_path_goal_.target_pose);
 }
 
-TEST_F(SimpleNavTest, exePathMovesRobotToGoal)
+TEST_F(SimpleNavTest, exePathReachesTheGoal)
 {
   initRosNode(default_node_options_);
   exe_path_goal_.path.header.stamp = nav_server_node_ptr_->now();
