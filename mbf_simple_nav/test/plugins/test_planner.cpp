@@ -17,7 +17,7 @@ class TestPlanner : public mbf_simple_core::SimplePlanner
     plan.push_back(goal);
     return mbf_msgs::action::GetPath::Result::SUCCESS;
   }
-  virtual bool cancel() override {}
+  virtual bool cancel() override {return true;}
   virtual void initialize(
     const std::string name,
     const rclcpp::Node::SharedPtr & node_handle) override {}

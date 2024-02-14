@@ -14,7 +14,7 @@ public:
   virtual void initialize(
     const std::string name, ::TF * tf,
     const rclcpp::Node::SharedPtr & node_handle) override {}
-  virtual bool cancel() override {}
+  virtual bool cancel() override {return true;}
 
   virtual bool setPlan(const std::vector<geometry_msgs::msg::PoseStamped> & plan) override
   {

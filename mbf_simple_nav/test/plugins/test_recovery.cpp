@@ -14,9 +14,12 @@ public:
     const std::string name, TF * tf,
     const rclcpp::Node::SharedPtr & node_handle) {}
 
-  virtual uint32_t runBehavior(std::string & message) {}
+  virtual uint32_t runBehavior(std::string & message)
+  {
+    return 0; // success
+  }
 
-  virtual bool cancel() {}
+  virtual bool cancel() override {return true;}
 };
 
 }  // namespace mbf_simple_nav
