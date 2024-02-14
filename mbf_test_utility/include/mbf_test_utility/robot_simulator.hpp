@@ -45,8 +45,10 @@ class RobotSimulator : public rclcpp::Node
 {
 public:
   //! Initialises the simulator and starts with publishing an identity TF
-  RobotSimulator(const std::string & node_name="robot_simulator", const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-  
+  RobotSimulator(
+    const std::string & node_name = "robot_simulator",
+    const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+
 protected:
   //! Handle new command velocities. Incoming msgs need to be in the robot's frame.
   void velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel);
