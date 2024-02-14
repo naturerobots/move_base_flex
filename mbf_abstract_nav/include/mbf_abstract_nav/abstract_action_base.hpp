@@ -159,7 +159,6 @@ public:
       // fill concurrency slot with the new goal handle, execution, and working thread
       slot_it->second.in_use = true;
       slot_it->second.goal_handle = goal_handle;
-      //slot_it->second.goal_handle->setAccepted(); TODO can probably be removed; accept should happen in handle_goal. Check: Move cancel-same-slot code there as well?
       slot_it->second.execution = execution_ptr;
       slot_it->second.thread_ptr = new std::thread(
         std::bind(&AbstractActionBase::run, this, std::ref(concurrency_slots_[slot_id])));
