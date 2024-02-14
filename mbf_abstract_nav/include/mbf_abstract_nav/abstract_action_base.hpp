@@ -113,6 +113,11 @@ public:
       concurrency_slot.execution->cancel();
       if(concurrency_slot.thread_ptr->joinable())
         concurrency_slot.thread_ptr->join();
+      // if the respective goal_handle is active, communicate that the goal was aborted to the client
+      if(concurrency_slot.goal_handle && concurrency_slot.goal_handle->is_active()) {
+        typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
+        concurrency_slot.goal_handle->abort(result);
+      }
       // delete
       delete concurrency_slot.thread_ptr;
     }
