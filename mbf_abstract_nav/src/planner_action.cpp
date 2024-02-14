@@ -104,6 +104,16 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
     // get the current state of the planning thread
     state_planning_input = execution.getState();
 
+    if (goal_handle.is_canceling()) { // action client requested to cancel the action and our server accepted that request
+      result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
+      result->message = "Canceled by action client";
+      goal_handle.canceled(result);
+      planner_active = false;
+      execution.stop();
+      execution.join();
+      return;
+    }
+
     switch (state_planning_input)
     {
       case AbstractPlannerExecution::INITIALIZED:
@@ -137,7 +147,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         result->path.header.stamp = node_->now();
         result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
         result->message = "Global planner has been canceled!";
-        goal_handle.canceled(result);
+        goal_handle.abort(result);
         planner_active = false;
         break;
 

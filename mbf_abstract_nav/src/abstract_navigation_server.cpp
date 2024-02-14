@@ -198,8 +198,7 @@ void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal
 rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("get_path"), "Cancel action \"get_path\"");
-  planner_action_->cancel(goal_handle);
-  return rclcpp_action::CancelResponse::ACCEPT;
+  return rclcpp_action::CancelResponse::ACCEPT; // returning ACCEPT here will change the goal_handle state via rclcpp_action code. The planner_action reacts on that change and will stop execution and cancel the action
 }
 
 void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal_handle)
