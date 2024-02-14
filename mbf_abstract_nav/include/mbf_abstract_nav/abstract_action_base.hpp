@@ -128,7 +128,8 @@ public:
     if(goal_handle->is_canceling())
     {
       typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
-      goal_handle->canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
+      goal_handle->canceled(result);
+      RCLCPP_INFO(node_->get_logger(), "Goal canceled before execution started.");
     }
     else
     {
