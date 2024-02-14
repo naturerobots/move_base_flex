@@ -28,7 +28,7 @@ protected:
   {
     rclcpp::init(0, nullptr);
     executor_ptr_ = std::make_unique<rclcpp::executors::MultiThreadedExecutor>();
-    robot_sim_node_ptr_ = std::make_shared<mbf_test_utility::RobotSimulator>();
+    robot_sim_node_ptr_ = std::make_shared<mbf_test_utility::RobotSimulator>("robot_simulator", rclcpp::NodeOptions().arguments({"--ros-args", "-r", "~/cmd_vel:=/simple_nav/cmd_vel"}));
     executor_ptr_->add_node(robot_sim_node_ptr_);
     // node with simple navigation server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
 

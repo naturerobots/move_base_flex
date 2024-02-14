@@ -39,15 +39,16 @@ using namespace std::chrono_literals;
 namespace mbf_test_utility
 {
 
-RobotSimulator::RobotSimulator()
-: Node("robot_simulator"), tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
+RobotSimulator::RobotSimulator(const std::string & node_name, const rclcpp::NodeOptions & options)
+: Node(node_name, options)
+  , tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
 {
   trf_parent_robot_.header.stamp = now();
   trf_parent_robot_.header.frame_id = config_.parent_frame_id;
   trf_parent_robot_.child_frame_id = config_.robot_frame_id;
   continuouslyUpdateRobotPose();
   cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-    "cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
+    "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
 }
 
 void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel)
