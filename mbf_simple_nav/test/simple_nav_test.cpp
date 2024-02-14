@@ -15,6 +15,7 @@ protected:
   SimpleNavTest()
   : default_node_options_(rclcpp::NodeOptions()
       .append_parameter_override("global_frame", "odom")
+      .append_parameter_override("odom_topic", "") // disable warning
       .append_parameter_override("planners", std::vector<std::string> {"test_planner"})
       .append_parameter_override("test_planner.type", "mbf_simple_nav/TestPlanner")
       .append_parameter_override("controllers", std::vector<std::string> {"test_controller"})
@@ -28,7 +29,9 @@ protected:
   {
     rclcpp::init(0, nullptr);
     executor_ptr_ = std::make_unique<rclcpp::executors::MultiThreadedExecutor>();
-    robot_sim_node_ptr_ = std::make_shared<mbf_test_utility::RobotSimulator>("robot_simulator", rclcpp::NodeOptions().arguments({"--ros-args", "-r", "~/cmd_vel:=/simple_nav/cmd_vel"}));
+    robot_sim_node_ptr_ = std::make_shared<mbf_test_utility::RobotSimulator>(
+      "robot_simulator",
+      rclcpp::NodeOptions().arguments({"--ros-args", "-r", "~/cmd_vel:=/simple_nav/cmd_vel"})); // connect cmd_vel to simple_nav publisher
     executor_ptr_->add_node(robot_sim_node_ptr_);
     // node with simple navigation server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
 
@@ -40,12 +43,13 @@ protected:
     get_path_goal_.start_pose.header.frame_id = "odom";
     // start pose starts at position [0,0,0]
     get_path_goal_.target_pose.header.frame_id = "odom";
-    get_path_goal_.target_pose.pose.position.x = 10;
-    get_path_goal_.target_pose.pose.position.y = -3;
+    get_path_goal_.target_pose.pose.position.x = 0.7;
+    get_path_goal_.target_pose.pose.position.y = -1.3;
 
     exe_path_goal_.controller = "test_controller";
     exe_path_goal_.angle_tolerance = 0.1;
     exe_path_goal_.dist_tolerance = 0.01;
+    exe_path_goal_.tolerance_from_action = true;
     exe_path_goal_.path.header.frame_id = "odom";
     exe_path_goal_.path.poses.push_back(get_path_goal_.start_pose);
     exe_path_goal_.path.poses.push_back(get_path_goal_.target_pose);
