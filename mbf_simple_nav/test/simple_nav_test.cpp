@@ -91,6 +91,9 @@ protected:
 
   void TearDown() override
   {
+    // nav_server needs to be destructed before we can call rclcpp::shutdown.
+    // Otherwise, we might still have goal handles that crash when they reach their terminal state, because the goal doesn't exist at the lower rcl layer.
+    nav_server_ptr_.reset();
     rclcpp::shutdown();
   }
 
