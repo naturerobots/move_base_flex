@@ -54,15 +54,17 @@ SimpleNavigationServer::SimpleNavigationServer(const TFPtr& tf_listener_ptr, con
   initializeServerComponents();
 }
 
-SimpleNavigationServer::~SimpleNavigationServer() 
+SimpleNavigationServer::~SimpleNavigationServer()
 {
-  // Loaded plugins are indirectly owned by the action in which they are used.
-  // Via AbstractActionBase::ConcurrencySlot.execution: The execution objects own the plugin ptrs.
+  // Loaded plugins are held by action in which they are used and their respective plugin manager.
   // pluginlib::ClassLoaders need to get destructed after all plugins are destructed to avoid any leaks.
-  // Therefore, destruct actions here instead of waiting for the base class' destructor.
+  // Therefore, destruct actions and unload plugins here instead of waiting for the base class' destructor.
   planner_action_.reset();
   controller_action_.reset();
   recovery_action_.reset();
+  planner_plugin_manager_.clearPlugins();
+  controller_plugin_manager_.clearPlugins();
+  recovery_plugin_manager_.clearPlugins();
 }
 
 mbf_abstract_core::AbstractPlanner::Ptr SimpleNavigationServer::loadPlannerPlugin(const std::string& planner_type)
