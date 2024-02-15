@@ -276,15 +276,6 @@ typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
     //! Ptr to node for logging, params and communication with other nodes
     rclcpp::Node::SharedPtr node_;
 
-    /*
-     * Caution: Keep actions before their respective action servers. Otherwise, the action server gets destructed while actions still exist. 
-     * These actions might still have goal handles that depend on information in the server. So, the actions need to get cleaned up before we destruct the servers.
-     */
-    PlannerAction::Ptr planner_action_;
-    ControllerAction::Ptr controller_action_;
-    RecoveryAction::Ptr recovery_action_;
-    MoveBaseAction::Ptr move_base_action_;
-
     AbstractPluginManager<mbf_abstract_core::AbstractPlanner> planner_plugin_manager_;
     AbstractPluginManager<mbf_abstract_core::AbstractController> controller_plugin_manager_;
     AbstractPluginManager<mbf_abstract_core::AbstractRecovery> recovery_plugin_manager_;
@@ -300,6 +291,11 @@ typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
 
     //! shared pointer to the MoveBase action server
     ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
+
+    PlannerAction::Ptr planner_action_;
+    ControllerAction::Ptr controller_action_;
+    RecoveryAction::Ptr recovery_action_;
+    MoveBaseAction::Ptr move_base_action_;
 
     //! the robot frame, to get the current robot pose in the global_frame_
     std::string robot_frame_;
