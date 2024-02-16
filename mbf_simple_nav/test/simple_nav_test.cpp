@@ -144,9 +144,7 @@ TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
 TEST_F(SimpleNavTest, acceptsGoalsAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
-  mbf_msgs::action::GetPath::Goal planner_goal;
-  planner_goal.planner = "test_planner";
-  const auto goal_handle = action_client_get_path_ptr_->async_send_goal(planner_goal);
+  const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull()); // goal was not rejected
 }
