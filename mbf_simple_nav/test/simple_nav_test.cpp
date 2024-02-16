@@ -165,14 +165,23 @@ TEST_F(SimpleNavTest, getPathReturnsPlan)
 TEST_F(SimpleNavTest, exePathReachesTheGoal)
 {
   initRosNode(default_node_options_);
-  exe_path_goal_.path.header.stamp = nav_server_node_ptr_->now();
-  exe_path_goal_.path.poses[0].header.stamp = exe_path_goal_.path.header.stamp;
-  exe_path_goal_.path.poses[1].header.stamp = exe_path_goal_.path.header.stamp;
+
+  // start exe path action, then wait until it finishes
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   const auto future_result = action_client_exe_path_ptr_->async_get_result(goal_handle.get());
   ASSERT_TRUE(spin_until_future_complete(future_result));
   const mbf_msgs::action::ExePath::Result::SharedPtr result_ptr = future_result.get().result;
+
+  // check that the action succeeded and that the robot actually arrived at the chosen goal location
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::ExePath::Result::SUCCESS);
   EXPECT_LE(result_ptr->dist_to_goal, exe_path_goal_.dist_tolerance);
+  geometry_msgs::msg::TransformStamped trf_odom_baseLink = tf_buffer_ptr_->lookupTransform(
+    "odom",
+    "base_link",
+    tf2::TimePointZero);
+  const auto & robot_position = trf_odom_baseLink.transform.translation;
+  const auto & goal_position = exe_path_goal_.path.poses.back().pose.position;
+  EXPECT_NEAR(robot_position.x, goal_position.x, exe_path_goal_.dist_tolerance);
+  EXPECT_NEAR(robot_position.y, goal_position.y, exe_path_goal_.dist_tolerance);
 }
