@@ -54,6 +54,10 @@ protected:
   void velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel);
   //! Regularly (via timer) updates the robot's pose based on current_velocity and publishes it via tf2.
   void continuouslyUpdateRobotPose();
+  //! React to parameter changes.
+  rcl_interfaces::msg::SetParametersResult setParametersCallback(std::vector<rclcpp::Parameter> parameters);
+
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr set_parameters_callback_handle_;
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;
@@ -66,6 +70,7 @@ protected:
   {
     std::string robot_frame_id = "base_link";
     std::string parent_frame_id = "odom";
+    bool is_robot_stuck = false;
   } config_;
 };
 
