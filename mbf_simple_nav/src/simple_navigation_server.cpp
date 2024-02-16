@@ -56,7 +56,7 @@ SimpleNavigationServer::SimpleNavigationServer(const TFPtr& tf_listener_ptr, con
 
 SimpleNavigationServer::~SimpleNavigationServer()
 {
-  // Loaded plugins are held by action in which they are used and their respective plugin manager.
+  // Loaded plugins are held by the action in which they are used and their respective plugin manager.
   // pluginlib::ClassLoaders need to get destructed after all plugins are destructed to avoid any leaks.
   // Therefore, destruct actions and unload plugins here instead of waiting for the base class' destructor.
   planner_action_.reset();
