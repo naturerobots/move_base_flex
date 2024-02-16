@@ -141,12 +141,28 @@ TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
-TEST_F(SimpleNavTest, acceptsGoalsAfterLoadingTestPlugins)
+TEST_F(SimpleNavTest, acceptsGetPathGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull()); // goal was not rejected
+}
+
+TEST_F(SimpleNavTest, acceptsExePathGoalAfterLoadingTestPlugins)
+{
+  initRosNode(default_node_options_);
+  const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
+  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  EXPECT_THAT(goal_handle.get(), NotNull());
+}
+
+TEST_F(SimpleNavTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
+{
+  initRosNode(default_node_options_);
+  const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
+  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  EXPECT_THAT(goal_handle.get(), NotNull());
 }
 
 TEST_F(SimpleNavTest, getPathReturnsPlan)
