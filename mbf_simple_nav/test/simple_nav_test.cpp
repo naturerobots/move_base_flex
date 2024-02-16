@@ -21,7 +21,8 @@ protected:
       .append_parameter_override("controllers", std::vector<std::string> {"test_controller"})
       .append_parameter_override("test_controller.type", "mbf_simple_nav/TestController")
       .append_parameter_override("recovery_behaviors", std::vector<std::string> {"test_recovery"})
-      .append_parameter_override("test_recovery.type", "mbf_simple_nav/TestRecovery"))
+      .append_parameter_override("test_recovery.type", "mbf_simple_nav/TestRecovery")
+      .append_parameter_override("test_recovery.sim_server", "/robot_simulator"))
   {
   }
 
@@ -119,7 +120,7 @@ protected:
 
 TEST_F(SimpleNavTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
 {
-  initRosNode(rclcpp::NodeOptions()); // default node options without any parameter -> no plugins configured
+  initRosNode(rclcpp::NodeOptions()); // node options without any parameter -> no plugins configured
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), IsNull()); // goal rejection is expressed by returning a nullptr (by rclcpp_action client)
@@ -166,6 +167,7 @@ TEST_F(SimpleNavTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull());
+  spin_until_future_complete(action_client_recovery_ptr_->async_get_result(goal_handle.get()));
 }
 
 TEST_F(SimpleNavTest, getPathReturnsPlan)
@@ -203,4 +205,23 @@ TEST_F(SimpleNavTest, exePathReachesTheGoal)
   const auto & goal_position = exe_path_goal_.path.poses.back().pose.position;
   EXPECT_NEAR(robot_position.x, goal_position.x, exe_path_goal_.dist_tolerance);
   EXPECT_NEAR(robot_position.y, goal_position.y, exe_path_goal_.dist_tolerance);
+}
+
+TEST_F(SimpleNavTest, recoveryTriggersBehavior)
+{
+  initRosNode(default_node_options_);
+
+  robot_sim_node_ptr_->set_parameter(rclcpp::Parameter("is_robot_stuck", true));
+  ASSERT_TRUE(robot_sim_node_ptr_->get_parameter("is_robot_stuck").as_bool());
+
+  // start recovery action, then wait until it finishes
+  const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
+  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  const auto future_result = action_client_recovery_ptr_->async_get_result(goal_handle.get());
+  ASSERT_TRUE(spin_until_future_complete(future_result));
+  const mbf_msgs::action::Recovery::Result::SharedPtr result_ptr = future_result.get().result;
+
+  // check that the action succeeded and that the robot actually got unstuck
+  EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::Recovery::Result::SUCCESS);
+  EXPECT_FALSE(robot_sim_node_ptr_->get_parameter("is_robot_stuck").as_bool());
 }
