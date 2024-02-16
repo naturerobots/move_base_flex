@@ -62,6 +62,17 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
   while (recovery_active && rclcpp::ok())
   {
     state_recovery_input = execution.getState();
+
+    if (goal_handle.is_canceling()) { // action client requested to cancel the action and our server accepted that request
+      result->outcome = mbf_msgs::action::Recovery::Result::CANCELED;
+      result->message = "Canceled by action client";
+      goal_handle.canceled(result);
+      recovery_active = false;
+      execution.stop();
+      execution.join();
+      return;
+    }
+
     switch (state_recovery_input)
     {
       case AbstractRecoveryExecution::INITIALIZED:
@@ -97,7 +108,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         recovery_active = false; // stopping the action
         result->outcome = mbf_msgs::action::Recovery::Result::CANCELED;
         result->message = "Recovery behaviour \"" + goal.behavior + "\" canceled!";
-        goal_handle.canceled(result);
+        goal_handle.abort(result);
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), result->message);
         break;
 
