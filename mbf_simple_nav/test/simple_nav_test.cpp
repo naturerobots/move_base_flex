@@ -155,6 +155,9 @@ TEST_F(SimpleNavTest, acceptsExePathGoalAfterLoadingTestPlugins)
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
   ASSERT_TRUE(spin_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull());
+  // wait for goal completion before destructing the test fixture to save time during testing, even though it's not part of this test:
+  // otherwise, depending on the execution order, the exe_path action execution thread might wait 3sec for a tf that won't come, because the robot sim node is already gone.
+  spin_until_future_complete(action_client_exe_path_ptr_->async_get_result(goal_handle.get()));
 }
 
 TEST_F(SimpleNavTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
