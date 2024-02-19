@@ -3,6 +3,7 @@ project(mbf_simple_nav)
 
 find_package(ament_cmake_ros REQUIRED)
 set(dependencies
+  backward_ros
   geometry_msgs
   mbf_abstract_core
   mbf_abstract_nav
