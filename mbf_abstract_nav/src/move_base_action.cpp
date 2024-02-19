@@ -228,7 +228,7 @@ void MoveBaseAction::actionExePathGoalResponse(const rclcpp_action::ClientGoalHa
 void MoveBaseAction::actionExePathFeedback(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& goal_handle, const ExePath::Feedback::ConstSharedPtr &feedback)
 //void MoveBaseAction::actionExePathFeedback(const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr &feedback)
 {
-  mbf_msgs::action::MoveBase::Feedback::SharedPtr move_base_feedback;
+  mbf_msgs::action::MoveBase::Feedback::SharedPtr move_base_feedback = std::make_shared<mbf_msgs::action::MoveBase::Feedback>();
   move_base_feedback->outcome = feedback->outcome;
   move_base_feedback->message = feedback->message;
   move_base_feedback->angle_to_goal = feedback->angle_to_goal;
