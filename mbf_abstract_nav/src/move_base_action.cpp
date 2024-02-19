@@ -76,7 +76,6 @@ MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::s
   , oscillation_timeout_(0, 0)
   , oscillation_distance_(0)
   , replanning_thread_shutdown_(false)
-  , recovery_enabled_(true)
   , behaviors_(behaviors)
   , action_state_(NONE)
   , recovery_trigger_(NONE)
@@ -84,6 +83,8 @@ MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::s
   , replanning_period_(0, 0)
   , replanning_thread_(std::bind(&MoveBaseAction::replanningThread, this))
 { 
+  recovery_enabled_ = node_->declare_parameter("recovery_enabled", true);
+
   action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, name_action_exe_path);
   action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, name_action_get_path);
   action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, name_action_recovery);
