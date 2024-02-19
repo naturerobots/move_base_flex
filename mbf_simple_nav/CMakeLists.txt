@@ -73,13 +73,13 @@ if(BUILD_TESTING)
   # add gmock test suites
   find_package(ament_cmake_gmock REQUIRED)
   find_package(mbf_test_utility REQUIRED)
-  ament_add_gmock(${PROJECT_NAME}_test test/simple_nav_test.cpp)
-  target_include_directories(${PROJECT_NAME}_test PUBLIC
+  ament_add_gmock(${PROJECT_NAME}_integration_test test/simple_nav_integration_test.cpp)
+  target_include_directories(${PROJECT_NAME}_integration_test PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
   )
-  ament_target_dependencies(${PROJECT_NAME}_test mbf_test_utility rclcpp)
-  target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME}_lib)
+  ament_target_dependencies(${PROJECT_NAME}_integration_test mbf_test_utility rclcpp)
+  target_link_libraries(${PROJECT_NAME}_integration_test ${PROJECT_NAME}_lib)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
