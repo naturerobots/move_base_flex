@@ -9,10 +9,19 @@
 
 using namespace ::testing;
 
-struct SimpleNavTest : public Test
+/*
+ * Tests integration of move base simple nav modules (and, by extension, the abstract nav modules).
+ *
+ * The test consists of two nodes:
+ *   - The simple nav server node, to which we send action goals during the tests (just like users would do)
+ *   - The robot simulator node, which publishes TFs and receives cmd_vel data to move it around
+ *
+ * In addition, the test uses test plugins that have a very basic implementation of the respective action.
+ */
+struct SimpleNavIntegrationTest : public Test
 {
 protected:
-  SimpleNavTest()
+  SimpleNavIntegrationTest()
   : default_node_options_(rclcpp::NodeOptions()
       .append_parameter_override("global_frame", "odom")
       .append_parameter_override("odom_topic", "") // disable warning
@@ -118,7 +127,7 @@ protected:
   std::shared_ptr<rclcpp_action::Client<mbf_msgs::action::MoveBase>> action_client_move_base_ptr_;
 };
 
-TEST_F(SimpleNavTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
+TEST_F(SimpleNavIntegrationTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions()); // node options without any parameter -> no plugins configured
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
@@ -126,7 +135,7 @@ TEST_F(SimpleNavTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
   EXPECT_THAT(goal_handle.get(), IsNull()); // goal rejection is expressed by returning a nullptr (by rclcpp_action client)
 }
 
-TEST_F(SimpleNavTest, rejectsExePathGoalWhenNoPluginIsLoaded)
+TEST_F(SimpleNavIntegrationTest, rejectsExePathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
@@ -134,7 +143,7 @@ TEST_F(SimpleNavTest, rejectsExePathGoalWhenNoPluginIsLoaded)
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
-TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
+TEST_F(SimpleNavIntegrationTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
@@ -142,7 +151,7 @@ TEST_F(SimpleNavTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
-TEST_F(SimpleNavTest, acceptsGetPathGoalAfterLoadingTestPlugins)
+TEST_F(SimpleNavIntegrationTest, acceptsGetPathGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
@@ -150,7 +159,7 @@ TEST_F(SimpleNavTest, acceptsGetPathGoalAfterLoadingTestPlugins)
   EXPECT_THAT(goal_handle.get(), NotNull()); // goal was not rejected
 }
 
-TEST_F(SimpleNavTest, acceptsExePathGoalAfterLoadingTestPlugins)
+TEST_F(SimpleNavIntegrationTest, acceptsExePathGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
@@ -161,7 +170,7 @@ TEST_F(SimpleNavTest, acceptsExePathGoalAfterLoadingTestPlugins)
   spin_until_future_complete(action_client_exe_path_ptr_->async_get_result(goal_handle.get()));
 }
 
-TEST_F(SimpleNavTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
+TEST_F(SimpleNavIntegrationTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
@@ -170,7 +179,7 @@ TEST_F(SimpleNavTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
   spin_until_future_complete(action_client_recovery_ptr_->async_get_result(goal_handle.get()));
 }
 
-TEST_F(SimpleNavTest, getPathReturnsPlan)
+TEST_F(SimpleNavIntegrationTest, getPathReturnsPlan)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
@@ -183,7 +192,7 @@ TEST_F(SimpleNavTest, getPathReturnsPlan)
   EXPECT_EQ(result_ptr->path.poses[result_ptr->path.poses.size() - 1], get_path_goal_.target_pose);
 }
 
-TEST_F(SimpleNavTest, exePathReachesTheGoal)
+TEST_F(SimpleNavIntegrationTest, exePathReachesTheGoal)
 {
   initRosNode(default_node_options_);
 
@@ -197,7 +206,7 @@ TEST_F(SimpleNavTest, exePathReachesTheGoal)
   // check that the action succeeded and that the robot actually arrived at the chosen goal location
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::ExePath::Result::SUCCESS);
   EXPECT_LE(result_ptr->dist_to_goal, exe_path_goal_.dist_tolerance);
-  geometry_msgs::msg::TransformStamped trf_odom_baseLink = tf_buffer_ptr_->lookupTransform(
+  const geometry_msgs::msg::TransformStamped trf_odom_baseLink = tf_buffer_ptr_->lookupTransform(
     "odom",
     "base_link",
     tf2::TimePointZero);
@@ -207,7 +216,7 @@ TEST_F(SimpleNavTest, exePathReachesTheGoal)
   EXPECT_NEAR(robot_position.y, goal_position.y, exe_path_goal_.dist_tolerance);
 }
 
-TEST_F(SimpleNavTest, recoveryTriggersBehavior)
+TEST_F(SimpleNavIntegrationTest, recoveryTriggersBehavior)
 {
   initRosNode(default_node_options_);
 
