@@ -86,6 +86,9 @@ protected:
     action_client_recovery_ptr_ = rclcpp_action::create_client<mbf_msgs::action::Recovery>(
       nav_server_node_ptr_,
       "simple_nav/recovery");
+    action_client_move_base_ptr_ = rclcpp_action::create_client<mbf_msgs::action::MoveBase>(
+      nav_server_node_ptr_,
+      "simple_nav/move_base");
     executor_ptr_->add_node(nav_server_node_ptr_);
   }
 
@@ -234,3 +237,35 @@ TEST_F(SimpleNavIntegrationTest, recoveryTriggersBehavior)
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::Recovery::Result::SUCCESS);
   EXPECT_FALSE(robot_sim_node_ptr_->get_parameter("is_robot_stuck").as_bool());
 }
+
+// TODO re-enable test after fixing related crash (std::bad_array_new_length)
+//TEST_F(SimpleNavIntegrationTest, moveBaseActionReachesTheGoal)
+//{
+//  initRosNode(default_node_options_);
+//
+//  // make the robot stuck, so we test whether move base action triggers recovery
+//  //robot_sim_node_ptr_->set_parameter(rclcpp::Parameter("is_robot_stuck", true));
+//
+//  // start recovery action, then wait until it finishes
+//  mbf_msgs::action::MoveBase::Goal move_base_goal;
+//  move_base_goal.target_pose.header.frame_id = "odom";
+//  move_base_goal.target_pose.header.stamp = robot_sim_node_ptr_->now();
+//  move_base_goal.target_pose.pose.position.x = -3.2;
+//  move_base_goal.target_pose.pose.position.y = 0.8;
+//  const auto goal_handle = action_client_move_base_ptr_->async_send_goal(move_base_goal);
+//  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+//  const auto future_result = action_client_move_base_ptr_->async_get_result(goal_handle.get());
+//  ASSERT_TRUE(spin_until_future_complete(future_result));
+//  const mbf_msgs::action::MoveBase::Result::SharedPtr result_ptr = future_result.get().result;
+//
+//  // check that the action succeeded, that the robot got unstuck and ended up at the target_pose
+//  EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::MoveBase::Result::SUCCESS);
+//  const geometry_msgs::msg::TransformStamped trf_odom_baseLink = tf_buffer_ptr_->lookupTransform(
+//    "odom",
+//    "base_link",
+//    tf2::TimePointZero);
+//  const auto & robot_position = trf_odom_baseLink.transform.translation;
+//  const auto & goal_position = move_base_goal.target_pose.pose.position;
+//  EXPECT_NEAR(robot_position.x, goal_position.x, 0.03);
+//  EXPECT_NEAR(robot_position.y, goal_position.y, 0.03);
+//}
