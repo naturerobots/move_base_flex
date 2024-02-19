@@ -164,14 +164,14 @@ void AbstractRecoveryExecution::run()
                        "Unknown error occurred in recovery behavior");
     setState(INTERNAL_ERROR);
   }
-  condition_.notify_one();
+  condition_.notify_all();
 }
 
 void AbstractRecoveryExecution::handle_thread_interrupted()
 {
   RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Recovery \"" << name_ << "\" interrupted!");
   setState(STOPPED);
-  condition_.notify_one();
+  condition_.notify_all();
 }
 
 } /* namespace mbf_abstract_nav */
