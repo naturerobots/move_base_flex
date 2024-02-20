@@ -215,7 +215,6 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   }
 
   // call get_path action server to get a first plan
-  // TODO what about goal response (accept/reject) and feedback callbacks?
   get_path_goal_handle_ = action_client_get_path_->async_send_goal(get_path_goal_, get_path_send_goal_options_);
 }
 
