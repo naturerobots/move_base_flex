@@ -103,6 +103,10 @@ class MoveBaseAction
   void actionRecoveryResult(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result);
   void recoveryRejectedOrAborted(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result); // TODO keep?
 
+  //! Checks whether the move base client requested canceling of action. If so, returns true and handles goal state transition. Otherwise, returns false.
+  //! Regularly call this function before doing further work (e.g. before calling the next exepath action), so canceling remains responsive.
+  bool checkAndHandleMoveBaseActionCanceled();
+
   bool attemptRecovery();
 
   bool replanningActive() const;
