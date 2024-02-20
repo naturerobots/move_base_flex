@@ -186,12 +186,12 @@ class MoveBaseAction
 
   //! true, if recovery behavior for the MoveBase action is enabled.
   bool recovery_enabled_;
-
-  std::vector<std::string> recovery_behaviors_;
-
+  //! Gets set when a move base actions starts. These are the recovery behaviors that will be used by the move base action.
+  std::vector<std::string> actions_recovery_behaviors_;
+  //! Points to an element in actions_recovery_behaviors_. This is the current recovery behavior, we might try different behaviors for recovery one after another.
   std::vector<std::string>::iterator current_recovery_behavior_;
-
-  const std::vector<std::string> &behaviors_;
+  //! All available recovery behaviors. Gets set in the constructor, will be used as default actions_recovery_behaviors_ if none are specified in the action goal.
+  std::vector<std::string> available_recovery_behaviors_;
 
   enum MoveBaseActionState
   {
