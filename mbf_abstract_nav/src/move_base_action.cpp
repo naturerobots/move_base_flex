@@ -158,13 +158,6 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   action_state_ = GET_PATH;
 
   goal_handle_ = goal_handle;
-  // TODO 
-  // Accepting goals needs a separate callback now.
-  // Smallest change would be to adapt abstract_navigation_server to always accept goals.
-  // Current implementation (based on ROS1) aborts the goal handle in this method.
-  // Better (with ROS2): Move logic for aborting goal into new accept check method.
-  //goal_handle_.setAccepted();
-
 
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
 
