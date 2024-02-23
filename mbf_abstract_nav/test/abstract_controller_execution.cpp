@@ -260,79 +260,81 @@ TEST_F(ComputeRobotPoseFixture, controllerException)
   ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::INTERNAL_ERROR);
 }
 
-// // fixture which will setup the mock such that we generate a controller failure
-// struct FailureFixture : public ComputeRobotPoseFixture
-// {
-//   void SetUp()
-//   {
-//     // setup the expectation: the controller accepts the plan and says we are not arrived.
-//     // it furhermore returns an error code
-//     AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-//     EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(true));
-//     EXPECT_CALL(mock, isGoalReached(_, _)).WillRepeatedly(Return(false));
-//     EXPECT_CALL(mock, computeVelocityCommands(_, _, _, _)).WillRepeatedly(Return(11));
-// 
-//     // setup the plan
-//     plan_t plan(10);
-//     setNewPlan(plan, true, 1e-3, 1e-3);
-// 
-//     // call the parent method for the computeRobotPose call
-//     ComputeRobotPoseFixture::SetUp();
-//   }
-// };
-// 
-// TEST_F(FailureFixture, maxRetries)
-// {
-//   // test verifies the case where we exceed the max-retries.
-//   // the expected output is MAX_RETRIES
-// 
-//   // enable the retries logic (max_retries > 0)
-//   max_retries_ = 1;
-// 
-//   // call start
-//   ASSERT_TRUE(start());
-// 
-//   // wait for the status update: in first iteration NO_LOCAL_CMD
-//   waitForStateUpdate(std::chrono::seconds(1));
-//   ASSERT_EQ(getState(), NO_LOCAL_CMD);
-// 
-//   // wait for the status update: in second iteration MAX_RETRIES
-//   // bcs max_retries_ > 0 && ++retries > max_retries_
-//   waitForStateUpdate(std::chrono::seconds(1));
-//   ASSERT_EQ(getState(), MAX_RETRIES);
-// }
-// 
-// TEST_F(FailureFixture, noValidCmd)
-// {
-//   // test verifies the case where we don't exceed the patience or max-retries conditions
-//   // the expected output is NO_VALID_CMD
-// 
-//   // disable the retries logic
-//   max_retries_ = -1;
-//   // call start
-//   ASSERT_TRUE(start());
-// 
-//   // wait for the status update
-//   waitForStateUpdate(std::chrono::seconds(1));
-//   ASSERT_EQ(getState(), NO_LOCAL_CMD);
-// }
-// 
-// TEST_F(FailureFixture, patExceeded)
-// {
-//   // test verifies the case where we exceed the patience
-//   // the expected output is PAT_EXCEEDED
-// 
-//   // disable the retries logic and enable the patience logic: we cheat by setting it to a negative duration.
-//   max_retries_ = -1;
-//   patience_ = rclcpp::Duration::from_seconds(-1e-3);
-// 
-//   // call start
-//   ASSERT_TRUE(start());
-// 
-//   // wait for the status update
-//   waitForStateUpdate(std::chrono::seconds(1));
-//   ASSERT_EQ(getState(), PAT_EXCEEDED);
-// }
+// fixture which will setup the mock such that we generate a controller failure
+struct FailureFixture : public ComputeRobotPoseFixture
+{
+  void initRosNode(rclcpp::NodeOptions node_options = rclcpp::NodeOptions())
+  {
+    // call the parent method for the computeRobotPose call
+    ComputeRobotPoseFixture::initRosNode(node_options);
+
+    // setup the expectation: the controller accepts the plan and says we are not arrived.
+    // it furhermore returns an error code
+    EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mock_controller_ptr_, isGoalReached(_, _)).WillRepeatedly(Return(false));
+    EXPECT_CALL(*mock_controller_ptr_, computeVelocityCommands(_, _, _, _)).WillRepeatedly(Return(11));
+
+    // setup the plan
+    plan_t plan(10);
+    controller_execution_ptr_->setNewPlan(plan, true, 1e-3, 1e-3);
+  }
+};
+
+TEST_F(FailureFixture, maxRetries)
+{
+  // test verifies the case where we exceed the max-retries.
+  // the expected output is MAX_RETRIES
+
+  // enable the retries logic (max_retries > 0)
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("controller_max_retries", 1));
+
+  // call start
+  ASSERT_TRUE(controller_execution_ptr_->start());
+
+  // wait for the status update: in first iteration NO_LOCAL_CMD
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::NO_LOCAL_CMD);
+
+  // wait for the status update: in second iteration MAX_RETRIES
+  // bcs max_retries_ > 0 && ++retries > max_retries_
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::MAX_RETRIES);
+}
+
+TEST_F(FailureFixture, noValidCmd)
+{
+  // test verifies the case where we don't exceed the patience or max-retries conditions
+  // the expected output is NO_VALID_CMD
+
+  // disable the retries logic
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("controller_max_retries", -1));
+
+  // call start
+  ASSERT_TRUE(controller_execution_ptr_->start());
+
+  // wait for the status update
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::NO_LOCAL_CMD);
+}
+
+TEST_F(FailureFixture, patExceeded)
+{
+  // test verifies the case where we exceed the patience
+  // the expected output is PAT_EXCEEDED
+
+  // disable the retries logic and enable the patience logic: we cheat by setting it to a negative duration.
+  initRosNode(rclcpp::NodeOptions()
+    .append_parameter_override("controller_max_retries", -1)
+    .append_parameter_override("controller_patience", -1e-3)
+  );
+
+  // call start
+  ASSERT_TRUE(controller_execution_ptr_->start());
+
+  // wait for the status update
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::PAT_EXCEEDED);
+}
 
 int main(int argc, char** argv)
 {
