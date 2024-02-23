@@ -26,54 +26,72 @@ using testing::InSequence;
 using testing::Return;
 using testing::Test;
 
-TFPtr TF_PTR;
-rclcpp::Node::SharedPtr NODE;
-mbf_utility::RobotInformation::ConstPtr ROBOT_INFO_PTR;
-
-void init_global_objects()
-{
-  NODE = std::make_shared<rclcpp::Node>("test");
-  // suppress the logging since we don't want warnings to pollute the test-outcome
-  NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
-  TF_PTR = std::make_shared<TF>(NODE->get_clock());
-  TF_PTR->setUsingDedicatedThread(true);
-  ROBOT_INFO_PTR = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame", "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
-}
-
 // setup the test-fixture
-struct AbstractPlannerExecutionFixture : public Test, public AbstractPlannerExecution
+struct AbstractPlannerExecutionFixture : public Test
 {
-  PoseStamped pose;  // dummy pose to call start
-
-  AbstractPlannerExecutionFixture()
-    : AbstractPlannerExecution("foo", AbstractPlanner::Ptr{ new AbstractPlannerMock() },
-                               ROBOT_INFO_PTR, NODE)
+  // Call this manually at the beginning of each test.
+  // Allows setting parameter overrides via NodeOptions, e.g. for global and robot frame.
+  void initRosNode(rclcpp::NodeOptions node_options = rclcpp::NodeOptions())
   {
+    node_ptr_ = std::make_shared<rclcpp::Node>("abstract_planner_execution_test", "", node_options);
+    // suppress the logging since we don't want warnings to pollute the test-outcome
+    node_ptr_->get_logger().set_level(rclcpp::Logger::Level::Fatal);
+    tf_ptr_ = std::make_shared<TF>(node_ptr_->get_clock());
+    tf_ptr_->setUsingDedicatedThread(true);
+    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame",
+                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+
+    mock_planner_ptr_ = std::make_shared<AbstractPlannerMock>();
+    planner_execution_ptr_ = std::make_unique<AbstractPlannerExecution>("foo", mock_planner_ptr_,
+                               robot_info_ptr_, node_ptr_);
+
+  }
+
+  void SetUp() override
+  {
+    rclcpp::init(0, nullptr);
   }
 
   void TearDown() override
   {
     // we have to stop the thread when the test is done
-    join();
+    planner_execution_ptr_->join();
 
-    // re-init global objects, otherwise we get crashes due to multiple declaration of params
-    init_global_objects();
+    planner_execution_ptr_.reset();
+    mock_planner_ptr_.reset();
+
+    robot_info_ptr_.reset();
+    tf_ptr_.reset();
+    node_ptr_.reset();
+
+    rclcpp::shutdown();
   }
+
+protected:
+  PoseStamped pose_;  // dummy pose_ to call start
+
+  rclcpp::Node::SharedPtr node_ptr_;
+  TFPtr tf_ptr_;
+  mbf_utility::RobotInformation::Ptr robot_info_ptr_;
+
+  std::shared_ptr<AbstractPlannerMock> mock_planner_ptr_;
+  std::unique_ptr<AbstractPlannerExecution> planner_execution_ptr_;
 };
 
 TEST_F(AbstractPlannerExecutionFixture, success)
 {
+  initRosNode();
+
   // the good case - we succeed
   // setup the expectation
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).WillOnce(Return(0));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).WillOnce(Return(0));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), FOUND_PLAN);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
 }
 
 ACTION_P(Wait, cv)
@@ -86,121 +104,127 @@ ACTION_P(Wait, cv)
 
 TEST_F(AbstractPlannerExecutionFixture, cancel)
 {
+  initRosNode();
+
   // the cancel case. we simulate that we cancel the execution
   // setup the expectation
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
   std::condition_variable cv;
   // makePlan may or may not be called
-  ON_CALL(mock, makePlan(_, _, _, _, _, _)).WillByDefault(Wait(&cv));
-  EXPECT_CALL(mock, cancel()).Times(1).WillOnce(Return(true));
+  ON_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).WillByDefault(Wait(&cv));
+  EXPECT_CALL(*mock_planner_ptr_, cancel()).Times(1).WillOnce(Return(true));
 
   // now call the method
-  ASSERT_TRUE(start(pose, pose, 0));
-  ASSERT_TRUE(cancel());
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
+  ASSERT_TRUE(planner_execution_ptr_->cancel());
 
   // wake up run-thread
   cv.notify_all();
 
   // check result
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), CANCELED);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::CANCELED);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, reconfigure)
 {
-  ASSERT_EQ(getFrequency(), 0.0); // default value, after param declaration
-  const auto set_param_result = NODE->set_parameter(rclcpp::Parameter("planner_frequency", 1.0));
+  initRosNode();
+
+  ASSERT_EQ(planner_execution_ptr_->getFrequency(), 0.0); // default value, after param declaration
+  const auto set_param_result = node_ptr_->set_parameter(rclcpp::Parameter("planner_frequency", 1.0));
   EXPECT_TRUE(set_param_result.successful);
-  EXPECT_EQ(getFrequency(), 1.0); // changed value, should be set via the reconfigure callback that is called by ROS 2 when params change
+  EXPECT_EQ(planner_execution_ptr_->getFrequency(), 1.0); // changed value, should be set via the reconfigure callback that is called by ROS 2 when params change
 }
 
 TEST_F(AbstractPlannerExecutionFixture, max_retries)
 {
+  initRosNode();
+
   // we expect that if the planner fails for 1 + max_retries times, that
   // the class returns MAX_RETRIES
 
   // configure the class
   const int max_retries = 5;
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", max_retries)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 100.0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", max_retries)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 100.0)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1 + max_retries).WillRepeatedly(Return(11));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1 + max_retries).WillRepeatedly(Return(11));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), MAX_RETRIES);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::MAX_RETRIES);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, success_after_retries)
 {
+  initRosNode();
+
   // we expect that if the planner fails for 1 + (max_retries - 1) times and then succeeds, that
   // the class returns FOUND_PLAN
 
   // configure the class
   const int max_retries = 5;
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", max_retries)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 100.0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", max_retries)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 100.0)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
   InSequence seq;
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(max_retries).WillRepeatedly(Return(11));
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(1));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(max_retries).WillRepeatedly(Return(11));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(1));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // wait for the patience to elapse and check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), FOUND_PLAN);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, no_plan_found_zero_patience)
 {
+  initRosNode();
+
   // if no retries and no patience are configured, we return NO_PLAN_FOUND on
   // planner failure
 
   // configure the class
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 0.0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 0.0)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(11));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(11));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), NO_PLAN_FOUND);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::NO_PLAN_FOUND);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, no_plan_found_non_zero_patience)
 {
+  initRosNode();
+
   // if no retries and a large patience are configured, we return NO_PLAN_FOUND on
   // planner failure
 
   // configure the class
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 1.0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 1.0)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(11));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Return(11));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), NO_PLAN_FOUND);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::NO_PLAN_FOUND);
 }
 
 using testing::DoAll;
@@ -208,6 +232,8 @@ using testing::SetArgReferee;
 
 TEST_F(AbstractPlannerExecutionFixture, sumDist)
 {
+  initRosNode();
+
   // simulate the case when the planner returns zero cost
   std::vector<PoseStamped> plan(4);
   for (size_t ii = 0; ii != plan.size(); ++ii)
@@ -217,63 +243,64 @@ TEST_F(AbstractPlannerExecutionFixture, sumDist)
   // call the planner
   // the good case - we succeed
   // setup the expectation
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _))
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _))
       .WillOnce(DoAll(SetArgReferee<3>(plan), SetArgReferee<4>(cost), Return(0)));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), FOUND_PLAN);
-  ASSERT_EQ(getCost(), 3);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
+  ASSERT_EQ(planner_execution_ptr_->getCost(), 3);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, patience_exceeded_waiting_for_planner_response)
 {
+  initRosNode();
+
   // if makePlan does not return before the patience times out, we return PAT_EXCEEDED
 
   // configure the class
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 0.1)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", 0)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 0.1)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
   std::condition_variable cv;
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Wait(&cv));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(Wait(&cv));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // wait for the patience to elapse
   std::this_thread::sleep_for(std::chrono::milliseconds{ 200 });
   cv.notify_all();
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), PAT_EXCEEDED);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::PAT_EXCEEDED);
 }
 
 TEST_F(AbstractPlannerExecutionFixture, patience_exceeded_infinite_retries)
 {
+  initRosNode();
+
   // if negative retries are configured, we expect makePlan to repeatedly get called, and PAT_EXCEEDED to be returned
   // once the patience is exceeded
 
   // configure the class
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_max_retries", -1)).successful);
-  ASSERT_TRUE(NODE->set_parameter(rclcpp::Parameter("planner_patience", 0.5)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_max_retries", -1)).successful);
+  ASSERT_TRUE(node_ptr_->set_parameter(rclcpp::Parameter("planner_patience", 0.5)).successful);
 
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(AtLeast(10)).WillRepeatedly(Return(11));
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(AtLeast(10)).WillRepeatedly(Return(11));
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // wait for the patience to elapse and check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), PAT_EXCEEDED);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::PAT_EXCEEDED);
 }
 
 ACTION(ThrowException)
@@ -283,23 +310,22 @@ ACTION(ThrowException)
 
 TEST_F(AbstractPlannerExecutionFixture, exception)
 {
+  initRosNode();
+
   // if we throw an exception, we expect that we can recover from it
   // setup the expectations
-  AbstractPlannerMock& mock = dynamic_cast<AbstractPlannerMock&>(*planner_);
-  EXPECT_CALL(mock, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(ThrowException());
+  EXPECT_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).Times(1).WillOnce(ThrowException());
 
   // call and wait
-  ASSERT_TRUE(start(pose, pose, 0));
+  ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
-  ASSERT_EQ(getState(), INTERNAL_ERROR);
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::INTERNAL_ERROR);
 }
 
 int main(int argc, char** argv)
 {
-  rclcpp::init(argc, argv);
-  init_global_objects();
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
