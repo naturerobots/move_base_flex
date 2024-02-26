@@ -139,7 +139,7 @@ AbstractControllerExecution::AbstractControllerExecution(
   double patience;
   node_handle_->get_parameter("controller_patience", patience);
   patience_ = rclcpp::Duration::from_seconds(patience);
-  node_handle_->get_parameter("controller_max_retires", max_retries_);
+  node_handle_->get_parameter("controller_max_retries", max_retries_);
 
   // dynamically reconfigurable parameters
   dyn_params_handler_ = node_handle_->add_on_set_parameters_callback(

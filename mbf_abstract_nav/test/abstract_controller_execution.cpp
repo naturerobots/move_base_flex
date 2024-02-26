@@ -12,6 +12,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 using geometry_msgs::msg::PoseStamped;
 using geometry_msgs::msg::TransformStamped;
@@ -36,98 +37,120 @@ struct AbstractControllerMock : public AbstractController
   MOCK_METHOD0(cancel, bool());
 };
 
-// some global variables for the test
-rclcpp::Node::SharedPtr NODE;
-rclcpp::Publisher<TwistStamped>::SharedPtr VEL_PUB;
-rclcpp::Publisher<PoseStamped>::SharedPtr GOAL_PUB;
-TFPtr TF_PTR;
-mbf_utility::RobotInformation::Ptr ROBOT_INFO;
-
-void init_global_objects()
-{
-  NODE = std::make_shared<rclcpp::Node>("read_types");
-  // suppress the logging since we don't want warnings to pollute the test-outcome
-  NODE->get_logger().set_level(rclcpp::Logger::Level::Fatal);
-  VEL_PUB = NODE->create_publisher<TwistStamped>("vel", 1);
-  GOAL_PUB = NODE->create_publisher<PoseStamped>("pose", 1);
-  TF_PTR = std::make_shared<TF>(NODE->get_clock());
-  TF_PTR->setUsingDedicatedThread(true);
-  ROBOT_INFO = std::make_shared<mbf_utility::RobotInformation>(NODE, TF_PTR, "global_frame",
-                                                               "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
-}
-
 // fixture for our tests
-struct AbstractControllerExecutionFixture : public Test, public AbstractControllerExecution
+struct AbstractControllerExecutionFixture : public Test
 {
-  AbstractControllerExecutionFixture()
-    : AbstractControllerExecution("a name", AbstractController::Ptr(new AbstractControllerMock()),
-                                  ROBOT_INFO, VEL_PUB, GOAL_PUB, NODE)
+  AbstractControllerExecutionFixture() {};
+
+  void SetUp() override
   {
+    rclcpp::init(0, nullptr);
   }
+
+
+  // Call this manually at the beginning of each test.
+  // Allows setting parameter overrides via NodeOptions, e.g. for global and robot frame.
+  void initRosNode(rclcpp::NodeOptions node_options = rclcpp::NodeOptions())
+  {
+    node_ptr_ = std::make_shared<rclcpp::Node>("abstract_controller_execution_test", "", node_options);
+    // suppress the logging since we don't want warnings to pollute the test-outcome
+    node_ptr_->get_logger().set_level(rclcpp::Logger::Level::Fatal);
+    vel_pub_ptr_ = node_ptr_->create_publisher<TwistStamped>("vel", 1);
+    goal_pub_ptr_ = node_ptr_->create_publisher<PoseStamped>("pose", 1);
+    tf_ptr_ = std::make_shared<TF>(node_ptr_->get_clock());
+    tf_ptr_->setUsingDedicatedThread(true);
+    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame",
+                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+
+    mock_controller_ptr_ = std::make_shared<AbstractControllerMock>();
+    controller_execution_ptr_ = std::make_unique<AbstractControllerExecution>("a name", AbstractController::Ptr(mock_controller_ptr_),
+                                                                              robot_info_ptr_, vel_pub_ptr_, goal_pub_ptr_, node_ptr_);
+  }
+
 
   void TearDown() override
   {
     // after every test we expect that moving_ is set to false
     // we don't expect this for the case NO_LOCAL_CMD
-    if (getState() != NO_LOCAL_CMD)
-      EXPECT_FALSE(isMoving());
+    if (controller_execution_ptr_->getState() != AbstractControllerExecution::NO_LOCAL_CMD) {
+      EXPECT_FALSE(controller_execution_ptr_->isMoving());
+    }
 
     // we have to stop the thread when the test is done
-    join();
+    controller_execution_ptr_->join();
 
-    // re-init global objects, otherwise we get crashes due to multiple declaration of params
-    init_global_objects();
+    controller_execution_ptr_.reset();
+    mock_controller_ptr_.reset();
+
+    robot_info_ptr_.reset();
+    tf_ptr_.reset();
+    goal_pub_ptr_.reset();
+    vel_pub_ptr_.reset();
+    node_ptr_.reset();
+  
+    rclcpp::shutdown();
   }
 
+protected:
+  rclcpp::Node::SharedPtr node_ptr_;
+  rclcpp::Publisher<TwistStamped>::SharedPtr vel_pub_ptr_;
+  rclcpp::Publisher<PoseStamped>::SharedPtr goal_pub_ptr_;
+  TFPtr tf_ptr_;
+  mbf_utility::RobotInformation::Ptr robot_info_ptr_;
+
+  std::shared_ptr<AbstractControllerMock> mock_controller_ptr_;
+  std::unique_ptr<AbstractControllerExecution> controller_execution_ptr_;
 };
 
 TEST_F(AbstractControllerExecutionFixture, noPlan)
 {
   // test checks the case where we call start() without setting a plan.
   // the expected output is NO_PLAN.
+  initRosNode();
 
   // start the controller
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), NO_PLAN);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::NO_PLAN);
 }
 
 TEST_F(AbstractControllerExecutionFixture, emptyPlan)
 {
   // test checks the case where we pass an empty path to the controller.
   // the expected output is EMPTY_PLAN
+  initRosNode();
 
   // set an empty plan
-  setNewPlan(plan_t{}, true, 1, 1);
+  controller_execution_ptr_->setNewPlan(plan_t{}, true, 1, 1);
 
   // start the controller
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), EMPTY_PLAN);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::EMPTY_PLAN);
 }
 
 TEST_F(AbstractControllerExecutionFixture, invalidPlan)
 {
   // test checks the case where the controller recjets the plan.
   // the expected output is INVALID_PLAN
+  initRosNode();
 
   // setup the expectation: the controller rejects the plan
-  AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-  EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(false));
+  EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(false));
   // set a plan
   plan_t plan(10);
-  setNewPlan(plan, true, 1, 1);
+  controller_execution_ptr_->setNewPlan(plan, true, 1, 1);
 
   // start the controller
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), INVALID_PLAN);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::INVALID_PLAN);
 }
 
 TEST_F(AbstractControllerExecutionFixture, internalError)
@@ -135,54 +158,65 @@ TEST_F(AbstractControllerExecutionFixture, internalError)
   // test checks the case where we cannot compute the current robot pose
   // the expected output is INTERNAL_ERROR
 
+  // set the robot frame to some thing else then the global frame (for our test case)
+  initRosNode(rclcpp::NodeOptions()
+    .append_parameter_override("global_frame", "global_frame")
+    .append_parameter_override("robot_frame", "not_global_frame")
+  );
+
   // setup the expectation: the controller accepts the plan
-  AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-  EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(true));
+  EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(true));
 
   // set a plan
   plan_t plan(10);
-  setNewPlan(plan, true, 1, 1);
-
-  // set the robot frame to some thing else then the global frame (for our test case)
-  global_frame_ = "global_frame";
-  robot_frame_ = "not_global_frame";
+  controller_execution_ptr_->setNewPlan(plan, true, 1, 1);
 
   // start the controller
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
   // note: this timeout must be longer than the default tf-timeout
-  waitForStateUpdate(std::chrono::seconds(2));
-  ASSERT_EQ(getState(), INTERNAL_ERROR);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(2));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::INTERNAL_ERROR);
 }
 
 // fixture making us pass computeRobotPose()
 struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
 {
-  void SetUp()
+  ComputeRobotPoseFixture () 
+  : global_frame_("global_frame")
+  , robot_frame_("robot_frame")
+  {}
+
+  void initRosNode(rclcpp::NodeOptions node_options = rclcpp::NodeOptions())
   {
+
+    node_options.append_parameter_override("global_frame", global_frame_)
+                .append_parameter_override("robot_frame", robot_frame_);
+    AbstractControllerExecutionFixture::initRosNode(node_options);
     // setup the transform.
-    global_frame_ = "global_frame";
-    robot_frame_ = "robot_frame";
     TransformStamped transform;
-    transform.header.stamp = NODE->now();
+    transform.header.stamp = node_ptr_->now();
     transform.header.frame_id = global_frame_;
     transform.child_frame_id = robot_frame_;
     transform.transform.rotation.w = 1;
     // todo right now the mbf_utility checks on the transform age - but this does not work for static transforms
-    TF_PTR->setTransform(transform, "mama");
+    tf_ptr_->setTransform(transform, "mama");
   }
+protected: 
+  const std::string global_frame_;
+  const std::string robot_frame_;
 };
 
 TEST_F(ComputeRobotPoseFixture, arrivedGoal)
 {
   // test checks the case where we reach the goal.
   // the expected output is ARRIVED_GOAL
+  initRosNode();
 
   // setup the expectation: the controller accepts the plan and says we are arrived
-  AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-  EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(true));
-  EXPECT_CALL(mock, isGoalReached(_, _)).WillOnce(Return(true));
+  EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(true));
+  EXPECT_CALL(*mock_controller_ptr_, isGoalReached(_, _)).WillOnce(Return(true));
 
   // we compare against the back-pose of the plan
   plan_t plan(10);
@@ -190,14 +224,14 @@ TEST_F(ComputeRobotPoseFixture, arrivedGoal)
   plan.back().pose.orientation.w = 1;
 
   // make the tolerances small
-  setNewPlan(plan, true, 1e-3, 1e-3);
+  controller_execution_ptr_->setNewPlan(plan, true, 1e-3, 1e-3);
 
   // call start
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), ARRIVED_GOAL);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::ARRIVED_GOAL);
 }
 
 ACTION(ControllerException)
@@ -207,43 +241,42 @@ ACTION(ControllerException)
 
 TEST_F(ComputeRobotPoseFixture, controllerException)
 {
+  initRosNode();
   // setup the expectation: the controller accepts the plan and says we are not arrived.
   // the controller throws then an exception
-  AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-  EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(true));
-  EXPECT_CALL(mock, isGoalReached(_, _)).WillOnce(Return(false));
-  EXPECT_CALL(mock, computeVelocityCommands(_, _, _, _)).WillOnce(ControllerException());
+  EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(true));
+  EXPECT_CALL(*mock_controller_ptr_, isGoalReached(_, _)).WillOnce(Return(false));
+  EXPECT_CALL(*mock_controller_ptr_, computeVelocityCommands(_, _, _, _)).WillOnce(ControllerException());
 
   // setup the plan
   plan_t plan(10);
-  setNewPlan(plan, true, 1e-3, 1e-3);
+  controller_execution_ptr_->setNewPlan(plan, true, 1e-3, 1e-3);
 
   // call start
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), INTERNAL_ERROR);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::INTERNAL_ERROR);
 }
 
 // fixture which will setup the mock such that we generate a controller failure
 struct FailureFixture : public ComputeRobotPoseFixture
 {
-  void SetUp()
+  void initRosNode(rclcpp::NodeOptions node_options = rclcpp::NodeOptions())
   {
+    // call the parent method for the computeRobotPose call
+    ComputeRobotPoseFixture::initRosNode(node_options);
+
     // setup the expectation: the controller accepts the plan and says we are not arrived.
     // it furhermore returns an error code
-    AbstractControllerMock& mock = dynamic_cast<AbstractControllerMock&>(*controller_);
-    EXPECT_CALL(mock, setPlan(_)).WillOnce(Return(true));
-    EXPECT_CALL(mock, isGoalReached(_, _)).WillRepeatedly(Return(false));
-    EXPECT_CALL(mock, computeVelocityCommands(_, _, _, _)).WillRepeatedly(Return(11));
+    EXPECT_CALL(*mock_controller_ptr_, setPlan(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mock_controller_ptr_, isGoalReached(_, _)).WillRepeatedly(Return(false));
+    EXPECT_CALL(*mock_controller_ptr_, computeVelocityCommands(_, _, _, _)).WillRepeatedly(Return(11));
 
     // setup the plan
     plan_t plan(10);
-    setNewPlan(plan, true, 1e-3, 1e-3);
-
-    // call the parent method for the computeRobotPose call
-    ComputeRobotPoseFixture::SetUp();
+    controller_execution_ptr_->setNewPlan(plan, true, 1e-3, 1e-3);
   }
 };
 
@@ -253,19 +286,19 @@ TEST_F(FailureFixture, maxRetries)
   // the expected output is MAX_RETRIES
 
   // enable the retries logic (max_retries > 0)
-  max_retries_ = 1;
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("controller_max_retries", 1));
 
   // call start
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update: in first iteration NO_LOCAL_CMD
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), NO_LOCAL_CMD);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::NO_LOCAL_CMD);
 
   // wait for the status update: in second iteration MAX_RETRIES
   // bcs max_retries_ > 0 && ++retries > max_retries_
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), MAX_RETRIES);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::MAX_RETRIES);
 }
 
 TEST_F(FailureFixture, noValidCmd)
@@ -274,13 +307,14 @@ TEST_F(FailureFixture, noValidCmd)
   // the expected output is NO_VALID_CMD
 
   // disable the retries logic
-  max_retries_ = -1;
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("controller_max_retries", -1));
+
   // call start
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), NO_LOCAL_CMD);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::NO_LOCAL_CMD);
 }
 
 TEST_F(FailureFixture, patExceeded)
@@ -289,22 +323,21 @@ TEST_F(FailureFixture, patExceeded)
   // the expected output is PAT_EXCEEDED
 
   // disable the retries logic and enable the patience logic: we cheat by setting it to a negative duration.
-  max_retries_ = -1;
-  patience_ = rclcpp::Duration::from_seconds(-1e-3);
+  initRosNode(rclcpp::NodeOptions()
+    .append_parameter_override("controller_max_retries", -1)
+    .append_parameter_override("controller_patience", -1e-3)
+  );
 
   // call start
-  ASSERT_TRUE(start());
+  ASSERT_TRUE(controller_execution_ptr_->start());
 
   // wait for the status update
-  waitForStateUpdate(std::chrono::seconds(1));
-  ASSERT_EQ(getState(), PAT_EXCEEDED);
+  controller_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(controller_execution_ptr_->getState(), AbstractControllerExecution::PAT_EXCEEDED);
 }
 
 int main(int argc, char** argv)
 {
-  rclcpp::init(argc, argv);
-
-  init_global_objects();
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
