@@ -54,6 +54,19 @@ SimpleNavigationServer::SimpleNavigationServer(const TFPtr& tf_listener_ptr, con
   initializeServerComponents();
 }
 
+SimpleNavigationServer::~SimpleNavigationServer()
+{
+  // Loaded plugins are held by the action in which they are used and their respective plugin manager.
+  // pluginlib::ClassLoaders need to get destructed after all plugins are destructed to avoid any leaks.
+  // Therefore, destruct actions and unload plugins here instead of waiting for the base class' destructor.
+  planner_action_.reset();
+  controller_action_.reset();
+  recovery_action_.reset();
+  planner_plugin_manager_.clearPlugins();
+  controller_plugin_manager_.clearPlugins();
+  recovery_plugin_manager_.clearPlugins();
+}
+
 mbf_abstract_core::AbstractPlanner::Ptr SimpleNavigationServer::loadPlannerPlugin(const std::string& planner_type)
 {
   mbf_abstract_core::AbstractPlanner::Ptr planner_ptr;
@@ -159,11 +172,6 @@ bool SimpleNavigationServer::initializeRecoveryPlugin(
   behavior->initialize(name, tf_listener_ptr_.get(), node_);
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Recovery behavior plugin \"" << name << "\" initialized.");
   return true;
-}
-
-
-SimpleNavigationServer::~SimpleNavigationServer()
-{
 }
 
 } /* namespace mbf_simple_nav */

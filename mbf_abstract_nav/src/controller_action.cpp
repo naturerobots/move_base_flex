@@ -207,6 +207,16 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
     goal_mtx_.lock();
     state_moving_input = execution.getState();
 
+    if (goal_handle.is_canceling()) { // action client requested to cancel the action and our server accepted that request
+      result->outcome = mbf_msgs::action::ExePath::Result::CANCELED;
+      result->message = "Canceled by action client";
+      goal_handle.canceled(result);
+      controller_active = false;
+      execution.stop();
+      execution.join();
+      return;
+    }
+
     switch (state_moving_input)
     {
       case AbstractControllerExecution::INITIALIZED:
@@ -225,7 +235,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
       case AbstractControllerExecution::CANCELED:
         RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Action \"exe_path\" canceled");
         fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Controller canceled", *result);
-        goal_handle.canceled(result);
+        goal_handle.abort(result);
         controller_active = false;
         break;
 

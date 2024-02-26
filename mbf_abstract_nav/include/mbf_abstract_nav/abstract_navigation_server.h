@@ -292,6 +292,11 @@ typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
     //! shared pointer to the MoveBase action server
     ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
 
+    PlannerAction::Ptr planner_action_;
+    ControllerAction::Ptr controller_action_;
+    RecoveryAction::Ptr recovery_action_;
+    MoveBaseAction::Ptr move_base_action_;
+
     //! the robot frame, to get the current robot pose in the global_frame_
     std::string robot_frame_;
 
@@ -309,11 +314,6 @@ typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
 
     //! current robot state
     mbf_utility::RobotInformation::Ptr robot_info_;
-
-    ControllerAction::Ptr controller_action_;
-    PlannerAction::Ptr planner_action_;
-    RecoveryAction::Ptr recovery_action_;
-    MoveBaseAction::Ptr move_base_action_;
   };
 
 } /* namespace mbf_abstract_nav */

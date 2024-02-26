@@ -95,9 +95,6 @@ public:
    *
    * @param name name of the AbstractActionBase
    * @param robot_info robot information
-   *
-   * @warning Both arguments are stored by ref. You have to ensure, that
-   * the lifetime of name and robot_info exceeds the lifetime of this object.
    */
   AbstractActionBase(
       const rclcpp::Node::SharedPtr& node,
@@ -116,6 +113,11 @@ public:
       concurrency_slot.execution->cancel();
       if(concurrency_slot.thread_ptr->joinable())
         concurrency_slot.thread_ptr->join();
+      // if the respective goal_handle is active, communicate that the goal was aborted to the client
+      if(concurrency_slot.goal_handle && concurrency_slot.goal_handle->is_active()) {
+        typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
+        concurrency_slot.goal_handle->abort(result);
+      }
       // delete
       delete concurrency_slot.thread_ptr;
     }
@@ -131,7 +133,8 @@ public:
     if(goal_handle->is_canceling())
     {
       typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
-      goal_handle->canceled(result); // TODO why trigger cancel if the goal is already being cancelled?
+      goal_handle->canceled(result);
+      RCLCPP_INFO(node_->get_logger(), "Goal canceled before execution started.");
     }
     else
     {
@@ -161,7 +164,6 @@ public:
       // fill concurrency slot with the new goal handle, execution, and working thread
       slot_it->second.in_use = true;
       slot_it->second.goal_handle = goal_handle;
-      //slot_it->second.goal_handle->setAccepted(); TODO can probably be removed; accept should happen in handle_goal. Check: Move cancel-same-slot code there as well?
       slot_it->second.execution = execution_ptr;
       slot_it->second.thread_ptr = new std::thread(
         std::bind(&AbstractActionBase::run, this, std::ref(concurrency_slots_[slot_id])));

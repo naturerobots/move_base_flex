@@ -69,21 +69,22 @@ std::string resultCodeToString(rclcpp_action::ResultCode result_code)
 using namespace std::placeholders;
 
 MoveBaseAction::MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string& name,
-                               const mbf_utility::RobotInformation::ConstPtr& robot_info, const std::vector<std::string>& behaviors)
+                               const mbf_utility::RobotInformation::ConstPtr& robot_info, const std::vector<std::string>& available_recovery_behaviors)
   : name_(name)
   , robot_info_(robot_info)
   , node_(node)
   , oscillation_timeout_(0, 0)
   , oscillation_distance_(0)
   , replanning_thread_shutdown_(false)
-  , recovery_enabled_(true)
-  , behaviors_(behaviors)
+  , available_recovery_behaviors_(available_recovery_behaviors)
   , action_state_(NONE)
   , recovery_trigger_(NONE)
   , dist_to_goal_(std::numeric_limits<double>::infinity())
   , replanning_period_(0, 0)
   , replanning_thread_(std::bind(&MoveBaseAction::replanningThread, this))
 { 
+  recovery_enabled_ = node_->declare_parameter("recovery_enabled", true);
+
   action_client_exe_path_ = rclcpp_action::create_client<ExePath>(node_, name_action_exe_path);
   action_client_get_path_ = rclcpp_action::create_client<GetPath>(node_, name_action_get_path);
   action_client_recovery_ = rclcpp_action::create_client<Recovery>(node_, name_action_recovery);
@@ -150,31 +151,32 @@ void MoveBaseAction::cancel()
   action_client_recovery_->async_cancel_all_goals();
 }
 
+bool MoveBaseAction::checkAndHandleMoveBaseActionCanceled() {
+  if (goal_handle_->is_canceling()) {
+    mbf_msgs::action::MoveBase::Result::SharedPtr canceled_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
+    canceled_result->outcome = mbf_msgs::action::MoveBase::Result::CANCELED;
+    canceled_result->message = "move base action canceled by client";
+    goal_handle_->canceled(canceled_result);
+    cancel();
+    return true;
+  }
+  return false;
+}
+
 void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
 {
-  dist_to_goal_ = std::numeric_limits<double>::infinity();
-
-  action_state_ = GET_PATH;
-
   goal_handle_ = goal_handle;
-  // TODO 
-  // Accepting goals needs a separate callback now.
-  // Smallest change would be to adapt abstract_navigation_server to always accept goals.
-  // Current implementation (based on ROS1) aborts the goal handle in this method.
-  // Better (with ROS2): Move logic for aborting goal into new accept check method.
-  //goal_handle_.setAccepted();
-
-
+  dist_to_goal_ = std::numeric_limits<double>::infinity();
+  action_state_ = GET_PATH;
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Start action \"move_base\"");
 
-  const mbf_msgs::action::MoveBase::Goal& goal = *(goal_handle->get_goal());
+  if (checkAndHandleMoveBaseActionCanceled()) { return; }
 
-  mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
-
-  get_path_goal_.target_pose = goal.target_pose;
+  const mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal = goal_handle->get_goal();
+  get_path_goal_.target_pose = goal->target_pose;
   get_path_goal_.use_start_pose = false; // use the robot pose
-  get_path_goal_.planner = goal.planner;
-  exe_path_goal_.controller = goal.controller;
+  get_path_goal_.planner = goal->planner;
+  exe_path_goal_.controller = goal->controller;
 
   const auto connection_timeout = std::chrono::seconds(1);
 
@@ -182,10 +184,10 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
 
   // start recovering with the first behavior, use the recovery behaviors from the action request, if specified,
   // otherwise, use all loaded behaviors.
+  actions_recovery_behaviors_ = goal->recovery_behaviors.empty() ? available_recovery_behaviors_ : goal->recovery_behaviors;
+  current_recovery_behavior_ = actions_recovery_behaviors_.begin();
 
-  recovery_behaviors_ = goal.recovery_behaviors.empty() ? behaviors_ : goal.recovery_behaviors;
-  current_recovery_behavior_ = recovery_behaviors_.begin();
-
+  mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
   // get the current robot pose only at the beginning, as exe_path will keep updating it as we move
   if (!robot_info_->getRobotPose(robot_pose_))
   {
@@ -195,7 +197,7 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
     goal_handle->abort(move_base_result);
     return;
   }
-  goal_pose_ = goal.target_pose;
+  goal_pose_ = goal->target_pose;
 
   // wait for server connections
   if (!action_client_get_path_->wait_for_action_server(connection_timeout) ||
@@ -211,7 +213,6 @@ void MoveBaseAction::start(std::shared_ptr<GoalHandle> goal_handle)
   }
 
   // call get_path action server to get a first plan
-  // TODO what about goal response (accept/reject) and feedback callbacks?
   get_path_goal_handle_ = action_client_get_path_->async_send_goal(get_path_goal_, get_path_send_goal_options_);
 }
 
@@ -226,9 +227,8 @@ void MoveBaseAction::actionExePathGoalResponse(const rclcpp_action::ClientGoalHa
 }
 
 void MoveBaseAction::actionExePathFeedback(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& goal_handle, const ExePath::Feedback::ConstSharedPtr &feedback)
-//void MoveBaseAction::actionExePathFeedback(const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr &feedback)
 {
-  mbf_msgs::action::MoveBase::Feedback::SharedPtr move_base_feedback;
+  mbf_msgs::action::MoveBase::Feedback::SharedPtr move_base_feedback = std::make_shared<mbf_msgs::action::MoveBase::Feedback>();
   move_base_feedback->outcome = feedback->outcome;
   move_base_feedback->message = feedback->message;
   move_base_feedback->angle_to_goal = feedback->angle_to_goal;
@@ -238,6 +238,8 @@ void MoveBaseAction::actionExePathFeedback(const rclcpp_action::ClientGoalHandle
   goal_handle_->publish_feedback(move_base_feedback);
   dist_to_goal_ = feedback->dist_to_goal;
   robot_pose_ = feedback->current_pose;
+
+  if (checkAndHandleMoveBaseActionCanceled()) { return; }
 
   // we create a navigation-level oscillation detection using exe_path action's feedback,
   // as the latter doesn't handle oscillations created by quickly failing repeated plans
@@ -256,7 +258,7 @@ void MoveBaseAction::actionExePathFeedback(const rclcpp_action::ClientGoalHandle
       if (recovery_trigger_ == OSCILLATING)
       {
         RCLCPP_INFO(rclcpp::get_logger("move_base"), "Recovered from robot oscillation: restart recovery behaviors");
-        current_recovery_behavior_ = recovery_behaviors_.begin();
+        current_recovery_behavior_ = actions_recovery_behaviors_.begin();
         recovery_trigger_ = NONE;
       }
     }
@@ -296,27 +298,28 @@ void MoveBaseAction::actionGetPathGoalResponse(const rclcpp_action::ClientGoalHa
     RCLCPP_ERROR(rclcpp::get_logger("move_base"), "The last action goal to \"get_path\" has been rejected, cancelling move base goal.");
     mbf_msgs::action::MoveBase::Result::SharedPtr result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
     result->message = "last action goal to get_path has been rejected";
-    goal_handle_->canceled(result);
+    goal_handle_->abort(result);
     action_state_ = FAILED;
   }
 }
 
 void MoveBaseAction::actionGetPathResult(const rclcpp_action::ClientGoalHandle<GetPath>::WrappedResult &result)
 {
-  const mbf_msgs::action::GetPath::Result &get_path_result = *(result.result);
-  const mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
+  if(checkAndHandleMoveBaseActionCanceled()) { return; }
 
+  const mbf_msgs::action::GetPath::Result::SharedPtr get_path_result_ptr = result.result;
+  const mbf_msgs::action::MoveBase::Result::SharedPtr move_base_result = std::make_shared<mbf_msgs::action::MoveBase::Result>();
   // copy result from get_path action
-  fillMoveBaseResult(get_path_result, *move_base_result);
+  fillMoveBaseResult(*get_path_result_ptr, *move_base_result);
 
   switch (result.code)
   {
     case rclcpp_action::ResultCode::SUCCEEDED:
       RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Action \""
           << "move_base\" received a path from \""
-          << "get_path\": " << get_path_result.message);
+          << "get_path\": " << get_path_result_ptr->message);
 
-      exe_path_goal_.path = get_path_result.path;
+      exe_path_goal_.path = get_path_result_ptr->path;
       RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Action \""
           << "move_base\" sends the path to \""
           << "exe_path\".");
@@ -324,7 +327,7 @@ void MoveBaseAction::actionGetPathResult(const rclcpp_action::ClientGoalHandle<G
       if (recovery_trigger_ == GET_PATH)
       {
         RCLCPP_WARN(rclcpp::get_logger("move_base"), "Recovered from planner failure: restart recovery behaviors");
-        current_recovery_behavior_ = recovery_behaviors_.begin();
+        current_recovery_behavior_ = actions_recovery_behaviors_.begin();
         recovery_trigger_ = NONE;
       }
       
@@ -346,7 +349,7 @@ void MoveBaseAction::actionGetPathResult(const rclcpp_action::ClientGoalHandle<G
       else
       {
         // copy result from get_path action
-        RCLCPP_WARN_STREAM(rclcpp::get_logger("move_base"), "Abort the execution of the planner: " << get_path_result.message);
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("move_base"), "Abort the execution of the planner: " << get_path_result_ptr->message);
         goal_handle_->abort(move_base_result);
       }
       action_state_ = FAILED;
@@ -358,7 +361,7 @@ void MoveBaseAction::actionGetPathResult(const rclcpp_action::ClientGoalHandle<G
       {
         // move_base preempted while executing get_path; fill result and report canceled to the client
         RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "move_base preempted while executing get_path");
-        goal_handle_->canceled(move_base_result);
+        goal_handle_->abort(move_base_result);
       }
       break;
 
@@ -373,6 +376,8 @@ void MoveBaseAction::actionGetPathResult(const rclcpp_action::ClientGoalHandle<G
 
 void MoveBaseAction::actionExePathResult(const rclcpp_action::ClientGoalHandle<ExePath>::WrappedResult &result)
 {
+  if(checkAndHandleMoveBaseActionCanceled()) { return; }
+
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"), "Action \"exe_path\" finished.");
 
   const mbf_msgs::action::ExePath::Result& exe_path_result = *(result.result);
@@ -429,7 +434,7 @@ void MoveBaseAction::actionExePathResult(const rclcpp_action::ClientGoalHandle<E
       {
         // move_base preempted while executing exe_path; fill result and report canceled to the client
         RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "move_base preempted while executing exe_path");
-        goal_handle_->canceled(move_base_result);
+        goal_handle_->abort(move_base_result);
       }
       break;
 
@@ -449,9 +454,9 @@ bool MoveBaseAction::attemptRecovery()
     return false;
   }
 
-  if (current_recovery_behavior_ == recovery_behaviors_.end())
+  if (current_recovery_behavior_ == actions_recovery_behaviors_.end())
   {
-    if (recovery_behaviors_.empty())
+    if (actions_recovery_behaviors_.empty())
     {
       RCLCPP_WARN_STREAM(rclcpp::get_logger("move_base"), "No Recovery Behaviors loaded!");
     }
@@ -485,6 +490,8 @@ void MoveBaseAction::recoveryRejectedOrAborted(const rclcpp_action::ClientGoalHa
 
 void MoveBaseAction::actionRecoveryResult(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result)
 {
+  if(checkAndHandleMoveBaseActionCanceled()) { return; }
+
   // give the robot some time to stop oscillating after executing the recovery behavior
   last_oscillation_reset_ = node_->now();
 
@@ -505,7 +512,7 @@ void MoveBaseAction::actionRecoveryResult(const rclcpp_action::ClientGoalHandle<
                                     << ", outcome: " << recovery_result.outcome);
 
       current_recovery_behavior_++; // use next behavior;
-      if (current_recovery_behavior_ == recovery_behaviors_.end())
+      if (current_recovery_behavior_ == actions_recovery_behaviors_.end())
       {
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger("move_base"),
                                 "All recovery behaviors failed. Abort recovering and abort the move_base action");
@@ -537,7 +544,7 @@ void MoveBaseAction::actionRecoveryResult(const rclcpp_action::ClientGoalHandle<
       {
         // move_base preempted while executing a recovery; fill result and report canceled to the client
         RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "move_base canceled while executing a recovery behavior");
-        goal_handle_->canceled(move_base_result);
+        goal_handle_->abort(move_base_result);
       }
       break;
     case rclcpp_action::ResultCode::UNKNOWN:
