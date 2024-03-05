@@ -12,7 +12,7 @@ public:
   virtual ~TestController() = default;
 
   virtual void initialize(
-    const std::string name, ::TF * tf,
+    const std::string name, const std::shared_ptr<::TF>& tf,
     const rclcpp::Node::SharedPtr & node_handle) override {}
   virtual bool cancel() override {return true;}
 

@@ -58,10 +58,10 @@ class SimpleRecovery : public mbf_abstract_core::AbstractRecovery{
 
   /**
    * @brief Initialization function for the SimpleRecovery
-   * @param tf A pointer to a transform listener
+   * @param tf A pointer to a transform buffer
    * @param node_handle A pointer to a ros node handle
    */
-  virtual void initialize(const std::string name, TF* tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
+  virtual void initialize(const std::string name, const std::shared_ptr<::TF>& tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
 
   /**
    * @brief Runs the SimpleRecovery

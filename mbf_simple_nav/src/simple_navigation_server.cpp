@@ -133,7 +133,7 @@ bool SimpleNavigationServer::initializeControllerPlugin(
 
   mbf_simple_core::SimpleController::Ptr simple_controller_ptr =
       std::static_pointer_cast<mbf_simple_core::SimpleController>(controller_ptr);
-  simple_controller_ptr->initialize(name, tf_listener_ptr_.get(), node_);
+  simple_controller_ptr->initialize(name, tf_listener_ptr_, node_);
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Controller plugin \"" << name << "\" initialized.");
   return true;
 }
@@ -169,7 +169,7 @@ bool SimpleNavigationServer::initializeRecoveryPlugin(
 
   mbf_simple_core::SimpleRecovery::Ptr behavior =
       std::static_pointer_cast<mbf_simple_core::SimpleRecovery>(behavior_ptr);
-  behavior->initialize(name, tf_listener_ptr_.get(), node_);
+  behavior->initialize(name, tf_listener_ptr_, node_);
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Recovery behavior plugin \"" << name << "\" initialized.");
   return true;
 }
