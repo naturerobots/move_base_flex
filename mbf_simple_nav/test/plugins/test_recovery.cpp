@@ -12,7 +12,7 @@ public:
   virtual ~TestRecovery() = default;
 
   virtual void initialize(
-    const std::string name, TF * tf,
+    const std::string name, const std::shared_ptr<TF>& tf,
     const rclcpp::Node::SharedPtr & node_handle)
   {
     config_.sim_server = node_handle->declare_parameter<std::string>(name + ".sim_server");

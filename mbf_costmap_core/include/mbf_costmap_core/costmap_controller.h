@@ -120,10 +120,10 @@ namespace mbf_costmap_core {
       /**
        * @brief Constructs the local planner
        * @param name The name to give this instance of the local planner
-       * @param tf A pointer to a transform listener
+       * @param tf A pointer to a transform buffer
        * @param costmap_ros The cost map to use for assigning costs to local plans
        */
-      virtual void initialize(std::string name, ::TF *tf, nav2_costmap_2d::Costmap2DROS *costmap_ros) = 0;
+      virtual void initialize(std::string name, const std::shared_ptr<::TF>& tf, nav2_costmap_2d::Costmap2DROS *costmap_ros) = 0;
 
       /**
        * @brief  Virtual destructor for the interface

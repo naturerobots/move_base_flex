@@ -59,11 +59,11 @@ class CostmapRecovery : public mbf_abstract_core::AbstractRecovery{
 
   /**
    * @brief Initialization function for the CostmapRecovery
-   * @param tf A pointer to a transform listener
+   * @param tf A pointer to a transform buffer
    * @param global_costmap A pointer to the global_costmap used by the navigation stack
    * @param local_costmap A pointer to the local_costmap used by the navigation stack
    */
-  virtual void initialize(std::string name, TF* tf,
+  virtual void initialize(std::string name, const std::shared_ptr<TF>& tf,
                           nav2_costmap_2d::Costmap2DROS* global_costmap,
                           nav2_costmap_2d::Costmap2DROS* local_costmap) = 0;
 

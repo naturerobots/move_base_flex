@@ -117,10 +117,10 @@ namespace mbf_simple_core {
       /**
        * @brief Constructs the local planner
        * @param name The name to give this instance of the local planner
-       * @param tf A pointer to a transform listener
+       * @param tf A pointer to a transform buffer
        * @param node_handle A pointer to the ROS node handle
        */
-      virtual void initialize(const std::string name, ::TF* tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
+      virtual void initialize(const std::string name, const std::shared_ptr<::TF>& tf, const rclcpp::Node::SharedPtr& node_handle) = 0;
 
       /**
        * @brief  Virtual destructor for the interface
