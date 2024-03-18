@@ -61,7 +61,7 @@ class RobotInformation
 
   RobotInformation(
       const rclcpp::Node::SharedPtr& node,
-      const TFPtr &tf_listener,
+      const TFPtr &tf_buffer,
       const std::string &global_frame,
       const std::string &robot_frame,
       const rclcpp::Duration &tf_timeout,
@@ -100,7 +100,7 @@ class RobotInformation
  private:
   rclcpp::Node::SharedPtr node_;
 
-  const TFPtr tf_listener_;
+  const TFPtr tf_buffer_;
 
   const std::string global_frame_;
 

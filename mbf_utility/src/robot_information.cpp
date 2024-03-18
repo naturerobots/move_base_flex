@@ -44,12 +44,12 @@
 namespace mbf_utility
 {
 RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
-                                   const TFPtr &tf_listener,
+                                   const TFPtr &tf_buffer,
                                    const std::string &global_frame,
                                    const std::string &robot_frame,
                                    const rclcpp::Duration &tf_timeout,
                                    const std::string &odom_topic)
- : node_(node), tf_listener_(tf_listener), global_frame_(global_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
+ : node_(node), tf_buffer_(tf_buffer), global_frame_(global_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
    odom_helper_(node_, odom_topic)
 {
 
@@ -105,7 +105,7 @@ const std::string& RobotInformation::getGlobalFrame() const {return global_frame
 
 const std::string& RobotInformation::getRobotFrame() const {return robot_frame_;};
 
-const TF& RobotInformation::getTransformListener() const {return *tf_listener_;};
+const TF& RobotInformation::getTransformListener() const {return *tf_buffer_;};
 
 const rclcpp::Duration& RobotInformation::getTfTimeout() const {return tf_timeout_;}
 

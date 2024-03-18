@@ -53,10 +53,10 @@ int main(int argc, char **argv)
 
   double cache_time;
   node->get_parameter("tf_cache_time", cache_time);
-  TFPtr tf_listener_ptr(new TF(node->get_clock(), tf2::durationFromSec(cache_time)));
-  tf2_ros::TransformListener tf_listener(*tf_listener_ptr);
+  TFPtr tf_buffer_ptr(new TF(node->get_clock(), tf2::durationFromSec(cache_time)));
+  tf2_ros::TransformListener tf_listener(*tf_buffer_ptr);
 
-  mbf_simple_nav::SimpleNavigationServer simple_nav_server(tf_listener_ptr, node);
+  mbf_simple_nav::SimpleNavigationServer simple_nav_server(tf_buffer_ptr, node);
 
   rclcpp::spin(node);
   return EXIT_SUCCESS;
