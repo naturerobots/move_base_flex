@@ -57,6 +57,7 @@ AbstractControllerExecution::AbstractControllerExecution(
     const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr& goal_pub,
     const rclcpp::Node::SharedPtr& node_handle)
   : AbstractExecutionBase(name, robot_info, node_handle)
+  , new_plan_(false)
   , controller_(controller_ptr)
   , state_(INITIALIZED)
   , moving_(false)
