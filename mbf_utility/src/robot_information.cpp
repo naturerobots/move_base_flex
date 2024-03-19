@@ -56,16 +56,21 @@ RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
 }
 
 
-bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose) const
+bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_globalFrame) const
 {
-  bool tf_success = mbf_utility::getRobotPose(node_, *tf_listener_, robot_frame_, global_frame_,
-                                              rclcpp::Duration(tf_timeout_), robot_pose);
-  if (!tf_success)
+  const auto t_now = node_->now();
+
+  std::string err_string;
+  if (!tf_buffer_->canTransform(robot_frame_, global_frame_, t_now, tf_timeout_, &err_string))
   {
-    RCLCPP_ERROR_STREAM(node_->get_logger(), "Can not get the robot pose in the global frame. - robot frame: \""
-                         << robot_frame_ << "\", global frame: \"" << global_frame_ << "\"");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to get robot pose. Reason: " << err_string);
     return false;
   }
+
+  geometry_msgs::msg::PoseStamped robot_pose_robotFrame; // default constructed pose at origin
+  robot_pose_robotFrame.header.stamp = t_now;
+  robot_pose_robotFrame.header.frame_id = robot_frame_;
+  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
   return true;
 }
 
