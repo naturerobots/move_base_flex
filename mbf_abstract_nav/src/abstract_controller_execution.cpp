@@ -310,8 +310,7 @@ bool AbstractControllerExecution::checkCmdVelIgnored(const geometry_msgs::msg::T
   }
   else if (ignored_duration > 1.0)
   {
-    auto clock = node_handle_->get_clock();
-    RCLCPP_WARN_THROTTLE(node_handle_->get_logger(), *clock, 1.0,
+    RCLCPP_WARN_THROTTLE(node_handle_->get_logger(), *node_handle_->get_clock(), 1000,
                          "Robot is ignoring velocity commands for %.2f seconds (last command: vx=%.2f, vy=%.2f, "
                          "w=%.2f)",
                          ignored_duration, cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
