@@ -182,12 +182,14 @@ public:
     }
   }
 
-  virtual void runImpl(GoalHandle &goal_handle, Execution& execution) {};
+  // Using const ref to shared ptr of concurrency slot here. 
+  // Not so nice, but currently required for updating the path stopping the execution (see ControllerAction::start()).
+  virtual void runImpl(const GoalHandlePtr &goal_handle, Execution& execution) {};
 
   virtual void run(ConcurrencySlot &slot)
   {
     slot.execution->preRun();
-    runImpl(*slot.goal_handle, *slot.execution);
+    runImpl(slot.goal_handle, *slot.execution);
     RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
     slot.execution->join();
     // TODO reenable debug output, if possible. how do we get the state from ROS2 Action Server GoalHandle?

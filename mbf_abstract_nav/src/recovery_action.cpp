@@ -48,11 +48,11 @@ namespace mbf_abstract_nav
 RecoveryAction::RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation::ConstPtr &robot_info)
   : AbstractActionBase(node, name, robot_info){}
 
-void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution &execution)
+void RecoveryAction::runImpl(const GoalHandlePtr &goal_handle, AbstractRecoveryExecution &execution)
 {
   RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Start action "  << name_);
 
-  const mbf_msgs::action::Recovery::Goal &goal = *goal_handle.get_goal();
+  const mbf_msgs::action::Recovery::Goal &goal = *goal_handle->get_goal();
   mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
   result->used_plugin = goal.behavior;
   bool recovery_active = true;
@@ -63,10 +63,10 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
   {
     state_recovery_input = execution.getState();
 
-    if (goal_handle.is_canceling()) { // action client requested to cancel the action and our server accepted that request
+    if (goal_handle->is_canceling()) { // action client requested to cancel the action and our server accepted that request
       result->outcome = mbf_msgs::action::Recovery::Result::CANCELED;
       result->message = "Canceled by action client";
-      goal_handle.canceled(result);
+      goal_handle->canceled(result);
       recovery_active = false;
       execution.stop();
       execution.join();
@@ -84,7 +84,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Recovery behavior stopped rigorously");
         result->outcome = mbf_msgs::action::Recovery::Result::STOPPED;
         result->message = "Recovery has been stopped!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         recovery_active = false;
         break;
 
@@ -108,7 +108,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         recovery_active = false; // stopping the action
         result->outcome = mbf_msgs::action::Recovery::Result::CANCELED;
         result->message = "Recovery behaviour \"" + goal.behavior + "\" canceled!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), result->message);
         break;
 
@@ -125,7 +125,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         }
 
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), result->message);
-        goal_handle.succeed(result);
+        goal_handle->succeed(result);
         break;
 
       case AbstractRecoveryExecution::INTERNAL_ERROR:
@@ -133,7 +133,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
         recovery_active = false;
         result->outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
         result->message = "Internal error: Unknown error thrown by the plugin!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         break;
 
       default:
@@ -143,7 +143,7 @@ void RecoveryAction::runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution 
            << static_cast<int>(state_recovery_input);
         result->message = ss.str();
         RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result->message);
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         recovery_active = false;
     }
 

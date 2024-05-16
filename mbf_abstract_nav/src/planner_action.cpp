@@ -55,9 +55,9 @@ PlannerAction::PlannerAction(
   current_goal_pub_ = node->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 }
 
-void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &execution)
+void PlannerAction::runImpl(const GoalHandlePtr &goal_handle, AbstractPlannerExecution &execution)
 {
-  const mbf_msgs::action::GetPath::Goal& goal = *(goal_handle.get_goal().get());
+  const mbf_msgs::action::GetPath::Goal& goal = *(goal_handle->get_goal().get());
 
   mbf_msgs::action::GetPath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::GetPath::Result>();
   geometry_msgs::msg::PoseStamped start_pose;
@@ -83,7 +83,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
     {
       result->outcome = mbf_msgs::action::GetPath::Result::TF_ERROR;
       result->message = "Could not get the current robot pose!";
-      goal_handle.abort(result);
+      goal_handle->abort(result);
       RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
       return;
     }
@@ -104,10 +104,10 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
     // get the current state of the planning thread
     state_planning_input = execution.getState();
 
-    if (goal_handle.is_canceling()) { // action client requested to cancel the action and our server accepted that request
+    if (goal_handle->is_canceling()) { // action client requested to cancel the action and our server accepted that request
       result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
       result->message = "Canceled by action client";
-      goal_handle.canceled(result);
+      goal_handle->canceled(result);
       planner_active = false;
       execution.stop();
       execution.join();
@@ -122,7 +122,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         {
           result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
           result->message = "Another thread is still planning!";
-          goal_handle.abort(result);
+          goal_handle->abort(result);
           RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
           planner_active = false;
         }
@@ -137,7 +137,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         RCLCPP_WARN_STREAM(rclcpp::get_logger(name_), "Planning has been stopped rigorously!");
         result->outcome = mbf_msgs::action::GetPath::Result::STOPPED;
         result->message = "Global planner has been stopped!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
         break;
 
@@ -147,7 +147,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         result->path.header.stamp = node_->now();
         result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
         result->message = "Global planner has been canceled!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
         break;
 
@@ -178,7 +178,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
           result->message = "Could not transform the plan to the global frame!";
 
           RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message << " Canceling the action call.");
-          goal_handle.abort(result);
+          goal_handle->abort(result);
           planner_active = false;
           break;
         }
@@ -189,7 +189,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
           result->message = "Global planner returned an empty path!";
 
           RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), result->message);
-          goal_handle.abort(result);
+          goal_handle->abort(result);
           planner_active = false;
           break;
         }
@@ -198,7 +198,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         result->cost = execution.getCost();
         result->outcome = execution.getOutcome();
         result->message = execution.getMessage();
-        goal_handle.succeed(result);
+        goal_handle->succeed(result);
 
         planner_active = false;
         break;
@@ -208,7 +208,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "planner state: no plan found");
         result->outcome = execution.getOutcome();
         result->message = execution.getMessage();
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
         break;
 
@@ -216,7 +216,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Global planner reached the maximum number of retries");
         result->outcome = execution.getOutcome();
         result->message = execution.getMessage();
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
         break;
 
@@ -224,7 +224,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Global planner exceeded the patience time");
         result->outcome = mbf_msgs::action::GetPath::Result::PAT_EXCEEDED;
         result->message = "Global planner exceeded the patience time";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
         break;
 
@@ -233,7 +233,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
         planner_active = false;
         result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
         result->message = "Internal error: Unknown error thrown by the plugin!";
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         break;
 
       default:
@@ -243,7 +243,7 @@ void PlannerAction::runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &e
            << static_cast<int>(state_planning_input);
         result->message = ss.str();
         RCLCPP_FATAL_STREAM(rclcpp::get_logger(name_), result->message);
-        goal_handle.abort(result);
+        goal_handle->abort(result);
         planner_active = false;
     }
 
