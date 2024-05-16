@@ -80,7 +80,7 @@ void ControllerAction::start(
   if(goal_handle->is_canceling())
   {
     mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
-    goal_handle->canceled(result); // TODO why trigger cancel if the goal is already being canceled?
+    goal_handle->canceled(result);
   }
 
   uint8_t slot = goal_handle->get_goal()->concurrency_slot;
@@ -111,7 +111,6 @@ void ControllerAction::start(
       fillExePathResult(mbf_msgs::action::ExePath::Result::CANCELED, "Goal preempted by a new plan", *result);
       concurrency_slots_[slot].goal_handle->canceled(result);
       concurrency_slots_[slot].goal_handle = goal_handle;
-      //concurrency_slots_[slot].goal_handle->setAccepted(); // TODO acceptence/rejection needs to be moved into another callback
     }
   }
   slot_map_mtx_.unlock();
