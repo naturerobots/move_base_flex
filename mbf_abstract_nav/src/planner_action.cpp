@@ -107,10 +107,10 @@ void PlannerAction::runImpl(const GoalHandlePtr &goal_handle, AbstractPlannerExe
     if (goal_handle->is_canceling()) { // action client requested to cancel the action and our server accepted that request
       result->outcome = mbf_msgs::action::GetPath::Result::CANCELED;
       result->message = "Canceled by action client";
-      goal_handle->canceled(result);
       planner_active = false;
       execution.stop();
       execution.join();
+      goal_handle->canceled(result);
       return;
     }
 
