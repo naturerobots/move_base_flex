@@ -183,7 +183,7 @@ public:
   }
 
   // Using const ref to shared ptr of concurrency slot here. 
-  // Not so nice, but currently required for updating the path stopping the execution (see ControllerAction::start()).
+  // Not so nice, but currently required for updating the path without stopping and starting a new execution (see ControllerAction::start()).
   virtual void runImpl(const GoalHandlePtr &goal_handle, Execution& execution) {};
 
   virtual void run(ConcurrencySlot &slot)
