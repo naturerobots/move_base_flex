@@ -3,8 +3,10 @@
 #include <mbf_simple_nav/simple_navigation_server.h>
 #include <mbf_test_utility/robot_simulator.hpp>
 #include <optional>
+#include <thread>
 #include <rclcpp_action/client.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/create_timer_ros.h>
 #include <tf2_ros/transform_listener.h>
 
 using namespace ::testing;
@@ -45,9 +47,6 @@ protected:
     executor_ptr_->add_node(robot_sim_node_ptr_);
     // node with simple navigation server will be added later, in a method called from the individual test functions (to allow for setting parameter overrides)
 
-    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(robot_sim_node_ptr_->get_clock());
-    tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
-
     get_path_goal_.planner = "test_planner";
     get_path_goal_.use_start_pose = true;
     get_path_goal_.start_pose.header.frame_id = "odom";
@@ -74,6 +73,11 @@ protected:
   {
     nav_server_node_ptr_ =
       std::make_shared<rclcpp::Node>("simple_nav", "", node_options);
+
+    tf_buffer_ptr_ = std::make_shared<tf2_ros::Buffer>(nav_server_node_ptr_->get_clock());
+    tf_buffer_ptr_->setCreateTimerInterface(std::make_shared<tf2_ros::CreateTimerROS>(robot_sim_node_ptr_->get_node_base_interface(), robot_sim_node_ptr_->get_node_timers_interface()));
+    tf_listener_ptr_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_ptr_);
+
     nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(
       tf_buffer_ptr_,
       nav_server_node_ptr_);
@@ -90,16 +94,18 @@ protected:
       nav_server_node_ptr_,
       "simple_nav/move_base");
     executor_ptr_->add_node(nav_server_node_ptr_);
+    executor_thread_ptr_ = std::make_unique<std::thread>([&]{executor_ptr_->spin();}); // while the executor is multithreaded, we want our main thread to run the tests and not have to spin the nodes
+    // wait until at least one transform is published by the robot simulator (and fail if that does not happen within 50ms)
+    // this avoids flaky test (TF error: Lookup would require extrapolation into the past) that occurs when the sim executor thread no runtime before the nav server requests the robot's current pose (with t=node->now()).
+    ASSERT_TRUE(wait_until_future_complete(tf_buffer_ptr_->waitForTransform("base_link", "odom", tf2::TimePointZero, std::chrono::milliseconds(50), [](const tf2_ros::TransformStampedFuture&){})));
   }
 
   // Helper function that runs execution until given future completes. Returns false if future didn't return in time.
-  // Suggested use: ASSERT_TRUE(spin_until_future_complete(...)) to abort the test if something goes wrong with completing the future.
+  // Suggested use: ASSERT_TRUE(wait_until_future_complete(...)) to abort the test if something goes wrong with completing the future.
   template<typename FutureT>
-  bool spin_until_future_complete(const FutureT & future)
+  bool wait_until_future_complete(const FutureT & future)
   {
-    return executor_ptr_->spin_until_future_complete(
-      future,
-      std::chrono::seconds(5)) == rclcpp::FutureReturnCode::SUCCESS;
+    return future.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
   }
 
   void TearDown() override
@@ -107,7 +113,10 @@ protected:
     // nav_server needs to be destructed before we can call rclcpp::shutdown.
     // Otherwise, we might still have goal handles that crash when they reach their terminal state, because the goal doesn't exist at the lower rcl layer.
     nav_server_ptr_.reset();
+    nav_server_node_ptr_.reset();
+    robot_sim_node_ptr_.reset();
     rclcpp::shutdown();
+    executor_thread_ptr_->join();
   }
 
   std::shared_ptr<mbf_simple_nav::SimpleNavigationServer> nav_server_ptr_;
@@ -116,6 +125,7 @@ protected:
   rclcpp::Node::SharedPtr nav_server_node_ptr_;
   rclcpp::Node::SharedPtr robot_sim_node_ptr_;
   std::unique_ptr<rclcpp::executors::MultiThreadedExecutor> executor_ptr_;
+  std::unique_ptr<std::thread> executor_thread_ptr_;
 
   // default parameterization for the tests
   const rclcpp::NodeOptions default_node_options_;
@@ -134,7 +144,7 @@ TEST_F(SimpleNavIntegrationTest, rejectsGetPathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions()); // node options without any parameter -> no plugins configured
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), IsNull()); // goal rejection is expressed by returning a nullptr (by rclcpp_action client)
 }
 
@@ -142,7 +152,7 @@ TEST_F(SimpleNavIntegrationTest, rejectsExePathGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
@@ -150,7 +160,7 @@ TEST_F(SimpleNavIntegrationTest, rejectsRecoveryGoalWhenNoPluginIsLoaded)
 {
   initRosNode(rclcpp::NodeOptions());
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), IsNull());
 }
 
@@ -158,7 +168,7 @@ TEST_F(SimpleNavIntegrationTest, acceptsGetPathGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull()); // goal was not rejected
 }
 
@@ -166,29 +176,29 @@ TEST_F(SimpleNavIntegrationTest, acceptsExePathGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull());
   // wait for goal completion before destructing the test fixture to save time during testing, even though it's not part of this test:
   // otherwise, depending on the execution order, the exe_path action execution thread might wait 3sec for a tf that won't come, because the robot sim node is already gone.
-  spin_until_future_complete(action_client_exe_path_ptr_->async_get_result(goal_handle.get()));
+  wait_until_future_complete(action_client_exe_path_ptr_->async_get_result(goal_handle.get()));
 }
 
 TEST_F(SimpleNavIntegrationTest, acceptsRecoveryGoalAfterLoadingTestPlugins)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   EXPECT_THAT(goal_handle.get(), NotNull());
-  spin_until_future_complete(action_client_recovery_ptr_->async_get_result(goal_handle.get()));
+  wait_until_future_complete(action_client_recovery_ptr_->async_get_result(goal_handle.get()));
 }
 
 TEST_F(SimpleNavIntegrationTest, getPathReturnsPlan)
 {
   initRosNode(default_node_options_);
   const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   const auto future_result = action_client_get_path_ptr_->async_get_result(goal_handle.get());
-  ASSERT_TRUE(spin_until_future_complete(future_result));
+  ASSERT_TRUE(wait_until_future_complete(future_result));
   const mbf_msgs::action::GetPath::Result::SharedPtr result_ptr = future_result.get().result;
   EXPECT_EQ(result_ptr->outcome, mbf_msgs::action::GetPath::Result::SUCCESS);
   EXPECT_EQ(result_ptr->path.poses[0], get_path_goal_.start_pose);
@@ -201,9 +211,9 @@ TEST_F(SimpleNavIntegrationTest, exePathReachesTheGoal)
 
   // start exe path action, then wait until it finishes
   const auto goal_handle = action_client_exe_path_ptr_->async_send_goal(exe_path_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   const auto future_result = action_client_exe_path_ptr_->async_get_result(goal_handle.get());
-  ASSERT_TRUE(spin_until_future_complete(future_result));
+  ASSERT_TRUE(wait_until_future_complete(future_result));
   const mbf_msgs::action::ExePath::Result::SharedPtr result_ptr = future_result.get().result;
 
   // check that the action succeeded and that the robot actually arrived at the chosen goal location
@@ -228,9 +238,9 @@ TEST_F(SimpleNavIntegrationTest, recoveryTriggersBehavior)
 
   // start recovery action, then wait until it finishes
   const auto goal_handle = action_client_recovery_ptr_->async_send_goal(recovery_goal_);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   const auto future_result = action_client_recovery_ptr_->async_get_result(goal_handle.get());
-  ASSERT_TRUE(spin_until_future_complete(future_result));
+  ASSERT_TRUE(wait_until_future_complete(future_result));
   const mbf_msgs::action::Recovery::Result::SharedPtr result_ptr = future_result.get().result;
 
   // check that the action succeeded and that the robot actually got unstuck
@@ -252,9 +262,9 @@ TEST_F(SimpleNavIntegrationTest, moveBaseActionReachesTheGoal)
   move_base_goal.target_pose.pose.position.x = -3.2;
   move_base_goal.target_pose.pose.position.y = 0.8;
   const auto goal_handle = action_client_move_base_ptr_->async_send_goal(move_base_goal);
-  ASSERT_TRUE(spin_until_future_complete(goal_handle));
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
   const auto future_result = action_client_move_base_ptr_->async_get_result(goal_handle.get());
-  ASSERT_TRUE(spin_until_future_complete(future_result));
+  ASSERT_TRUE(wait_until_future_complete(future_result));
   const mbf_msgs::action::MoveBase::Result::SharedPtr result_ptr = future_result.get().result;
 
   // check that the action succeeded, that the robot got unstuck and ended up at the target_pose

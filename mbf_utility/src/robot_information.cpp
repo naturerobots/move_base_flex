@@ -44,28 +44,33 @@
 namespace mbf_utility
 {
 RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
-                                   const TFPtr &tf_listener,
+                                   const TFPtr &tf_buffer,
                                    const std::string &global_frame,
                                    const std::string &robot_frame,
                                    const rclcpp::Duration &tf_timeout,
                                    const std::string &odom_topic)
- : node_(node), tf_listener_(tf_listener), global_frame_(global_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
+ : node_(node), tf_buffer_(tf_buffer), global_frame_(global_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
    odom_helper_(node_, odom_topic)
 {
 
 }
 
 
-bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose) const
+bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_globalFrame) const
 {
-  bool tf_success = mbf_utility::getRobotPose(node_, *tf_listener_, robot_frame_, global_frame_,
-                                              rclcpp::Duration(tf_timeout_), robot_pose);
-  if (!tf_success)
+  const auto t_now = node_->now();
+
+  std::string err_string;
+  if (!tf_buffer_->canTransform(robot_frame_, global_frame_, t_now, tf_timeout_, &err_string))
   {
-    RCLCPP_ERROR_STREAM(node_->get_logger(), "Can not get the robot pose in the global frame. - robot frame: \""
-                         << robot_frame_ << "\", global frame: \"" << global_frame_ << "\"");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to get robot pose. Reason: " << err_string);
     return false;
   }
+
+  geometry_msgs::msg::PoseStamped robot_pose_robotFrame; // default constructed pose at origin
+  robot_pose_robotFrame.header.stamp = t_now;
+  robot_pose_robotFrame.header.frame_id = robot_frame_;
+  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
   return true;
 }
 
@@ -105,7 +110,7 @@ const std::string& RobotInformation::getGlobalFrame() const {return global_frame
 
 const std::string& RobotInformation::getRobotFrame() const {return robot_frame_;};
 
-const TF& RobotInformation::getTransformListener() const {return *tf_listener_;};
+const TF& RobotInformation::getTransformListener() const {return *tf_buffer_;};
 
 const rclcpp::Duration& RobotInformation::getTfTimeout() const {return tf_timeout_;}
 

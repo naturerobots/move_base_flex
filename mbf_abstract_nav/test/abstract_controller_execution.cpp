@@ -195,13 +195,16 @@ struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
                 .append_parameter_override("robot_frame", robot_frame_);
     AbstractControllerExecutionFixture::initRosNode(node_options);
     // setup the transform.
+    const auto t_now = node_ptr_->now();
     TransformStamped transform;
-    transform.header.stamp = node_ptr_->now();
+    transform.header.stamp = t_now;
     transform.header.frame_id = global_frame_;
     transform.child_frame_id = robot_frame_;
     transform.transform.rotation.w = 1;
-    // todo right now the mbf_utility checks on the transform age - but this does not work for static transforms
-    tf_ptr_->setTransform(transform, "mama");
+    // add transforms to the buffer such that move base flex can transform between global and robot frame for one second, starting now
+    tf_ptr_->setTransform(transform, "test_tf_authority");
+    transform.header.stamp = t_now + rclcpp::Duration::from_seconds(1.0);
+    tf_ptr_->setTransform(transform, "test_tf_authority");
   }
 protected: 
   const std::string global_frame_;
