@@ -68,7 +68,7 @@ class PlannerAction : public AbstractActionBase<mbf_msgs::action::GetPath, Abstr
       const mbf_utility::RobotInformation::ConstPtr &robot_info
   );
 
-  void runImpl(GoalHandle &goal_handle, AbstractPlannerExecution &execution);
+  void runImpl(const GoalHandlePtr &goal_handle, AbstractPlannerExecution &execution) override;
 
  protected:
 

@@ -58,7 +58,7 @@ class RecoveryAction : public AbstractActionBase<mbf_msgs::action::Recovery, Abs
 
   RecoveryAction(const rclcpp::Node::SharedPtr& node, const std::string &name, const mbf_utility::RobotInformation::ConstPtr &robot_info);
 
-  void runImpl(GoalHandle &goal_handle, AbstractRecoveryExecution &execution);
+  void runImpl(const GoalHandlePtr &goal_handle, AbstractRecoveryExecution &execution) override;
 
 };
 

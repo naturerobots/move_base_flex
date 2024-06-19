@@ -44,7 +44,7 @@ struct AbstractActionBaseFixture
   {
   }
 
-  void runImpl(GoalHandle &goal_handle, MockedExecution &execution) {
+  void runImpl(const GoalHandlePtr &goal_handle, MockedExecution &execution) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50)); // runs in action thread(s)
   }
 };

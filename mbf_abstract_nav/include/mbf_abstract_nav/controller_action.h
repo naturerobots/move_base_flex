@@ -75,7 +75,7 @@ class ControllerAction :
       typename AbstractControllerExecution::Ptr execution_ptr
   );
 
-  void runImpl(GoalHandle &goal_handle, AbstractControllerExecution& execution);
+  void runImpl(const GoalHandlePtr &goal_handle, AbstractControllerExecution& execution) override;
 
 protected:
   void publishExePathFeedback(
