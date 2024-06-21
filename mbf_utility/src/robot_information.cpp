@@ -87,7 +87,8 @@ bool RobotInformation::getRobotVelocity(geometry_msgs::msg::TwistStamped &robot_
                                 "You can disable these warnings by setting parameter 'odom_topic' as empty");
     return false;
   }
-  robot_velocity.header = base_odom.header;
+  robot_velocity.header.stamp = base_odom.header.stamp;
+  robot_velocity.header.frame_id = base_odom.child_frame_id;
   robot_velocity.twist = base_odom.twist.twist;
   return true;
 }
