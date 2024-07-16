@@ -123,7 +123,7 @@ void RobotSimulator::continuouslyUpdateRobotPose()
     const tf2::Transform trf_parent_robotTNow = trf_parent_robotTLastUpdate *
       trf_robotTLastUpdate_robotTNow;
     tf2::toMsg(trf_parent_robotTNow, trf_parent_robot_.transform);
-    // tf2::toMsg(trf_parent_robotTNow, odom_msg_.pose.pose);
+    tf2::toMsg(trf_parent_robotTNow, odom_msg_.pose.pose);
     odom_msg_.twist.twist = current_velocity_;
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Robot is stuck!");
