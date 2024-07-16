@@ -46,8 +46,9 @@ class RobotSimulator : public rclcpp::Node
 {
 public:
   //! Initialises the simulator and starts with publishing an identity TF
-  RobotSimulator(const std::string& node_name = "robot_simulator",
-                 const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+  RobotSimulator(
+    const std::string & node_name = "robot_simulator",
+    const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 protected:
   //! Handle new command velocities. Incoming msgs need to be in the robot's frame.
@@ -55,7 +56,8 @@ protected:
   //! Regularly (via timer) updates the robot's pose based on current_velocity and publishes it via tf2.
   void continuouslyUpdateRobotPose();
   //! React to parameter changes.
-  rcl_interfaces::msg::SetParametersResult setParametersCallback(std::vector<rclcpp::Parameter> parameters);
+  rcl_interfaces::msg::SetParametersResult setParametersCallback(
+    std::vector<rclcpp::Parameter> parameters);
 
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr set_parameters_callback_handle_;
 
