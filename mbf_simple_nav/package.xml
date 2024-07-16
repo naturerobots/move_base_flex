@@ -12,7 +12,6 @@
     <maintainer email="santos@magazino.eu">Jorge Santos</maintainer>
     <license>BSD-3</license>
 
-    <depend>backward_ros</depend>
     <depend>geometry_msgs</depend>
     <depend>mbf_abstract_core</depend>
     <depend>mbf_abstract_nav</depend>

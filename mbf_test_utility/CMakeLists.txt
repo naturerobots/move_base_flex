@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -19,7 +20,7 @@ target_compile_features(${PROJECT_NAME}_sim PUBLIC c_std_99 cxx_std_17)  # Requi
 target_include_directories(${PROJECT_NAME}_sim PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(${PROJECT_NAME}_sim geometry_msgs rclcpp tf2_ros tf2_geometry_msgs)
+ament_target_dependencies(${PROJECT_NAME}_sim geometry_msgs nav_msgs rclcpp tf2_ros tf2_geometry_msgs)
 
 add_executable(${PROJECT_NAME}_sim_node
   src/robot_simulator_node.cpp
@@ -51,6 +52,6 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp geometry_msgs tf2_ros)
+ament_export_dependencies(rclcpp geometry_msgs nav_msgs tf2_ros)
 
 ament_package()

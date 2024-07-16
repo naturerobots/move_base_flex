@@ -3,17 +3,16 @@
 <package format="3">
   <name>mbf_test_utility</name>
   <version>1.0.0</version>
-  <description>
-    Contains tools that help with testing move base flex modules.
-    This package should only be used as a test dependency.
-    If some tool shall be used in production, move it into mbf_utility for example.
-  </description>
+  <description> Contains tools that help with testing move base flex modules. This package should
+    only be used as a test dependency. If some tool shall be used in production, move it into
+    mbf_utility for example. </description>
   <maintainer email="matthias.holoch@naturerobots.com">Matthias Holoch</maintainer>
   <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>

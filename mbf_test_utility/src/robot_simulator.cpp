@@ -39,9 +39,8 @@ using namespace std::chrono_literals;
 namespace mbf_test_utility
 {
 
-RobotSimulator::RobotSimulator(const std::string & node_name, const rclcpp::NodeOptions & options)
-: Node(node_name, options)
-  , tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
+RobotSimulator::RobotSimulator(const std::string& node_name, const rclcpp::NodeOptions& options)
+  : Node(node_name, options), tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this))
 {
   config_.is_robot_stuck = this->declare_parameter("is_robot_stuck", config_.is_robot_stuck);
   config_.parent_frame_id = this->declare_parameter("parent_frame_id", config_.parent_frame_id);
@@ -51,40 +50,49 @@ RobotSimulator::RobotSimulator(const std::string & node_name, const rclcpp::Node
   trf_parent_robot_.header.frame_id = config_.parent_frame_id;
   trf_parent_robot_.child_frame_id = config_.robot_frame_id;
 
+  odom_msg_.header.stamp = now();
+  odom_msg_.header.frame_id = config_.parent_frame_id;
+  odom_msg_.child_frame_id = config_.robot_frame_id;
+
+  odom_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("~/odom", 10);
+  cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+      "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
+
   continuouslyUpdateRobotPose();
 
-  cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-    "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
   set_parameters_callback_handle_ = this->add_on_set_parameters_callback(
-    std::bind(
-      &RobotSimulator::setParametersCallback, this, std::placeholders::_1));
+      std::bind(&RobotSimulator::setParametersCallback, this, std::placeholders::_1));
 }
 
-rcl_interfaces::msg::SetParametersResult RobotSimulator::setParametersCallback(
-  std::vector<rclcpp::Parameter> parameters)
+rcl_interfaces::msg::SetParametersResult
+RobotSimulator::setParametersCallback(std::vector<rclcpp::Parameter> parameters)
 {
-  for (auto parameter : parameters) {
-    if (parameter.get_name() == "is_robot_stuck") {
+  for (auto parameter : parameters)
+  {
+    if (parameter.get_name() == "is_robot_stuck")
+    {
       config_.is_robot_stuck = parameter.as_bool();
-    } else if (parameter.get_name() == "parent_frame_id") {
+    }
+    else if (parameter.get_name() == "parent_frame_id")
+    {
       config_.parent_frame_id = parameter.as_string();
-    } else if (parameter.get_name() == "robot_frame_id") {
+    }
+    else if (parameter.get_name() == "robot_frame_id")
+    {
       config_.robot_frame_id = parameter.as_string();
     }
   }
 
-  return rcl_interfaces::build<rcl_interfaces::msg::SetParametersResult>()
-         .successful(true)
-         .reason("success");
+  return rcl_interfaces::build<rcl_interfaces::msg::SetParametersResult>().successful(true).reason("success");
 }
 
 void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel)
 {
-  if (vel->header.frame_id != config_.robot_frame_id) {
-    RCLCPP_ERROR_STREAM(
-      get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ('"
-        << config_.robot_frame_id << "'), but got frame '" << vel->header.frame_id
-        << "'");
+  if (vel->header.frame_id != config_.robot_frame_id)
+  {
+    RCLCPP_ERROR_STREAM(get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ('"
+                                          << config_.robot_frame_id << "'), but got frame '" << vel->header.frame_id
+                                          << "'");
   }
   /* Update the robot pose before updating to the new velocity.
    * This ensures that the robot will move according to the old velocity for time interval [t_last_update, t_now].
@@ -100,35 +108,50 @@ void RobotSimulator::continuouslyUpdateRobotPose()
   const auto t_now = now();
 
   // Calculate how much the has robot moved, based on current_velocity_ (assuming constant velocity)
-  if (config_.is_robot_stuck == false) {
+  if (config_.is_robot_stuck == false)
+  {
     const double seconds_since_last_update = (t_now - trf_parent_robot_.header.stamp).seconds();
     tf2::Quaternion orientationTrf_robotTLastUpdate_robotTNow;
-    orientationTrf_robotTLastUpdate_robotTNow.setRPY(
-      current_velocity_.angular.x * seconds_since_last_update,
-      current_velocity_.angular.y * seconds_since_last_update,
-      current_velocity_.angular.z * seconds_since_last_update);
+    orientationTrf_robotTLastUpdate_robotTNow.setRPY(current_velocity_.angular.x * seconds_since_last_update,
+                                                     current_velocity_.angular.y * seconds_since_last_update,
+                                                     current_velocity_.angular.z * seconds_since_last_update);
     const tf2::Transform trf_robotTLastUpdate_robotTNow(
-      orientationTrf_robotTLastUpdate_robotTNow, tf2::Vector3(
-        current_velocity_.linear.x * seconds_since_last_update,
-        current_velocity_.linear.y * seconds_since_last_update,
-        current_velocity_.linear.z * seconds_since_last_update));
+        orientationTrf_robotTLastUpdate_robotTNow,
+        tf2::Vector3(current_velocity_.linear.x * seconds_since_last_update,
+                     current_velocity_.linear.y * seconds_since_last_update,
+                     current_velocity_.linear.z * seconds_since_last_update));
 
     // Updated robot pose member
     tf2::Transform trf_parent_robotTLastUpdate;
     tf2::fromMsg(trf_parent_robot_.transform, trf_parent_robotTLastUpdate);
-    const tf2::Transform trf_parent_robotTNow = trf_parent_robotTLastUpdate *
-      trf_robotTLastUpdate_robotTNow;
+    const tf2::Transform trf_parent_robotTNow = trf_parent_robotTLastUpdate * trf_robotTLastUpdate_robotTNow;
     tf2::toMsg(trf_parent_robotTNow, trf_parent_robot_.transform);
-  } else {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Robot is stuck!");
+    // tf2::toMsg(trf_parent_robotTNow, odom_msg_.pose.pose);
+    odom_msg_.twist.twist = current_velocity_;
   }
+  else
+  {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Robot is stuck!");
+
+    odom_msg_.twist.twist.angular.x = 0;
+    odom_msg_.twist.twist.angular.y = 0;
+    odom_msg_.twist.twist.angular.z = 0;
+
+    odom_msg_.twist.twist.linear.x = 0;
+    odom_msg_.twist.twist.linear.y = 0;
+    odom_msg_.twist.twist.linear.z = 0;
+  }
+
   // publish updated tf. If robot is stuck, trf_parent_robot_ will remain unchanged except for its timestamp
   trf_parent_robot_.header.stamp = t_now;
   tf_broadcaster_->sendTransform(trf_parent_robot_);
 
+  // publish tf
+  odom_msg_.header.stamp = t_now;
+  odom_publisher_->publish(odom_msg_);
+
   // restart timer for continuous updates
-  update_robot_pose_timer_ =
-    create_wall_timer(10ms, std::bind(&RobotSimulator::continuouslyUpdateRobotPose, this));
+  update_robot_pose_timer_ = create_wall_timer(10ms, std::bind(&RobotSimulator::continuouslyUpdateRobotPose, this));
 }
 
 }  // namespace mbf_test_utility
