@@ -50,10 +50,6 @@ RobotSimulator::RobotSimulator(const std::string & node_name, const rclcpp::Node
   trf_parent_robot_.header.frame_id = config_.parent_frame_id;
   trf_parent_robot_.child_frame_id = config_.robot_frame_id;
 
-  odom_msg_.header.stamp = now();
-  odom_msg_.header.frame_id = config_.parent_frame_id;
-  odom_msg_.child_frame_id = config_.robot_frame_id;
-
   odom_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("~/odom", 10);
   cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
     "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
@@ -102,6 +98,12 @@ void RobotSimulator::continuouslyUpdateRobotPose()
 {
   const auto t_now = now();
 
+  // prepare odom message
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.header.stamp = t_now;
+  odom_msg.header.frame_id = config_.parent_frame_id;
+  odom_msg.child_frame_id = config_.robot_frame_id;
+
   // Calculate how much the has robot moved, based on current_velocity_ (assuming constant velocity)
   if (config_.is_robot_stuck == false) {
     const double seconds_since_last_update = (t_now - trf_parent_robot_.header.stamp).seconds();
@@ -123,18 +125,12 @@ void RobotSimulator::continuouslyUpdateRobotPose()
     const tf2::Transform trf_parent_robotTNow = trf_parent_robotTLastUpdate *
       trf_robotTLastUpdate_robotTNow;
     tf2::toMsg(trf_parent_robotTNow, trf_parent_robot_.transform);
-    tf2::toMsg(trf_parent_robotTNow, odom_msg_.pose.pose);
-    odom_msg_.twist.twist = current_velocity_;
+
+    // fill odom message
+    tf2::toMsg(trf_parent_robotTNow, odom_msg.pose.pose);
+    odom_msg.twist.twist = current_velocity_;
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Robot is stuck!");
-
-    odom_msg_.twist.twist.angular.x = 0;
-    odom_msg_.twist.twist.angular.y = 0;
-    odom_msg_.twist.twist.angular.z = 0;
-
-    odom_msg_.twist.twist.linear.x = 0;
-    odom_msg_.twist.twist.linear.y = 0;
-    odom_msg_.twist.twist.linear.z = 0;
   }
 
   // publish updated tf. If robot is stuck, trf_parent_robot_ will remain unchanged except for its timestamp
@@ -142,8 +138,7 @@ void RobotSimulator::continuouslyUpdateRobotPose()
   tf_broadcaster_->sendTransform(trf_parent_robot_);
 
   // publish tf
-  odom_msg_.header.stamp = t_now;
-  odom_publisher_->publish(odom_msg_);
+  odom_publisher_->publish(odom_msg);
 
   // restart timer for continuous updates
   update_robot_pose_timer_ =

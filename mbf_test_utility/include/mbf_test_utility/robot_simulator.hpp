@@ -68,7 +68,6 @@ protected:
   geometry_msgs::msg::Twist current_velocity_;
   rclcpp::TimerBase::SharedPtr update_robot_pose_timer_;
   geometry_msgs::msg::TransformStamped trf_parent_robot_;
-  nav_msgs::msg::Odometry odom_msg_;
 
   struct
   {
