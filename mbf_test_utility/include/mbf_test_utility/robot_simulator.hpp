@@ -31,6 +31,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <memory>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
 namespace mbf_test_utility
@@ -62,6 +63,7 @@ protected:
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
 
   geometry_msgs::msg::Twist current_velocity_;
   rclcpp::TimerBase::SharedPtr update_robot_pose_timer_;
