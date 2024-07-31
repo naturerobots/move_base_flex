@@ -1,0 +1,30 @@
+name: Humble CI
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+  workflow_dispatch:
+    branches:
+      - '*'
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/naturerobots/ros2_humble_build:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options:
+        --user root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ros-tooling/action-ros-ci@0.3.13
+        with:
+          target-ros2-distro: humble
+          vcs-repo-file-url: $GITHUB_WORKSPACE/source_dependencies.yaml
+          rosdep-check: true
+          import-token: ${{ secrets.ORGANIZATION_PRIVATE_PAT }}
