@@ -17,6 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/CheckPoint.srv"
   "srv/CheckPose.srv"
   "srv/FindValidPose.srv"
+  "srv/SetTestRobotState.srv"
   DEPENDENCIES 
   actionlib_msgs
   geometry_msgs

@@ -1,0 +1,6 @@
+# Only used for testing (via mbf_test_utility)
+geometry_msgs/TransformStamped transform # Set the transform that defines where the robot is located to this
+bool set_velocity # Whether to also set the robot's velocity
+geometry_msgs/TwistStamped velocity_robot # Only used when set_velocity is true; Velocity needs to be given in the robot's reference frame (e.g. "base_link")
+---
+bool success # whether the robot's pose and velocity has been set

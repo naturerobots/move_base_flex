@@ -28,10 +28,12 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
 #include <memory>
+
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <mbf_msgs/srv/set_test_robot_state.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
 namespace mbf_test_utility
@@ -53,6 +55,18 @@ public:
 protected:
   //! Handle new command velocities. Incoming msgs need to be in the robot's frame.
   void velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel);
+  /*!
+   * Handle setting the robot state (pose, velocity) via service interface.
+   *
+   * The pose jump induced by setting the robot's state will not be reflected
+   * in the odometry msg stream published by this node.
+   * Setting the robot's state behaves like kidnapping the robot,
+   * though the kidnapping time period is extremely small
+   */
+  void setStateCallback(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const mbf_msgs::srv::SetTestRobotState::Request::SharedPtr request,
+    const mbf_msgs::srv::SetTestRobotState::Response::SharedPtr response);
   //! Regularly (via timer) updates the robot's pose based on current_velocity and publishes it via tf2.
   void continuouslyUpdateRobotPose();
   //! React to parameter changes.
@@ -64,6 +78,7 @@ protected:
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_subscription_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
+  rclcpp::Service<mbf_msgs::srv::SetTestRobotState>::SharedPtr set_state_server_;
 
   geometry_msgs::msg::Twist current_velocity_;
   rclcpp::TimerBase::SharedPtr update_robot_pose_timer_;

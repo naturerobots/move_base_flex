@@ -51,13 +51,18 @@ RobotSimulator::RobotSimulator(const std::string & node_name, const rclcpp::Node
   trf_parent_robot_.child_frame_id = config_.robot_frame_id;
 
   odom_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("~/odom", 10);
-  cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-    "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, std::placeholders::_1));
-
   continuouslyUpdateRobotPose();
 
-  set_parameters_callback_handle_ = this->add_on_set_parameters_callback(
-    std::bind(&RobotSimulator::setParametersCallback, this, std::placeholders::_1));
+  using namespace std::placeholders;
+  cmd_vel_subscription_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+    "~/cmd_vel", 10, std::bind(&RobotSimulator::velocityCallback, this, _1));
+  set_state_server_ = this->create_service<mbf_msgs::srv::SetTestRobotState>(
+    "~/set_state", std::bind(&RobotSimulator::setStateCallback, this, _1, _2, _3));
+  set_parameters_callback_handle_ =
+    this->add_on_set_parameters_callback(
+    std::bind(
+      &RobotSimulator::setParametersCallback, this,
+      _1));
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -77,6 +82,36 @@ RobotSimulator::setParametersCallback(std::vector<rclcpp::Parameter> parameters)
     "success");
 }
 
+void RobotSimulator::setStateCallback(
+  const std::shared_ptr<rmw_request_id_t>, // request header intentionally unused
+  const mbf_msgs::srv::SetTestRobotState::Request::SharedPtr request,
+  const mbf_msgs::srv::SetTestRobotState::Response::SharedPtr response)
+{
+  if (request->transform.header.frame_id != config_.parent_frame_id) {
+    RCLCPP_ERROR_STREAM(
+      get_logger(), "Failed to set state: Expects pose in robot's parent frame ('"
+        << config_.parent_frame_id << "'), but got frame '"
+        << request->transform.header.frame_id << "'");
+    response->success = false;
+    return;
+  }
+  if (request->set_velocity && request->velocity_robot.header.frame_id != config_.robot_frame_id) {
+    RCLCPP_ERROR_STREAM(
+      get_logger(), "Failed to set state:. Expects velocities in robot frame ('"
+        << config_.robot_frame_id << "'), but got frame '" << request->velocity_robot.header.frame_id
+        << "'");
+    response->success = false;
+    return;
+  }
+  // update pose with old velocity, before setting new state
+  continuouslyUpdateRobotPose();
+  if (request->set_velocity) {
+    current_velocity_ = request->velocity_robot.twist;
+  }
+  trf_parent_robot_.transform = request->transform.transform;
+  continuouslyUpdateRobotPose(); // publish new state
+}
+
 void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::SharedPtr vel)
 {
   if (vel->header.frame_id != config_.robot_frame_id) {
@@ -84,6 +119,7 @@ void RobotSimulator::velocityCallback(const geometry_msgs::msg::TwistStamped::Sh
       get_logger(), "Dropping velocity msg. Node expects velocities in robot frame ('"
         << config_.robot_frame_id << "'), but got frame '" << vel->header.frame_id
         << "'");
+    return;
   }
   /* Update the robot pose before updating to the new velocity.
    * This ensures that the robot will move according to the old velocity for time interval [t_last_update, t_now].
