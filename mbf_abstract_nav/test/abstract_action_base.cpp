@@ -30,17 +30,15 @@ struct AbstractActionBaseFixture
     : public AbstractActionBase<mbf_msgs::action::GetPath, MockedExecution>,
       public Test {
   // required members for the c'tor
-  std::string test_name_;
   rclcpp::Node::SharedPtr node_;
   TFPtr tf_;
   mbf_utility::RobotInformation::ConstPtr ri_;
 
   AbstractActionBaseFixture()
-      : test_name_("action_base"),
-        node_(std::make_shared<rclcpp::Node>("test_node")),
+      : node_(std::make_shared<rclcpp::Node>("test_node")),
         tf_(new TF(node_->get_clock())),
         ri_(new mbf_utility::RobotInformation(node_, tf_, "global_frame", "local_frame", rclcpp::Duration(0,0))),
-        AbstractActionBase(node_, test_name_, ri_)
+        AbstractActionBase(node_, "action_base", ri_)
   {
   }
 
