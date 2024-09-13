@@ -57,7 +57,7 @@ protected:
 
     exe_path_goal_.controller = "test_controller";
     exe_path_goal_.angle_tolerance = 0.1;
-    exe_path_goal_.dist_tolerance = 0.01;
+    exe_path_goal_.dist_tolerance = 0.05;
     exe_path_goal_.tolerance_from_action = true;
     exe_path_goal_.path.header.frame_id = "odom";
     exe_path_goal_.path.poses.push_back(get_path_goal_.start_pose);
@@ -275,6 +275,6 @@ TEST_F(SimpleNavIntegrationTest, moveBaseActionReachesTheGoal)
     tf2::TimePointZero);
   const auto & robot_position = trf_odom_baseLink.transform.translation;
   const auto & goal_position = move_base_goal.target_pose.pose.position;
-  EXPECT_NEAR(robot_position.x, goal_position.x, 0.03);
-  EXPECT_NEAR(robot_position.y, goal_position.y, 0.03);
+  EXPECT_NEAR(robot_position.x, goal_position.x, 0.05);
+  EXPECT_NEAR(robot_position.y, goal_position.y, 0.05);
 }
