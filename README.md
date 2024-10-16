@@ -34,20 +34,11 @@ But, of course you are welcome to propose new fancy features and help make them 
 
 ## Credit
 
-### [Magazino](https://www.magazino.eu/)
-
-<img align="left" width="100" height="100" src="doc/images/logos/magazino_icon.png">
-
+### [<img width="25" height="25" src="doc/images/logos/magazino_icon.png"> Magazino](https://www.magazino.eu/) 
 Move Base Flex was initially developed at Magazino.
 
----
-
-### [Nature Robots](https://naturerobots.com/)
-
-<img align="left" width="100" height="100" src="doc/images/logos/nature_robots_icon.jpg">
-
+### [<img width="25" height="25" src="doc/images/logos/nature_robots_icon.jpg"> Nature Robots](https://naturerobots.com/)
 The latest version (ROS2) is developed and maintained by Nature Robots.
-
 
 ## Build Status
 
