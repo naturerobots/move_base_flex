@@ -21,10 +21,13 @@ It targets the ROS2 distro `humble` and includes most components you know from R
 - mbf_simple_core & mbf_simple_nav (for navigation components that need no map representation)
 - mbf_utility
 - mbf_msgs
+
 The ROS2 version comes with an additional package that helps with integration tests:
 - mbf_test_utility (only a test dependency)
+
 The two packages are not yet migrated yet:
 - mbf_costmap_core & mbf_costmap_nav (for navigation components that utilize a 2D costmap)
+
 Note that [mesh_navigation](https://github.com/naturerobots/mesh_navigation) is also available for ROS2, now. It provides navigation components that utilize 3D mesh maps.
 
 ## Concepts & Architecture
