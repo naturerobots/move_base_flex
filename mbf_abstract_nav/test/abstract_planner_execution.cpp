@@ -108,20 +108,15 @@ TEST_F(AbstractPlannerExecutionFixture, cancel)
 
   // the cancel case. we simulate that we cancel the execution
   // setup the expectation
-  std::condition_variable cv;
-  // makePlan may or may not be called
-  ON_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).WillByDefault(Wait(&cv));
+  ON_CALL(*mock_planner_ptr_, makePlan(_, _, _, _, _, _)).WillByDefault(Return(11));
   EXPECT_CALL(*mock_planner_ptr_, cancel()).Times(1).WillOnce(Return(true));
 
   // now call the method
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
   ASSERT_TRUE(planner_execution_ptr_->cancel());
 
-  // wake up run-thread
-  cv.notify_all();
-
   // check result
-  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
+  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::CANCELED);
 }
 
