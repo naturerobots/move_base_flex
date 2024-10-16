@@ -1,3 +1,5 @@
+This branch contains the latest ROS1 (`noetic`) state. It is not longer being actively developed. For the latest state (ROS2), check out the [humble branch](https://github.com/naturerobots/move_base_flex/tree/humble).
+
 # Move Base Flex: A Highly Flexible Navigation Framework:
 
 This repository contains Move Base Flex (MBF), a backwards-compatible replacement for move_base. MBF can use existing plugins for move_base, and provides an enhanced version of the same ROS interface. It exposes action servers for planning, controlling and recovering, providing detailed information of the current state and the plugin's feedback. An external executive logic can use MBF and its actions to perform smart and flexible navigation strategies. For example, at [Magazino](https://www.magazino.eu/?lang=en) we have successfully deployed MBF at customer facilities to control TORU robots in highly dynamical environments. Furthermore, MBF enables the use of other map representations, e.g. meshes. The core features are:
