@@ -26,7 +26,7 @@ MBF is an ongoing project. Some of the improvements that we have planned for the
 * Add Ackermann steering API
 * Multi Goal API + Action
 * Add new navigation server and core packages using [grid_map](https://wiki.ros.org/grid_map).
-* Constraints-based goal (see issue https://github.com/magazino/move_base_flex/issues/8)
+* Constraints-based goal (see issue https://github.com/nature_robots/move_base_flex/issues/8)
 
 But, of course you are welcome to propose new fancy features and help make them a reality! Pull Requests are always welcome!
 
