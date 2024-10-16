@@ -32,6 +32,11 @@ MBF is an ongoing project. Some of the improvements that we have planned for the
 
 But, of course you are welcome to propose new fancy features and help make them a reality! Pull Requests are always welcome!
 
+## Credit
+Move Base Flex was initially developed at Magazino ![Magazino Icon](doc/images/logos/magazino_icon.png).
+The latest version (ROS2) is developed at maintained by Nature Robots ![Nature Robots Icon](doc/images/logos/nature_robots_icon.jpg).
+
+
 ## Build Status
 
 | ROS Distro  | GitHub CI | Develop | Documentation | Source Deb | Binary Deb |
