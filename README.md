@@ -1,4 +1,4 @@
-This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic branch](https://github.com/naturerobots/move_base_flex/tree/noetic).
+This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic](https://github.com/naturerobots/move_base_flex/tree/noetic) or [master](https://github.com/naturerobots/move_base_flex/tree/master) branches.
 
 # Move Base Flex: A Highly Flexible Navigation Framework:
 
@@ -12,6 +12,23 @@ This repository contains Move Base Flex (MBF), a backwards-compatible replacemen
 * Concurrency: Parallel planning, recovering, controlling by selecting different concurrency slots when defining the action goal. Only different plugins instances can run in parallel.
 
 Please see also the [Move Base Flex Documentation and Tutorials](https://wiki.ros.org/move_base_flex) in the ROS wiki. And [this repository](https://github.com/Rayman/turtlebot3_mbf) contains a working minimal configuration for a turtlebot 3.
+
+## Announcements / News
+### 16.10.2024 First ROS2 Version of Move Base Flex
+The first working ROS2 version of Move Base Flex has been published.
+It targets the ROS2 distro `humble` and includes most components you know from ROS1:
+- mbf_abstract_core & mbf_abstract_nav
+- mbf_simple_core & mbf_simple_nav (for navigation components that need no map representation)
+- mbf_utility
+- mbf_msgs
+
+The ROS2 version comes with an additional package that helps with integration tests:
+- mbf_test_utility (only a test dependency)
+
+The two packages are not yet migrated yet:
+- mbf_costmap_core & mbf_costmap_nav (for navigation components that utilize a 2D costmap)
+
+Note that [mesh_navigation](https://github.com/naturerobots/mesh_navigation) is also available for ROS2, now. It provides navigation components that utilize 3D mesh maps.
 
 ## Concepts & Architecture
 
@@ -28,12 +45,21 @@ MBF is an ongoing project. Some of the improvements that we have planned for the
 * Add Ackermann steering API
 * Multi Goal API + Action
 * Add new navigation server and core packages using [grid_map](https://wiki.ros.org/grid_map).
-* Constraints-based goal (see issue https://github.com/magazino/move_base_flex/issues/8)
+* Constraints-based goal (see issue https://github.com/nature_robots/move_base_flex/issues/8)
 
 But, of course you are welcome to propose new fancy features and help make them a reality! Pull Requests are always welcome!
+
+## Credit
+
+### [<img width="25" height="25" src="doc/images/logos/magazino_icon.png"> Magazino](https://www.magazino.eu/) 
+Move Base Flex was initially developed at Magazino.
+
+### [<img width="25" height="25" src="doc/images/logos/nature_robots_icon.jpg"> Nature Robots](https://naturerobots.com/)
+The latest version (ROS2) is developed and maintained by Nature Robots.
 
 ## Build Status
 
 | ROS Distro  | GitHub CI | Develop | Documentation | Source Deb | Binary Deb |
 |-------------|-----------|---------|---------------|------------|------------|
-| **Humble**  |   TODO    |  TODO   |    TODO       |    TODO    |   TODO     |
+| **Humble**  | [![Humble CI](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml/badge.svg?branch=humble)](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml) |  TODO   |    TODO       |    TODO    |   TODO     |
+| **Noetic**  | [![Noetic CI](https://github.com/nature_robots/move_base_flex/workflows/Noetic%20CI/badge.svg)](https://github.com/nature_robots/move_base_flex/actions?query=workflow%3A%22Noetic+CI%22) | [![Build Dev Status](http://build.ros.org/buildStatus/icon?job=Ndev__move_base_flex__ubuntu_focal_amd64)](http://build.ros.org/job/Ndev__move_base_flex__ubuntu_focal_amd64) | [![Build Doc Status](http://build.ros.org/buildStatus/icon?job=Ndoc__move_base_flex__ubuntu_focal_amd64)](http://build.ros.org/job/Ndoc__move_base_flex__ubuntu_focal_amd64) | [![Build Src Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__move_base_flex__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__move_base_flex__ubuntu_focal__source) | [![Build Bin Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__move_base_flex__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__move_base_flex__ubuntu_focal_amd64__binary) | 
