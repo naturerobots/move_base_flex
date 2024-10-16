@@ -1,4 +1,4 @@
-This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic branch](https://github.com/naturerobots/move_base_flex/tree/noetic).
+This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic](https://github.com/naturerobots/move_base_flex/tree/noetic) or [master](https://github.com/naturerobots/move_base_flex/tree/master) branches.
 
 # Move Base Flex: A Highly Flexible Navigation Framework:
 
