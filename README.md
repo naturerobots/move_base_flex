@@ -1,8 +1,4 @@
-This repo is an internal hard fork of [Magazino's move_base_flex](https://github.com/magazino/move_base_flex), with our ROS2 migration changes on top.
-Mainly created in order to get a separate issues tracker.
-
-* The `humble` branch is the main branch and is being actively developed
-* The `noetic` branch tracks the ROS1 state from [Magazino's move_base_flex](https://github.com/magazino/move_base_flex).
+This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic branch](https://github.com/naturerobots/move_base_flex/tree/noetic).
 
 # Move Base Flex: A Highly Flexible Navigation Framework:
 
