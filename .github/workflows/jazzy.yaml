@@ -3,7 +3,7 @@ name: Jazzy CI
 on:
   push:
     branches:
-      - 'main'
+      - 'humble'
   pull_request:
   workflow_dispatch:
     branches:
