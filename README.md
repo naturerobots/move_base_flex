@@ -1,3 +1,5 @@
+[![Jazzy CI](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml)
+[![Humble CI](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml)
 This is the active ROS2 branch of this repository. If your are looking for the ROS1 version, checkout the [noetic branch](https://github.com/naturerobots/move_base_flex/tree/noetic).
 
 # Move Base Flex: A Highly Flexible Navigation Framework:
@@ -31,9 +33,3 @@ MBF is an ongoing project. Some of the improvements that we have planned for the
 * Constraints-based goal (see issue https://github.com/magazino/move_base_flex/issues/8)
 
 But, of course you are welcome to propose new fancy features and help make them a reality! Pull Requests are always welcome!
-
-## Build Status
-
-| ROS Distro  | GitHub CI | Develop | Documentation | Source Deb | Binary Deb |
-|-------------|-----------|---------|---------------|------------|------------|
-| **Humble**  |   TODO    |  TODO   |    TODO       |    TODO    |   TODO     |
