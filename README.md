@@ -1,6 +1,7 @@
 This branch contains the latest ROS1 (`noetic`) state. It is not longer being actively developed. For the latest state (ROS2), check out the [humble branch](https://github.com/naturerobots/move_base_flex/tree/humble).
 
-# Move Base Flex: A Highly Flexible Navigation Framework:
+# Move Base Flex: A Highly Flexible Navigation Framework
+
 
 This repository contains Move Base Flex (MBF), a backwards-compatible replacement for move_base. MBF can use existing plugins for move_base, and provides an enhanced version of the same ROS interface. It exposes action servers for planning, controlling and recovering, providing detailed information of the current state and the plugin's feedback. An external executive logic can use MBF and its actions to perform smart and flexible navigation strategies. For example, at [Magazino](https://www.magazino.eu/?lang=en) we have successfully deployed MBF at customer facilities to control TORU robots in highly dynamical environments. Furthermore, MBF enables the use of other map representations, e.g. meshes. The core features are:
  
@@ -45,5 +46,4 @@ The latest version (ROS2) is developed and maintained by Nature Robots.
 
 | ROS Distro  | GitHub CI | Develop | Documentation | Source Deb | Binary Deb |
 |-------------|-----------|---------|---------------|------------|------------|
-| **Humble**  | [![Humble CI](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml/badge.svg?branch=humble)](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml) |  TODO   |    TODO       |    TODO    |   TODO     |
 | **Noetic**  | [![Noetic CI](https://github.com/magazino/move_base_flex/workflows/Noetic%20CI/badge.svg)](https://github.com/magazino/move_base_flex/actions?query=workflow%3A%22Noetic+CI%22) | [![Build Dev Status](http://build.ros.org/buildStatus/icon?job=Ndev__move_base_flex__ubuntu_focal_amd64)](http://build.ros.org/job/Ndev__move_base_flex__ubuntu_focal_amd64) | [![Build Doc Status](http://build.ros.org/buildStatus/icon?job=Ndoc__move_base_flex__ubuntu_focal_amd64)](http://build.ros.org/job/Ndoc__move_base_flex__ubuntu_focal_amd64) | [![Build Src Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__move_base_flex__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__move_base_flex__ubuntu_focal__source) | [![Build Bin Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__move_base_flex__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__move_base_flex__ubuntu_focal_amd64__binary) | 
