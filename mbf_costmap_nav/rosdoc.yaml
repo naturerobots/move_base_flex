@@ -1,4 +1,0 @@
- - builder: doxygen
-   name: Move Base Flex
-   homepage: http://wiki.ros.org/move_base_flex
-   file_patterns: '*.c *.cpp *.h *.cc *.hh *.py *.md'

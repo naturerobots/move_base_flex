@@ -1,7 +1,0 @@
-search:
-    global:
-        track_unknown_space: false
-        footprint: [[-0.6, -0.6], [1.6, -0.6], [1.6, 0.6], [-0.6, 0.6]] # in Y it is a bit larger than one cell
-        plugins:
-        - {name: static,    type: "costmap_2d::StaticLayer"}
-        - {name: obstacles, type: "costmap_2d::ObstacleLayer"}

@@ -98,7 +98,8 @@ void RobotSimulator::setStateCallback(
   if (request->set_velocity && request->velocity_robot.header.frame_id != config_.robot_frame_id) {
     RCLCPP_ERROR_STREAM(
       get_logger(), "Failed to set state:. Expects velocities in robot frame ('"
-        << config_.robot_frame_id << "'), but got frame '" << request->velocity_robot.header.frame_id
+        << config_.robot_frame_id << "'), but got frame '" <<
+        request->velocity_robot.header.frame_id
         << "'");
     response->success = false;
     return;
