@@ -16,7 +16,7 @@ This repository contains Move Base Flex (MBF), a backwards-compatible replacemen
 
 Please see also the [Move Base Flex Documentation and Tutorials](https://wiki.ros.org/move_base_flex) in the ROS wiki. And [this repository](https://github.com/Rayman/turtlebot3_mbf) contains a working minimal configuration for a turtlebot 3.
 
-## Announcements / News
+## Announcements & News
 ### 16.10.2024 First ROS2 Version of Move Base Flex
 The first working ROS2 version of Move Base Flex has been published.
 It targets the ROS2 distro `humble` and includes most components you know from ROS1:
@@ -28,8 +28,8 @@ It targets the ROS2 distro `humble` and includes most components you know from R
 The ROS2 version comes with an additional package that helps with integration tests:
 - mbf_test_utility (only a test dependency)
 
-The two packages are not yet migrated yet:
-- mbf_costmap_core & mbf_costmap_nav (for navigation components that utilize a 2D costmap)
+These two packages not migrated:
+- mbf_costmap_core & mbf_costmap_nav (for navigation components that utilize a 2D costmap). Nav2, which hosts the 2D costmap equivalent to the one from ROS1, and ROS1's move_base are quite different, so interfaces do not easily fit anymore. This makes migration hard. PRs are welcome for this. However, we might integrate another 2D grid map planning module soon.
 
 Note that [mesh_navigation](https://github.com/naturerobots/mesh_navigation) is also available for ROS2, now. It provides navigation components that utilize 3D mesh maps.
 
