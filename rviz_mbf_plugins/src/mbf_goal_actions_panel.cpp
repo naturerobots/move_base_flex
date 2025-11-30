@@ -44,6 +44,8 @@
 #include <QGroupBox>
 #include <QVBoxLayout>
 
+#include <mbf_msgs/action/exe_path.hpp>
+
 namespace
 {
 constexpr auto default_goal_input_topic = "pick topic";
@@ -55,6 +57,7 @@ namespace rviz_mbf_plugins
 
 MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
 : Panel(parent)
+, goal_retry_cnt_(0)
 {
   constructPropertiesWidget();
   constructGoalInputWidget();
@@ -228,6 +231,8 @@ void MbfGoalActionsPanel::newMeshGoalCallback(const geometry_msgs::msg::PoseStam
 {
   goal_input_status_->setText(QString("Goal received at t=%1").arg(msg.header.stamp.sec));
 
+  goal_retry_cnt_ = 0;
+  current_goal_ = msg;
   mbf_msgs::action::GetPath::Goal goal;
   goal.target_pose = msg;
   goal.use_start_pose = false; // planner shall use the current robot pose
@@ -361,6 +366,25 @@ void MbfGoalActionsPanel::exePathResultCallback(
           wrapped_result.result->dist_to_goal));
       break;
     case rclcpp_action::ResultCode::ABORTED:
+      if (wrapped_result.result->outcome == mbf_msgs::action::ExePath::Result::ROBOT_STUCK) {
+        if (goal_retry_cnt_ < 3) {
+          goal_retry_cnt_ += 1;
+          mbf_msgs::action::GetPath::Goal goal;
+          goal.target_pose = current_goal_;
+          // Overwrite the timestamp to prevent tf extrapolation errors in the planners
+          goal.target_pose.header.set__stamp(getDisplayContext()->getClock()->now());
+          goal.use_start_pose = false;
+          sendGetPathGoal(goal);
+          exe_path_action_goal_status_->setText(
+            QString("Robot stuck. Replanning ...")
+          );
+        } else {
+          exe_path_action_goal_status_->setText(
+            QString("Robot stuck. Maximum retries exceeded! Goal failed!")
+          );
+        }
+        break;
+      }
       exe_path_action_goal_status_->setText(
         QString("Aborted. %1").arg(
           QString::fromStdString(

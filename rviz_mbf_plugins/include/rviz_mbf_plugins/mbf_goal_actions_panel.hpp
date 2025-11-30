@@ -108,6 +108,11 @@ protected:
   //! Potential next exe path goal, used for quickly restarting the path execution after cancelling the previous goal
   std::optional<mbf_msgs::action::ExePath::Goal> next_exe_path_goal_;
 
+  //! Retry counter for goal execution
+  size_t goal_retry_cnt_;
+  //! Current goal pose
+  geometry_msgs::msg::PoseStamped current_goal_;
+
   ////////////////
   // UI elements
   ////////////////
