@@ -57,7 +57,7 @@ namespace rviz_mbf_plugins
 
 MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
 : Panel(parent)
-, goal_retry_cnt_(0)
+  , goal_retry_cnt_(0)
 {
   constructPropertiesWidget();
   constructGoalInputWidget();
