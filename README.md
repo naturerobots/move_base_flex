@@ -7,7 +7,7 @@ Move Base Flex (MBF) is a modular and map-agnostic navigation framework for ROS 
 
 * **Map-Agnostic Interface Design**
   
-  MBF's interfaces are independent of any particular map representation (e.g., 2D costmaps, [meshes](https://github.com/naturerobots/mesh_navigation), or voxel grids), enabling seamless integration, scientific comparison, and context-aware selection of both navigation implementations and map types.
+  MBF's interfaces are independent of any particular map representation (e.g., [2D costmaps](https://github.com/amock/mbf_nav2_connector), [meshes](https://github.com/naturerobots/mesh_navigation), or voxel grids), enabling seamless integration, scientific comparison, and context-aware selection of both navigation implementations and map types.
 
 * **Modular Action-Based Architecture**
   
@@ -71,6 +71,10 @@ The latest version (ROS2) is developed and maintained by Nature Robots.
 * [**Mesh Navigation**](https://github.com/naturerobots/mesh_navigation)
   
   Provides 3D navigation on mesh surfaces, implementing the MBF interfaces provided by this repository.
+
+* [**MBF Nav2 Connector**](https://github.com/amock/mbf_nav2_connector)
+
+  Provides 2D navigation on 2D costmaps by translating actions to nav2.
 
 * [**MBF Deliberation Examples**](https://github.com/amock/mbf_deliberation)
   
