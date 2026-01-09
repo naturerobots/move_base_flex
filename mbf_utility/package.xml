@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>mbf_utility</name>
-  <version>0.4.0</version>
+  <version>1.0.0</version>
   <description>The mbf_utility package</description>
 
-  <maintainer email="spuetz@uos.de">Sebastian Pütz</maintainer>
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
 
-  <license>BSD-3</license>
+  <license>BSD-3-Clause</license>
   <url type="website">http://wiki.ros.org/move_base_flex/mbf_utility</url>
-  <author email="spuetz@uos.de">Sebastian Pütz</author>
+  <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

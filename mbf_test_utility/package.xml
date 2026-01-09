@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>mbf_test_utility</name>
   <version>1.0.0</version>
   <description> Contains tools that help with testing move base flex modules. This package should
     only be used as a test dependency. If some tool shall be used in production, move it into
     mbf_utility for example. </description>
-  <maintainer email="matthias.holoch@naturerobots.com">Matthias Holoch</maintainer>
+  <author email="matthias.holoch@naturerobots.com">Matthias Holoch</author>
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
   <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
