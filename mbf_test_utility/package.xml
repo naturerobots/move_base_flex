@@ -7,6 +7,7 @@
     only be used as a test dependency. If some tool shall be used in production, move it into
     mbf_utility for example. </description>
   <maintainer email="matthias.holoch@naturerobots.com">Matthias Holoch</maintainer>
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
   <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
