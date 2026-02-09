@@ -45,7 +45,7 @@ struct AbstractActionBaseFixture
     rclcpp::init(0, nullptr);
   }
 
-  void initRos()
+  void initRosNode()
   {
     node_ = std::shared_ptr<rclcpp::Node>(new rclcpp::Node("test_node"));
     tf_ = std::make_shared<TF>(node_->get_clock());
@@ -65,7 +65,7 @@ struct AbstractActionBaseFixture
 
 TEST_F(AbstractActionBaseFixture, cancelAll)
 {
-  initRos();
+  initRosNode();
 
   // spawn a bunch of threads
   for (unsigned char slot = 0; slot != 10; ++slot) {
