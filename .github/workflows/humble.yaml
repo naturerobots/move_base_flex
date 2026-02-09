@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'humble'
+      - 'ros2'
   pull_request:
   workflow_dispatch:
     branches:

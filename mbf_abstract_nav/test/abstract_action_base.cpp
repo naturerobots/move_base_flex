@@ -11,6 +11,10 @@
 #include <mbf_abstract_nav/abstract_action_base.hpp>
 #include <mbf_abstract_nav/abstract_execution_base.h>
 
+#define GTEST_PRINT_STR(s) \
+  do { std::cerr << (s) << std::endl; } while (0)
+
+
 using namespace mbf_abstract_nav;
 
 // mocked version of an execution
@@ -26,32 +30,46 @@ using testing::Return;
 using testing::Test;
 
 // fixture with access to the AbstractActionBase's internals
-struct AbstractActionBaseFixture
-    : public AbstractActionBase<mbf_msgs::action::GetPath, MockedExecution>,
-      public Test {
-  // required members for the c'tor
-  rclcpp::Node::SharedPtr node_;
+struct AbstractActionBaseFixture 
+: public AbstractActionBase<mbf_msgs::action::GetPath, MockedExecution>
+, public Test
+{
   TFPtr tf_;
-  mbf_utility::RobotInformation::ConstPtr ri_;
+  mbf_utility::RobotInformation::Ptr ri_;
 
   AbstractActionBaseFixture()
-      : node_(std::make_shared<rclcpp::Node>("test_node")),
-        tf_(new TF(node_->get_clock())),
-        ri_(new mbf_utility::RobotInformation(node_, tf_, "global_frame", "local_frame", rclcpp::Duration(0,0))),
-        AbstractActionBase(node_, "action_base", ri_)
+  : AbstractActionBase(nullptr, "action_base", nullptr) {}
+
+  void SetUp() override
   {
+    rclcpp::init(0, nullptr);
+  }
+
+  void initRos()
+  {
+    node_ = std::shared_ptr<rclcpp::Node>(new rclcpp::Node("test_node"));
+    tf_ = std::make_shared<TF>(node_->get_clock());
+    ri_ = std::make_shared<mbf_utility::RobotInformation>(node_, tf_, "global_frame", "local_frame", rclcpp::Duration(0,0));
   }
 
   void runImpl(const GoalHandlePtr &goal_handle, MockedExecution &execution) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50)); // runs in action thread(s)
   }
+
+  void TearDown() override
+  {
+    node_.reset();
+    rclcpp::shutdown();
+  }
 };
 
 TEST_F(AbstractActionBaseFixture, cancelAll)
 {
+  initRos();
+
   // spawn a bunch of threads
   for (unsigned char slot = 0; slot != 10; ++slot) {
-    concurrency_slots_[slot].execution.reset(new MockedExecution(ri_, node_));
+    concurrency_slots_[slot].execution = std::make_shared<MockedExecution>(ri_, node_);
     // set the expectation
     EXPECT_CALL(*concurrency_slots_[slot].execution, cancel()).WillRepeatedly(Return(true));
 
@@ -72,7 +90,6 @@ TEST_F(AbstractActionBaseFixture, cancelAll)
 
 int main(int argc, char **argv)
 {
-  rclcpp::init(argc, argv);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
