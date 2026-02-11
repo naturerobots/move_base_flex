@@ -11,10 +11,6 @@
 #include <mbf_abstract_nav/abstract_action_base.hpp>
 #include <mbf_abstract_nav/abstract_execution_base.h>
 
-#define GTEST_PRINT_STR(s) \
-  do { std::cerr << (s) << std::endl; } while (0)
-
-
 using namespace mbf_abstract_nav;
 
 // mocked version of an execution
@@ -30,10 +26,9 @@ using testing::Return;
 using testing::Test;
 
 // fixture with access to the AbstractActionBase's internals
-struct AbstractActionBaseFixture 
-: public AbstractActionBase<mbf_msgs::action::GetPath, MockedExecution>
-, public Test
-{
+struct AbstractActionBaseFixture
+    : public AbstractActionBase<mbf_msgs::action::GetPath, MockedExecution>,
+      public Test {
   TFPtr tf_;
   mbf_utility::RobotInformation::Ptr ri_;
 
