@@ -1,5 +1,5 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Changelog for package move_base_flex
+Changelog for package mbf_simple_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1.0.1 (2026-02-10)
@@ -18,7 +18,6 @@ Changelog for package move_base_flex
 
 0.3.3 (2020-11-05)
 ------------------
-* Add mbf_utility to move_base_flex metapackag
 
 0.3.2 (2020-05-25)
 ------------------
@@ -44,13 +43,13 @@ Changelog for package move_base_flex
 
 0.2.1 (2018-10-03)
 ------------------
+* Make MBF melodic and indigo compatible
+* Fix GoalHandle references bug in callbacks
 
 0.2.0 (2018-09-11)
 ------------------
-* Update copyright and 3-clause-BSD license of the Move Base Flex stack
-* Concurrency for planners, controllers and recovery behaviors 
-* New class structure, allowing multiple executoin instances
-* Fixes minor bugs
+* Update copyright and 3-clause-BSD license
+* Concurrency for planners, controllers and recovery behaviors
 
 0.1.0 (2018-03-22)
 ------------------

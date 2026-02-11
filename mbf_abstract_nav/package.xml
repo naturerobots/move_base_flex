@@ -1,33 +1,34 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-    <name>mbf_abstract_nav</name>
-    <version>1.0.0</version>
-    <description>
-      The mbf_abstract_nav package contains the abstract navigation server implementation of Move Base Flex (MBF). The abstract navigation server is not bound to any map representation. It provides the actions for planning, controlling and recovering. MBF loads all defined plugins at the program start. Therefor, it loads all plugins which are defined in the lists *planners*, *controllers* and *recovery_behaviors*. Each list holds a pair of a *name* and a *type*. The *type* defines which kind of plugin to load. The *name* defines under which name the plugin should be callable by the actions.
-    </description>
-    <url>http://wiki.ros.org/move_base_flex</url>
-    <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
+  <name>mbf_abstract_nav</name>
+  <version>1.0.1</version>
+  <description>
+    The mbf_abstract_nav package contains the abstract navigation server implementation of Move Base Flex (MBF). The abstract navigation server is not bound to any map representation. It provides the actions for planning, controlling and recovering. MBF loads all defined plugins at the program start. Therefor, it loads all plugins which are defined in the lists *planners*, *controllers* and *recovery_behaviors*. Each list holds a pair of a *name* and a *type*. The *type* defines which kind of plugin to load. The *name* defines under which name the plugin should be callable by the actions.
+  </description>
+  <url>http://wiki.ros.org/move_base_flex</url>
+  <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
-    <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
 
-    <license>BSD-3-Clause</license>
+  <license>BSD-3-Clause</license>
 
-    <depend>geometry_msgs</depend>
-    <depend>mbf_abstract_core</depend>
-    <depend>mbf_msgs</depend>
-    <depend>mbf_utility</depend>
-    <depend>nav_msgs</depend>
-    <depend>rclcpp_action</depend>
-    <depend>rclcpp</depend>
-    <depend>std_msgs</depend>
-    <depend>std_srvs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>mbf_abstract_core</depend>
+  <depend>mbf_msgs</depend>
+  <depend>mbf_utility</depend>
+  <depend>nav_msgs</depend>
+  <depend>rclcpp_action</depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
 
-    <test_depend>ament_cmake_gtest</test_depend> 
-    <test_depend>ament_cmake_gmock</test_depend> 
+  <test_depend>ament_cmake_gtest</test_depend> 
+  <test_depend>ament_cmake_gmock</test_depend> 
 
-    <export>
-      <!-- TODO -->
-      <!--rosdoc config="rosdoc.yaml" /-->
-      <build_type>ament_cmake</build_type>
-    </export>
+  <export>
+    <!-- TODO -->
+    <!--rosdoc config="rosdoc.yaml" /-->
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

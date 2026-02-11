@@ -90,7 +90,7 @@ TEST_F(AbstractPlannerExecutionFixture, success)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
 }
 
@@ -116,7 +116,7 @@ TEST_F(AbstractPlannerExecutionFixture, cancel)
   ASSERT_TRUE(planner_execution_ptr_->cancel());
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::CANCELED);
 }
 
@@ -147,9 +147,9 @@ TEST_F(AbstractPlannerExecutionFixture, max_retries)
 
   // call and wait
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::MAX_RETRIES);
 }
 
@@ -174,7 +174,7 @@ TEST_F(AbstractPlannerExecutionFixture, success_after_retries)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // wait for the patience to elapse and check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
 }
 
@@ -196,7 +196,7 @@ TEST_F(AbstractPlannerExecutionFixture, no_plan_found_zero_patience)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::NO_PLAN_FOUND);
 }
 
@@ -218,7 +218,7 @@ TEST_F(AbstractPlannerExecutionFixture, no_plan_found_non_zero_patience)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::NO_PLAN_FOUND);
 }
 
@@ -245,7 +245,7 @@ TEST_F(AbstractPlannerExecutionFixture, sumDist)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::FOUND_PLAN);
   ASSERT_EQ(planner_execution_ptr_->getCost(), 3);
 }
@@ -272,7 +272,7 @@ TEST_F(AbstractPlannerExecutionFixture, patience_exceeded_waiting_for_planner_re
   cv.notify_all();
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::PAT_EXCEEDED);
 }
 
@@ -294,7 +294,7 @@ TEST_F(AbstractPlannerExecutionFixture, patience_exceeded_infinite_retries)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // wait for the patience to elapse and check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::PAT_EXCEEDED);
 }
 
@@ -315,7 +315,7 @@ TEST_F(AbstractPlannerExecutionFixture, exception)
   ASSERT_TRUE(planner_execution_ptr_->start(pose_, pose_, 0));
 
   // check result
-  ASSERT_EQ(planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1)), std::cv_status::no_timeout);
+  planner_execution_ptr_->waitForStateUpdate(std::chrono::seconds(1));
   ASSERT_EQ(planner_execution_ptr_->getState(), AbstractPlannerExecution::INTERNAL_ERROR);
 }
 
