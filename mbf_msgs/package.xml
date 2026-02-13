@@ -6,10 +6,13 @@
   <description>
       The move_base_flex messages package providing the action definition files for the action GetPath, ExePath, Recovery and MoveBase. The action servers providing these action are implemented in <a href="http://wiki.ros.org/mbf_abstract_nav">mbf_abstract_nav</a>.
   </description>
-  <author email="santos@magazino.eu">Jorge Santos</author>
-  <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
+
   <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
   <license>BSD-3-Clause</license>
+
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="santos@magazino.eu">Jorge Santos</author>
+  <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
   <member_of_group>rosidl_interface_packages</member_of_group>
@@ -17,7 +20,6 @@
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
-
 
   <exec_depend>rosidl_default_runtime</exec_depend>
 

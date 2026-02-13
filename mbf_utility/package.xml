@@ -6,9 +6,9 @@
   <description>The mbf_utility package</description>
 
   <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
-
   <license>BSD-3-Clause</license>
-  <url type="website">http://wiki.ros.org/move_base_flex/mbf_utility</url>
+
+  <url>http://github.com/naturerobots/move_base_flex</url>
   <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
