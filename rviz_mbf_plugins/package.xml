@@ -6,9 +6,12 @@
   <description>
     Contains rviz plugins for interacting with move base flex.
   </description>
-  <author email="matthias.holoch@naturerobots.com">Matthias Holoch</author>
+  
   <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
   <license>BSD-3-Clause</license>
+
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="matthias.holoch@naturerobots.com">Matthias Holoch</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

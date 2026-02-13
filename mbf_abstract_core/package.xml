@@ -6,26 +6,19 @@
   <description>
       This package provides common interfaces for navigation specific robot actions. It contains the AbstractPlanner, AbstractController and AbstractRecovery plugin interfaces. This interfaces have to be implemented by the plugins to make the plugin available for Move Base Flex. The abstract classes provides a meaningful interface enabling the planners, controllers and recovery behaviors to return information, e.g. why something went wrong. Derivided interfaces can, for example, provide methods to initialize the planner, controller or recovery with map representations like costmap_2d, grid_map or other representations.
   </description>
-  <url>http://wiki.ros.org/mbf_abstract_core</url>
 
   <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
-  
-  <author email="spuetz@uos.de">Sebastian Pütz</author>
-  <author email="santos@magazino.eu">Jorge Santos</author>
-
   <license>BSD-3-Clause</license>
   
-  <export>
-    <build_type>ament_cmake</build_type>
-  </export>
-
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="spuetz@uos.de">Sebastian Pütz</author>
+  <author email="santos@magazino.eu">Jorge Santos</author>
+  
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
 
-
-  <!-- TODO -->
-  <!-- <export>
-    <rosdoc config="rosdoc.yaml" />
-  </export> -->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 
 </package>
