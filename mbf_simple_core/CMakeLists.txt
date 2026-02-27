@@ -3,12 +3,10 @@ project(mbf_simple_core)
 
 find_package(ament_cmake REQUIRED)
 set(dependencies
- std_msgs
- geometry_msgs
- mbf_abstract_core
- mbf_utility
- tf2
- pluginlib
+  rclcpp
+  geometry_msgs
+  mbf_abstract_core
+  mbf_utility
 )
 
 foreach(dep IN LISTS dependencies)

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>mbf_abstract_core</name>
-  <version>1.0.1</version>
+  <version>1.0.2</version>
   <description>
       This package provides common interfaces for navigation specific robot actions. It contains the AbstractPlanner, AbstractController and AbstractRecovery plugin interfaces. This interfaces have to be implemented by the plugins to make the plugin available for Move Base Flex. The abstract classes provides a meaningful interface enabling the planners, controllers and recovery behaviors to return information, e.g. why something went wrong. Derivided interfaces can, for example, provide methods to initialize the planner, controller or recovery with map representations like costmap_2d, grid_map or other representations.
   </description>
@@ -14,6 +14,8 @@
   <author email="spuetz@uos.de">Sebastian Pütz</author>
   <author email="santos@magazino.eu">Jorge Santos</author>
   
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
 
