@@ -42,6 +42,12 @@
 #include <mbf_abstract_core/abstract_controller.h>
 #include <mbf_utility/types.h>
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+
+#include <string>
+#include <memory>
+#include <vector>
 
 namespace mbf_simple_core {
   /**

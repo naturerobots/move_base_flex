@@ -14,6 +14,8 @@
   <author email="spuetz@uos.de">Sebastian Pütz</author>
   <author email="santos@magazino.eu">Jorge Santos</author>
   
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
 

@@ -40,7 +40,12 @@
 #define MBF_SIMPLE_CORE__SIMPLE_PLANNER_H_
 
 #include <mbf_abstract_core/abstract_planner.h>
+
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <string>
+#include <memory>
+#include <vector>
 
 namespace mbf_simple_core {
   /**

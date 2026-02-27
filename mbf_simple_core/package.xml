@@ -14,11 +14,12 @@
   <author email="santos@magazino.eu">Jorge Santos</author>
   <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>mbf_abstract_core</depend>
   <depend>mbf_utility</depend>
-  <depend>std_msgs</depend>
-  <depend>tf2</depend>
 
   <export>
       <build_type>ament_cmake</build_type>
