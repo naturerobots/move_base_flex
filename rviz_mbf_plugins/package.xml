@@ -15,10 +15,19 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>mbf_msgs</depend>
-  <depend>pluginlib</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>pluginlib</depend>
+  <depend>mbf_msgs</depend>
   <depend>rviz_common</depend>
+  <depend>geometry_msgs</depend>
+
+  <build_depend>qtbase5-dev</build_depend>
+  <build_export_depend>qtbase5-dev</build_export_depend>
+
+  <exec_depend>libqt5-widgets</exec_depend>
+  <exec_depend>libqt5-gui</exec_depend>
+  <exec_depend>libqt5-core</exec_depend>
 
   <test_depend>ament_cmake_auto</test_depend>
   <test_depend>ament_cmake_uncrustify</test_depend>
