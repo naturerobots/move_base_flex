@@ -2,6 +2,9 @@
 Changelog for package mbf_simple_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.0.2 (2026-02-10)
 ------------------
 * Removed unused dependencies, see #368

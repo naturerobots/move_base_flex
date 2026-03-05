@@ -2,6 +2,10 @@
 Changelog for package mbf_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added action msgs for humble, see #371
+
 1.0.2 (2026-02-10)
 ------------------
 * Removed unused dependencies, see #368
