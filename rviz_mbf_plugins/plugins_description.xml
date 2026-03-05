@@ -1,4 +1,4 @@
-<library path="rviz_mbf_plugins_mbf_goal_actions_panel">
+<library path="rviz_mbf_plugins">
   <class name="rviz_mbf_plugins/MbfGoalActions"
          type="rviz_mbf_plugins::MbfGoalActionsPanel"
          base_class_type="rviz_common::Panel">
