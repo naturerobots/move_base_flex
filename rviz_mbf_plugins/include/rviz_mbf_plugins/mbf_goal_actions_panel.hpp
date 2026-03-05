@@ -62,7 +62,8 @@ class MbfGoalActionsPanel : public rviz_common::Panel
 
 public:
   explicit MbfGoalActionsPanel(QWidget * parent = nullptr);
-  ~MbfGoalActionsPanel() noexcept override = default;
+  // ~MbfGoalActionsPanel() noexcept override = default;
+  virtual ~MbfGoalActionsPanel() {}
 
   void onInitialize() override;
   void save(rviz_common::Config config) const override;

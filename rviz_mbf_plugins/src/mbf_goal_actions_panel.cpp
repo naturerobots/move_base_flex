@@ -412,4 +412,5 @@ void MbfGoalActionsPanel::exePathResultCallback(
 } // namespace rviz_mbf_plugins
 
 #include <pluginlib/class_list_macros.hpp>
+#include <rviz_common/panel.hpp>
 PLUGINLIB_EXPORT_CLASS(rviz_mbf_plugins::MbfGoalActionsPanel, rviz_common::Panel)

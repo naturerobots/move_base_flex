@@ -5,11 +5,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-# Enable Qt MOC automatically
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC OFF)
-set(CMAKE_AUTORCC OFF)
-
 find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
@@ -21,15 +16,26 @@ find_package(rviz_common REQUIRED)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
 
-add_library(${PROJECT_NAME}_mbf_goal_actions_panel
-  src/mbf_goal_actions_panel.cpp)
 
-target_include_directories(${PROJECT_NAME}_mbf_goal_actions_panel PUBLIC
+set(rviz_mbf_plugins_headers_to_moc
+  include/rviz_mbf_plugins/mbf_goal_actions_panel.hpp
+)
+
+foreach(header "${rviz_mbf_plugins_headers_to_moc}")
+  qt5_wrap_cpp(rviz_mbf_plugins_moc_files "${header}")
+endforeach()
+
+add_library(rviz_mbf_plugins SHARED
+  ${rviz_mbf_plugins_moc_files}
+  src/mbf_goal_actions_panel.cpp
+)
+
+target_include_directories(rviz_mbf_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}_mbf_goal_actions_panel
+ament_target_dependencies(rviz_mbf_plugins
   rclcpp
   rclcpp_action
   pluginlib
@@ -38,12 +44,16 @@ ament_target_dependencies(${PROJECT_NAME}_mbf_goal_actions_panel
   rviz_common
 )
 
-target_link_libraries(${PROJECT_NAME}_mbf_goal_actions_panel
+target_link_libraries(rviz_mbf_plugins
   Qt5::Widgets
 )
 
+target_compile_definitions(rviz_mbf_plugins PRIVATE "RVIZ_MBF_PLUGINS_BUILDING_LIBRARY")
+
+pluginlib_export_plugin_description_file(rviz_common plugins_description.xml)
+
 install(
-  TARGETS ${PROJECT_NAME}_mbf_goal_actions_panel
+  TARGETS rviz_mbf_plugins
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -59,8 +69,6 @@ install(
   FILES plugins_description.xml
   DESTINATION share/${PROJECT_NAME}
 )
-
-pluginlib_export_plugin_description_file(rviz_common plugins_description.xml)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
