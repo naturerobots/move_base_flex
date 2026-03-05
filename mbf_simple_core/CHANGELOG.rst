@@ -2,6 +2,9 @@
 Changelog for package mbf_simple_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.3 (2026-03-05)
+------------------
+
 1.0.2 (2026-02-10)
 ------------------
 * Removed unused dependencies, see #368

@@ -2,6 +2,9 @@
 Changelog for package mbf_abstract_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.3 (2026-03-05)
+------------------
+
 1.0.2 (2026-02-10)
 ------------------
 * Removed unused dependencies, see #368
