@@ -2,6 +2,9 @@
 Changelog for package move_base_flex
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.4 (2026-03-05)
+------------------
+
 1.0.3 (2026-03-05)
 ------------------
 * Added ament_cmake as build tool dependeny for move_base_flex meta package, see #373
