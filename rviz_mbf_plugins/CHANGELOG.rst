@@ -2,8 +2,8 @@
 Changelog for package rviz_mbf_plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.5 (2026-03-06)
+------------------
 * fixed missing dependency, see #378
 
 1.0.4 (2026-03-05)
