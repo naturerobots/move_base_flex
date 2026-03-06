@@ -2,6 +2,9 @@
 Changelog for package mbf_abstract_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.0.4 (2026-03-05)
 ------------------
 

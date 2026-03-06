@@ -2,6 +2,9 @@
 Changelog for package mbf_test_utility
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.0.4 (2026-03-05)
 ------------------
 
