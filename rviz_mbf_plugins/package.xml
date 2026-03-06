@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rviz_mbf_plugins</name>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
   <description>
     Contains rviz plugins for interacting with move base flex.
   </description>
@@ -28,9 +28,6 @@
   <exec_depend>libqt5-widgets</exec_depend>
   <exec_depend>libqt5-gui</exec_depend>
   <exec_depend>libqt5-core</exec_depend>
-
-  <test_depend>ament_cmake_auto</test_depend>
-  <test_depend>ament_cmake_uncrustify</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
