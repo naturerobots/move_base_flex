@@ -46,6 +46,7 @@
 #include <rviz_common/properties/ros_topic_property.hpp>
 #include <rviz_common/properties/property_tree_model.hpp>
 #include <rviz_common/properties/property_tree_widget.hpp>
+#include <rviz_common/properties/string_property.hpp>
 
 #include <QLabel>
 #include <QGroupBox>
@@ -119,10 +120,12 @@ protected:
   QVBoxLayout * ui_layout_;
 
   rviz_common::properties::PropertyTreeWidget * properity_tree_widget_;
-  rviz_common::properties::PropertyTreeModel * properity_tree_model_;
-  rviz_common::properties::RosTopicProperty * goal_input_topic_;
-  rviz_common::properties::RosTopicProperty * get_path_action_server_path_;
-  rviz_common::properties::RosTopicProperty * exe_path_action_server_path_;
+  rviz_common::properties::PropertyTreeModel *  properity_tree_model_;
+  rviz_common::properties::RosTopicProperty *   goal_input_topic_;
+  rviz_common::properties::RosTopicProperty *   get_path_action_server_path_;
+  rviz_common::properties::StringProperty *     planner_name_property_;
+  rviz_common::properties::RosTopicProperty *   exe_path_action_server_path_;
+  rviz_common::properties::StringProperty *     controller_name_property_;
 
   QGroupBox * goal_input_ui_box_;
   QVBoxLayout * goal_input_ui_layout_;

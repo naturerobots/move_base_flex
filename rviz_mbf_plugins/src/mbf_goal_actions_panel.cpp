@@ -85,18 +85,28 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
     nullptr,
     SLOT(updateGoalInputSubscription()), this);
   properity_tree_model_->getRoot()->addChild(goal_input_topic_);
+  
   get_path_action_server_path_ = new rviz_common::properties::RosTopicProperty(
-    "Get Path", default_action_server_path, "",
+    "Planner Action", default_action_server_path, "",
     "ROS path to move base flex get_path action server",
     nullptr,
     SLOT(updateGetPathServiceClient()), this);
   properity_tree_model_->getRoot()->addChild(get_path_action_server_path_);
+
+  planner_name_property_ = new rviz_common::properties::StringProperty(
+    "Planner Name", "", "Key name of planner to use (must defined in config), e.g. 'GridBased' or 'mesh_planner'");
+  properity_tree_model_->getRoot()->addChild(planner_name_property_);
+
   exe_path_action_server_path_ = new rviz_common::properties::RosTopicProperty(
-    "Exe Path", default_action_server_path, "",
+    "Controller Action", default_action_server_path, "",
     "ROS path to move base flex exe_path action server",
     nullptr,
     SLOT(updateExePathServiceClient()), this);
   properity_tree_model_->getRoot()->addChild(exe_path_action_server_path_);
+
+  controller_name_property_ = new rviz_common::properties::StringProperty(
+    "Controller Name", "", "Key name of planner to use (must defined in config), e.g. 'mppi' or 'mesh_controller'");
+  properity_tree_model_->getRoot()->addChild(controller_name_property_);
 
   properity_tree_widget_ = new rviz_common::properties::PropertyTreeWidget();
   properity_tree_widget_->setModel(properity_tree_model_);
@@ -235,6 +245,7 @@ void MbfGoalActionsPanel::newMeshGoalCallback(const geometry_msgs::msg::PoseStam
   current_goal_ = msg;
   mbf_msgs::action::GetPath::Goal goal;
   goal.target_pose = msg;
+  goal.planner = planner_name_property_->getStdString();
   goal.use_start_pose = false; // planner shall use the current robot pose
   if (goal_handle_get_path_) {
     // planner is currently active, cancel first
@@ -282,6 +293,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
           wrapped_result.result->cost));
 
       exe_path_goal.path = wrapped_result.result->path;
+      exe_path_goal.controller = controller_name_property_->getStdString();
 
       if (goal_handle_exe_path_) {
         // path execution is currently active, cancel first
@@ -371,6 +383,7 @@ void MbfGoalActionsPanel::exePathResultCallback(
           goal_retry_cnt_ += 1;
           mbf_msgs::action::GetPath::Goal goal;
           goal.target_pose = current_goal_;
+          goal.planner = planner_name_property_->getStdString();
           // Overwrite the timestamp to prevent tf extrapolation errors in the planners
           goal.target_pose.header.set__stamp(getDisplayContext()->getClock()->now());
           goal.use_start_pose = false;
