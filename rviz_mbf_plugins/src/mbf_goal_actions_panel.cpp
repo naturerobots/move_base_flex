@@ -86,25 +86,25 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
     SLOT(updateGoalInputSubscription()), this);
   properity_tree_model_->getRoot()->addChild(goal_input_topic_);
   
-  get_path_action_server_path_ = new rviz_common::properties::RosTopicProperty(
-    "Planner Action", default_action_server_path, "",
+  get_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
+    "Planner Action", default_action_server_path, "mbf_msgs/action/GetPath",
     "ROS path to move base flex get_path action server",
     nullptr,
-    SLOT(updateGetPathServiceClient()), this);
+    SLOT(updateGetPathActionClient()), this);
   properity_tree_model_->getRoot()->addChild(get_path_action_server_path_);
 
-  planner_name_property_ = new rviz_common::properties::StringProperty(
+  planner_name_property_ = new rviz_common::properties::EditableEnumProperty(
     "Planner Name", "", "Key name of planner to use (must defined in config), e.g. 'GridBased' or 'mesh_planner'");
   properity_tree_model_->getRoot()->addChild(planner_name_property_);
 
-  exe_path_action_server_path_ = new rviz_common::properties::RosTopicProperty(
-    "Controller Action", default_action_server_path, "",
+  exe_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
+    "Controller Action", default_action_server_path, "mbf_msgs/action/ExePath",
     "ROS path to move base flex exe_path action server",
     nullptr,
-    SLOT(updateExePathServiceClient()), this);
+    SLOT(updateExePathActionClient()), this);
   properity_tree_model_->getRoot()->addChild(exe_path_action_server_path_);
 
-  controller_name_property_ = new rviz_common::properties::StringProperty(
+  controller_name_property_ = new rviz_common::properties::EditableEnumProperty(
     "Controller Name", "", "Key name of planner to use (must defined in config), e.g. 'mppi' or 'mesh_controller'");
   properity_tree_model_->getRoot()->addChild(controller_name_property_);
 
@@ -195,11 +195,49 @@ void MbfGoalActionsPanel::updateGoalInputSubscription()
   }
 }
 
-void MbfGoalActionsPanel::updateGetPathServiceClient()
+/** helper function to split a topic string by slashes */
+std::vector<std::string> split_topic(std::string topic)
+{
+  std::vector<std::string> ret;
+
+  std::string delimiter = "/";
+  size_t pos = 0;
+  while ((pos = topic.find(delimiter)) != std::string::npos) {
+    std::string token = topic.substr(0, pos);
+    if (!token.empty()) {
+      ret.push_back(token);
+    }
+    topic.erase(0, pos + delimiter.length());
+  }
+  if (!topic.empty()) {
+    ret.push_back(topic);
+  }
+
+  return ret;
+}
+
+std::string node_name_guess(const std::string& topic)
+{
+  // this just guesses the node name and returns it.
+  // split topic by first slashes from right. return first part as node name
+
+  std::string delimiter = "/";
+
+  size_t pos = topic.rfind(delimiter);
+
+  if (pos != std::string::npos) {
+    return topic.substr(0, pos);
+  } else {
+    return "";
+  }
+
+}
+
+void MbfGoalActionsPanel::updateGetPathActionClient()
 {
   auto node = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
 
-  const std::string selected_server = get_path_action_server_path_->getTopic().toStdString();
+  const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
 
   if (selected_server != default_action_server_path) {
     action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
@@ -211,13 +249,42 @@ void MbfGoalActionsPanel::updateGetPathServiceClient()
       get_path_action_server_status_->setText("connecting");
     }
   }
+
+  // fetch planners via parameters: 
+  // string list: [node_name_of_action_server].planners
+  planner_name_property_->clearOptions();
+
+  // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
+  // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
+  std::string node_name = node_name_guess(selected_server);
+
+  RCLCPP_INFO_STREAM(node->get_logger(), "Guessed node name for planner list: " << node_name);
+
+  planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(node, node_name);
+
+  planner_parameter_client_->get_parameters({"planners"},
+    [this, node, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+      auto parameters = future.get();
+      if(!parameters.empty())
+      {
+        const std::vector<std::string> planners = parameters[0].as_string_array();
+        for(const std::string& planner : planners)
+        {
+          planner_name_property_->addOptionStd(planner);
+        }
+        RCLCPP_INFO_STREAM(node->get_logger(), "Received planner list with " << planners.size() << " entries for planner action " << selected_server);
+      } else {
+        this->get_path_action_goal_status_->setText(QString("No planner found!"));
+        RCLCPP_WARN_STREAM(node->get_logger(), "No planner found for planner action " << selected_server);
+      }
+    });
 }
 
-void MbfGoalActionsPanel::updateExePathServiceClient()
+void MbfGoalActionsPanel::updateExePathActionClient()
 {
   auto node = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
 
-  const std::string selected_server = exe_path_action_server_path_->getTopic().toStdString();
+  const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
   if (selected_server != default_action_server_path) {
     action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
       node, selected_server);
@@ -227,6 +294,35 @@ void MbfGoalActionsPanel::updateExePathServiceClient()
       exe_path_action_server_status_->setText("connecting");
     }
   }
+
+  // fetch controllers via parameters: 
+  // string list: [node_name_of_action_server].controllers
+  controller_name_property_->clearOptions();
+
+  // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
+  // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
+  std::string node_name = node_name_guess(selected_server);
+
+  RCLCPP_INFO_STREAM(node->get_logger(), "Guessed node name for controller list: " << node_name);
+
+  controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(node, node_name);
+
+  controller_parameter_client_->get_parameters({"controllers"},
+    [this, node, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+      auto parameters = future.get();
+      if(!parameters.empty())
+      {
+        const std::vector<std::string> controllers = parameters[0].as_string_array();
+        for(const std::string& controller : controllers)
+        {
+          controller_name_property_->addOptionStd(controller);
+        }
+        RCLCPP_INFO_STREAM(node->get_logger(), "Received controller list with " << controllers.size() << " entries for controller action " << selected_server);
+      } else {
+        this->exe_path_action_goal_status_->setText(QString("No controller found!"));
+        RCLCPP_WARN_STREAM(node->get_logger(), "No controller found for controller action " << selected_server);
+      }
+    });
 }
 
 void MbfGoalActionsPanel::onInitialize()

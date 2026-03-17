@@ -42,15 +42,22 @@
 #include <mbf_msgs/action/get_path.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/parameter_client.hpp>
+
 #include <rviz_common/panel.hpp>
+#include <rviz_common/properties/editable_enum_property.hpp>
 #include <rviz_common/properties/ros_topic_property.hpp>
+#include <rviz_common/properties/ros_action_property.hpp>
 #include <rviz_common/properties/property_tree_model.hpp>
 #include <rviz_common/properties/property_tree_widget.hpp>
-#include <rviz_common/properties/string_property.hpp>
 
 #include <QLabel>
 #include <QGroupBox>
 #include <QVBoxLayout>
+
+#include <memory>
+#include <optional>
+#include <future>
 
 namespace rviz_mbf_plugins
 {
@@ -89,8 +96,8 @@ protected:
 
 private Q_SLOTS:
   void updateGoalInputSubscription();
-  void updateGetPathServiceClient();
-  void updateExePathServiceClient();
+  void updateGetPathActionClient();
+  void updateExePathActionClient();
 
 protected:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription_;
@@ -119,13 +126,16 @@ protected:
   ////////////////
   QVBoxLayout * ui_layout_;
 
-  rviz_common::properties::PropertyTreeWidget * properity_tree_widget_;
-  rviz_common::properties::PropertyTreeModel *  properity_tree_model_;
-  rviz_common::properties::RosTopicProperty *   goal_input_topic_;
-  rviz_common::properties::RosTopicProperty *   get_path_action_server_path_;
-  rviz_common::properties::StringProperty *     planner_name_property_;
-  rviz_common::properties::RosTopicProperty *   exe_path_action_server_path_;
-  rviz_common::properties::StringProperty *     controller_name_property_;
+  rviz_common::properties::PropertyTreeWidget*    properity_tree_widget_;
+  rviz_common::properties::PropertyTreeModel*     properity_tree_model_;
+  rviz_common::properties::RosTopicProperty*      goal_input_topic_;
+  rviz_common::properties::RosActionProperty*     get_path_action_server_path_;
+  rviz_common::properties::EditableEnumProperty*  planner_name_property_;
+  rviz_common::properties::RosActionProperty*     exe_path_action_server_path_;
+  rviz_common::properties::EditableEnumProperty*  controller_name_property_;
+
+  std::shared_ptr<rclcpp::AsyncParametersClient>  planner_parameter_client_;
+  std::shared_ptr<rclcpp::AsyncParametersClient>  controller_parameter_client_;
 
   QGroupBox * goal_input_ui_box_;
   QVBoxLayout * goal_input_ui_layout_;
