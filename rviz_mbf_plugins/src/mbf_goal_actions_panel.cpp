@@ -195,27 +195,6 @@ void MbfGoalActionsPanel::updateGoalInputSubscription()
   }
 }
 
-/** helper function to split a topic string by slashes */
-std::vector<std::string> split_topic(std::string topic)
-{
-  std::vector<std::string> ret;
-
-  std::string delimiter = "/";
-  size_t pos = 0;
-  while ((pos = topic.find(delimiter)) != std::string::npos) {
-    std::string token = topic.substr(0, pos);
-    if (!token.empty()) {
-      ret.push_back(token);
-    }
-    topic.erase(0, pos + delimiter.length());
-  }
-  if (!topic.empty()) {
-    ret.push_back(topic);
-  }
-
-  return ret;
-}
-
 std::string node_name_guess(const std::string& topic)
 {
   // this just guesses the node name and returns it.
@@ -230,7 +209,6 @@ std::string node_name_guess(const std::string& topic)
   } else {
     return "";
   }
-
 }
 
 void MbfGoalActionsPanel::updateGetPathActionClient()
