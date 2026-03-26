@@ -314,7 +314,7 @@ std::vector<Cell> FootprintHelper::getFootprintCells(double x, double y, double 
       return clearAndReturn(footprint_cells);
     }
 
-    getLineCells(x0, x1, y0, y1, footprint_cells);
+    supercover(x0, x1, y0, y1, footprint_cells);
   }
 
   //we need to close the loop, so we also have to raytrace from the last pt to first pt
@@ -329,7 +329,7 @@ std::vector<Cell> FootprintHelper::getFootprintCells(double x, double y, double 
     return clearAndReturn(footprint_cells);
   }
 
-  getLineCells(x0, x1, y0, y1, footprint_cells);
+  supercover(x0, x1, y0, y1, footprint_cells);
 
   if(fill) {
     getFillCells(footprint_cells);

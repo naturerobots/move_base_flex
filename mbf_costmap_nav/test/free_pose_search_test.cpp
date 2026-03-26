@@ -247,8 +247,7 @@ TEST_F(SearchHelperTest, getFootprintState)
     EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(4.6, 4.6, M_PI)).state, state);
     EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(4.5, 4.5, 0)).state, state);
     EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(4.4, 4.4, 0)).state, SearchState::FREE);
-    EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(4.5, 4.5, M_PI_4)).state,
-              SearchState::FREE);
+    EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(4.5, 4.5, M_PI_4)).state, state);
     EXPECT_EQ(FreePoseSearch::getFootprintState(costmap, footprint, toPose2D(3, 5, 0)).state, SearchState::FREE);
   };
 
@@ -281,8 +280,7 @@ TEST_F(SearchHelperTest, findValidOrientation)
   std::vector<geometry_msgs::Point> footprint = { toPoint(-0.5, -0.5), toPoint(0.5, -0.5), toPoint(0.5, 0.5),
                                                   toPoint(-0.5, 0.5) };
   auto sol = FreePoseSearch::findValidOrientation(costmap, footprint, toPose2D(4.6, 4.6, 0), { M_PI_4 / 2, M_PI }, viz);
-  EXPECT_EQ(sol.search_state.state, SearchState::FREE);
-  EXPECT_NEAR(sol.pose.theta, M_PI_4 / 2, 1e-6);
+  EXPECT_EQ(sol.search_state.state, SearchState::LETHAL);
 
   sol = FreePoseSearch::findValidOrientation(costmap, footprint, toPose2D(4.6, 4.6, 0), { M_PI, 2 * M_PI }, viz);
   EXPECT_EQ(sol.search_state.state, SearchState::LETHAL);
@@ -324,8 +322,8 @@ TEST_F(SearchHelperTest, search)
   0.5 |  0    0    0     0     0     0    0    254   254   254
   1.5 |  0    0    0     0     0     0    0    254   254   254
   2.5 |  0    0    0    254   254   254   0     0     0     0
-  3.5 |  0    0    0     0     0     0    0     0     0     0
-  4.5 |  0    0    0     0     0     0    x     0     0     0
+  3.5 |  0    0    0     0     0     0    0     x     0     0
+  4.5 |  0    0    0     0     0     0    0     0     0     0
   5.5 |  0    0    0     0    254    G    0    254   254   254
   6.5 |  0    0    0     0    254    0    0    254   254   254
   7.5 |  0    0    0     0     0     0    0    254   254   254
@@ -338,13 +336,13 @@ TEST_F(SearchHelperTest, search)
 
   auto sol = sh.search();
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
-  EXPECT_NEAR(sol.pose.x, 6.5, 1e-6);
-  EXPECT_NEAR(sol.pose.y, 4.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, -M_PI_4, 1e-6);
+  EXPECT_NEAR(sol.pose.x, 7.5, 1e-6);
+  EXPECT_NEAR(sol.pose.y, 3.5, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, 0, 1e-6);
 
-  addObstacle(cm, 6.5, 4.5);
+  addObstacle(cm, 7.5, 3.5);
   map.header.stamp = ros::Time::now();
-  map.data[cm.getCostmap()->getIndex(6, 4)] = 100;
+  map.data[cm.getCostmap()->getIndex(7, 3)] = 100;
   map_pub.publish(map);
 
   /*
@@ -353,24 +351,50 @@ TEST_F(SearchHelperTest, search)
   0.5 |  0    0    0     0     0     0    0    254   254   254
   1.5 |  0    0    0     0     0     0    0    254   254   254
   2.5 |  0    0    0    254   254   254   0     0     0     0
-  3.5 |  0    0    0     0    254    0    0     0     0     0
-  4.5 |  0    0    0     0     0     0   254    0     0     0
-  5.5 |  0    0    0     0    254    G    0    254   254   254
+  3.5 |  0    0    0     0    254    0    0    254    0     0
+  4.5 |  0    0    0     0     0     0    0     0     0     0
+  5.5 |  0    0    x     0    254    G    0    254   254   254
   6.5 |  0    0    0     0    254    0    0    254   254   254
-  7.5 |  0    0    0     0     0     x    0    254   254   254
+  7.5 |  0    0    0     0     0     0    0    254   254   254
   8.5 |  0    0    0     0     0     0    0     0     0     0
+  9.5 |  0    0    0     0     0     0    0     0     0     0
+  */
+
+  sol = sh.search();
+  EXPECT_EQ(sol.search_state.state, SearchState::FREE);
+  EXPECT_NEAR(sol.pose.x, 2.5, 1e-6);
+  EXPECT_NEAR(sol.pose.y, 5.5, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, M_PI_2, 1e-6);
+
+  addObstacle(cm, 2.5, 5.5);
+  map.header.stamp = ros::Time::now();
+  map.data[cm.getCostmap()->getIndex(2, 5)] = 100;
+  map_pub.publish(map);
+
+  /*
+  y/x   0.5  1.5  2.5   3.5   4.5   5.5  6.5   7.5   8.5   9.5
+  ------------------------------------------------------------
+  0.5 |  0    0    0     0     0     0    0    254   254   254
+  1.5 |  0    0    0     0     0     0    0    254   254   254
+  2.5 |  0    0    0    254   254   254   0     0     0     0
+  3.5 |  0    0    0     0    254    0    0    254    0     0
+  4.5 |  0    0    0     0     0     0    0     0     0     0
+  5.5 |  0    0   254    0    254    G    0    254   254   254
+  6.5 |  0    0    0     0    254    0    0    254   254   254
+  7.5 |  0    0    0     0     0     0    0    254   254   254
+  8.5 |  0    0    0     0     0     x    0     0     0     0
   9.5 |  0    0    0     0     0     0    0     0     0     0
   */
 
   sol = sh.search();
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
   EXPECT_NEAR(sol.pose.x, 5.5, 1e-6);
-  EXPECT_NEAR(sol.pose.y, 7.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, M_PI_4, 1e-6);
+  EXPECT_NEAR(sol.pose.y, 8.5, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, M_PI, 1e-6);
 
-  addObstacle(cm, 5.5, 7.5);
+  addObstacle(cm, 5.5, 8.5);
   map.header.stamp = ros::Time::now();
-  map.data[cm.getCostmap()->getIndex(5, 7)] = 100;
+  map.data[cm.getCostmap()->getIndex(5, 8)] = 100;
   map_pub.publish(map);
 
   /*
@@ -379,44 +403,18 @@ TEST_F(SearchHelperTest, search)
   0.5 |  0    0    0     0     0     0    0    254   254   254
   1.5 |  0    0    0     0     0     0    0    254   254   254
   2.5 |  0    0    0    254   254   254   0     0     0     0
-  3.5 |  0    0    0     0    254    0    0     0     0     0
-  4.5 |  0    0    0     x     0     0   254    0     0     0
-  5.5 |  0    0    0     0    254    G    0    254   254   254
+  3.5 |  0    0    0     0    254    0    0    254    0     0
+  4.5 |  0    0    0     0     0     0    0     0     0     0
+  5.5 |  0    0   254    0    254    G    0    254   254   254
   6.5 |  0    0    0     0    254    0    0    254   254   254
-  7.5 |  0    0    0     0     0    254   0    254   254   254
-  8.5 |  0    0    0     0     0     0    0     0     0     0
+  7.5 |  0    0    x     0     0     0    0    254   254   254
+  8.5 |  0    0    0     0     0    254   0     0     0     0
   9.5 |  0    0    0     0     0     0    0     0     0     0
   */
 
   sol = sh.search();
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
-  EXPECT_NEAR(sol.pose.x, 3.5, 1e-6);
-  EXPECT_NEAR(sol.pose.y, 4.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, 3 * M_PI_4, 1e-6);
-
-  addObstacle(cm, 3.5, 4.5);
-  map.header.stamp = ros::Time::now();
-  map.data[cm.getCostmap()->getIndex(3, 4)] = 100;
-  map_pub.publish(map);
-
-  /*
-  y/x   0.5  1.5  2.5   3.5   4.5   5.5  6.5   7.5   8.5   9.5
-  ------------------------------------------------------------
-  0.5 |  0    0    0     0     0     0    0    254   254   254
-  1.5 |  0    0    0     0     0     0    0    254   254   254
-  2.5 |  0    0    0    254   254   254   0     0     0     0
-  3.5 |  0    0    0     0    254    0    0     0     0     0
-  4.5 |  0    0    0    254    0     0   254    0     0     0
-  5.5 |  0    0    0     0    254    G    0    254   254   254
-  6.5 |  0    0    0     0    254    0    0    254   254   254
-  7.5 |  0    0    0     x     0    254   0    254   254   254
-  8.5 |  0    0    0     0     0     0    0     0     0     0
-  9.5 |  0    0    0     0     0     0    0     0     0     0
-  */
-
-  sol = sh.search();
-  EXPECT_EQ(sol.search_state.state, SearchState::FREE);
-  EXPECT_NEAR(sol.pose.x, 3.5, 1e-6);
+  EXPECT_NEAR(sol.pose.x, 2.5, 1e-6);
   EXPECT_NEAR(sol.pose.y, 7.5, 1e-6);
   EXPECT_NEAR(sol.pose.theta, M_PI_4, 1e-6);
 
@@ -426,8 +424,8 @@ TEST_F(SearchHelperTest, search)
   sol = sh2.search();
   EXPECT_EQ(sol.search_state.state, SearchState::FREE);
   EXPECT_NEAR(sol.pose.x, 1.5, 1e-6);
-  EXPECT_NEAR(sol.pose.y, 4.5, 1e-6);
-  EXPECT_NEAR(sol.pose.theta, M_PI_4, 1e-6);
+  EXPECT_NEAR(sol.pose.y, 3.5, 1e-6);
+  EXPECT_NEAR(sol.pose.theta, -M_PI_2, 1e-6);
 }
 
 TEST_F(SearchHelperTest, service_test)
