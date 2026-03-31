@@ -67,7 +67,7 @@ bool getRobotPose(const TF &tf,
                                timeout,
                                local_pose,
                                robot_pose);
-  if (success && ros::Time::now() - robot_pose.header.stamp > timeout)
+  if (success && timeout.toSec() > 0 && ros::Time::now() - robot_pose.header.stamp > timeout)
   {
     ROS_WARN("Most recent robot pose is %gs old (tolerance %gs)",
              (ros::Time::now() - robot_pose.header.stamp).toSec(), timeout.toSec());
