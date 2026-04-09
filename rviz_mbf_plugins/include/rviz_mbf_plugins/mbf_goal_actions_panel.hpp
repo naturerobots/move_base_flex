@@ -120,9 +120,6 @@ protected:
   //! Goal handle of active get path action
   GetPathClient::GoalHandle::SharedPtr goal_handle_get_path_;
 
-  //! Potential next get path goal, used for quickly restarting the planner after cancelling the previous goal
-  std::optional<mbf_msgs::action::GetPath::Goal> next_get_path_goal_;
-
   //! Action client for traversing a path
   std::mutex exe_path_action_client_mutex_;
   ExePathClient::SharedPtr action_client_exe_path_;
@@ -133,8 +130,6 @@ protected:
 
   //! Goal handle of active exe path action
   ExePathClient::GoalHandle::SharedPtr goal_handle_exe_path_;
-  //! Potential next exe path goal, used for quickly restarting the path execution after cancelling the previous goal
-  std::optional<mbf_msgs::action::ExePath::Goal> next_exe_path_goal_;
 
   std::atomic_bool conn_check_thread_get_path_stop_;
   std::thread conn_check_thread_get_path_;

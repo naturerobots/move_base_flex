@@ -292,7 +292,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
   std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
 
   const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
-  
+
   if(selected_server == default_action_server_path)
   {
     // reset action client: first cancel active goal, then reset client
@@ -307,7 +307,6 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
           if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
           {
             setStatusLabel(this->get_path_action_goal_status_, "Planner action stopped", status_success);
-            next_get_path_goal_.reset();
             goal_handle_get_path_.reset();
           } else {
             setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
@@ -319,7 +318,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
           planner_parameter_client_.reset();
           setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
-          setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
+          setStatusLabel(get_path_action_goal_status_, "none sent yet", status_neutral);
         });
         
     } else {
@@ -328,33 +327,68 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
       planner_parameter_client_.reset();
       setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
-      setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
+      setStatusLabel(get_path_action_goal_status_, "none sent yet", status_neutral);
     }
 
     return;
   }
-  
-  // reset server if path has changed
-  if(selected_server != get_path_action_server_name_)
-  {
-    // reset action client: first cancel active goal, then reset client
-    if (action_client_get_path_ && goal_handle_get_path_) {
 
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
-      bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
-      if(!success)
+  if(action_client_get_path_)
+  {
+    // was already initialized
+    if(selected_server == get_path_action_server_name_)
+    {
+      // same server than before: check if connection has been lost
+      if(!action_client_get_path_->action_server_is_ready())
       {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal during action server change. It might still be executing in the background.");
-      } else {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal during action server change.");
+        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to get_path action server lost. Resetting action client...");
+        setStatusLabel(get_path_action_server_status_, "connection lost", status_error);
+        action_client_get_path_.reset(); // reset so that reinitialization is triggered
+        goal_handle_get_path_.reset();
+        planner_parameter_client_.reset();
+        setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
+        setStatusLabel(get_path_action_goal_status_, "none sent yet", status_neutral);
       }
+    } else {
+      // different server than before
+
+      // reset action client: first cancel active goal, then reset client
+      if (goal_handle_get_path_) {
+
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+        setStatusLabel(get_path_action_goal_status_, "Cancelling active goal", status_warning);
+
+        action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+            const typename GetPathClient::CancelResponse::SharedPtr & response) 
+          {
+            if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
+            {
+              setStatusLabel(this->get_path_action_goal_status_, "Planner action stopped", status_success);
+              // next_get_path_goal_.reset();
+              goal_handle_get_path_.reset();
+            } else {
+              setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
+            }
+          });
+      }
+
+      while(goal_handle_get_path_)
+      {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Waiting for active get_path goal to be cancelled...");
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+
+      // reset action client and planner parameter client
+      action_client_get_path_.reset();
+      goal_handle_get_path_.reset();
+
+      planner_parameter_client_.reset();
+      setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
+      setStatusLabel(get_path_action_goal_status_, "none sent yet", status_neutral);
     }
-    action_client_get_path_.reset();
-    goal_handle_get_path_.reset();
-    setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
-  // initialize action client if not initialized or resetted due to server change
+  // (re-)initialize action client if not initialized or resetted due to server change
   if(!action_client_get_path_)
   {
     try {
@@ -435,55 +469,110 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   
   const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
 
-  if (selected_server == default_action_server_path) {
-
+  if(selected_server == default_action_server_path)
+  {
     // reset action client: first cancel active goal, then reset client
-    if (action_client_exe_path_ && goal_handle_exe_path_) {
+    if (action_client_get_path_ && goal_handle_get_path_) {
 
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
-      bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
-      if(!success)
-      {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal during action server change. It might still be executing in the background.");
-      } else {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal during action server change.");
-      }
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+      setStatusLabel(exe_path_action_goal_status_, "Cancelling active goal", status_warning);
+
+      action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+          const typename ExePathClient::CancelResponse::SharedPtr & response) 
+        {
+          if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+          {
+            setStatusLabel(this->exe_path_action_goal_status_, "Controller action stopped", status_success);
+          } else {
+            setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
+          }
+
+          // reset action client and controller parameter client
+          action_client_exe_path_.reset();
+          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 1");
+          goal_handle_exe_path_.reset();
+
+          controller_parameter_client_.reset();
+          setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+          setStatusLabel(exe_path_action_goal_status_, "none sent yet", status_neutral);
+        });
+        
+    } else {
+      action_client_exe_path_.reset();
+      RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 2");
+      goal_handle_exe_path_.reset();
+
+      controller_parameter_client_.reset();
+      setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+      setStatusLabel(exe_path_action_goal_status_, "none sent yet", status_neutral);
     }
-    action_client_exe_path_.reset();
-    goal_handle_exe_path_.reset();
 
-    controller_parameter_client_.reset();
-    setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
-    setStatusLabel(exe_path_action_goal_status_, "None sent yet", status_neutral);
     return;
   }
 
-  // reset server if path has changed
-  if(selected_server != exe_path_action_server_name_)
+  if(action_client_exe_path_)
   {
-    // reset action client: first cancel active goal, then reset client
-    if (action_client_exe_path_ && goal_handle_exe_path_) {
-
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
-      bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
-      if(!success)
+    // was already initialized
+    if(selected_server == exe_path_action_server_name_)
+    {
+      // same server than before: check if connection has been lost
+      if(!action_client_exe_path_->action_server_is_ready())
       {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal during action server change. It might still be executing in the background.");
-      } else {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal during action server change.");
+        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to exe_path action server lost. Resetting action client...");
+        setStatusLabel(exe_path_action_server_status_, "connection lost", status_error);
+        action_client_exe_path_.reset(); // reset so that reinitialization is triggered
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 3");
+        goal_handle_exe_path_.reset();
+        controller_parameter_client_.reset();
+        setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+        setStatusLabel(exe_path_action_goal_status_, "none sent yet", status_neutral);
       }
+    } else {
+      // different server than before
+
+      // reset action client: first cancel active goal, then reset client
+      if (goal_handle_exe_path_) {
+
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
+        setStatusLabel(exe_path_action_goal_status_, "Cancelling active goal", status_warning);
+
+        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+            const typename ExePathClient::CancelResponse::SharedPtr & response) 
+          {
+            if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+            {
+              setStatusLabel(this->exe_path_action_goal_status_, "Controller action stopped", status_success);
+            } else {
+              setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
+            }
+            RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 4");
+            goal_handle_exe_path_.reset();
+          });
+      }
+
+      while(goal_handle_exe_path_)
+      {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Waiting for active exe_path goal to be cancelled...");
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+
+      // reset action client and controller parameter client
+      action_client_exe_path_.reset();
+
+      controller_parameter_client_.reset();
+      setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+      setStatusLabel(exe_path_action_goal_status_, "none sent yet", status_neutral);
     }
-    action_client_exe_path_.reset();
-    goal_handle_exe_path_.reset();
-    setStatusLabel(exe_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
-  // initialize action client if not initialized or resetted due to server change
+  // (re-)initialize action client if not initialized or resetted due to server change
   if(!action_client_exe_path_)
   {
     try {
       action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
         ros_node_, selected_server);
+
+      RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 5");
       goal_handle_exe_path_.reset();
     } catch (const std::exception& e) {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for exe_path action server at " << selected_server << ": " << e.what());
@@ -577,11 +666,11 @@ void MbfGoalActionsPanel::stopGetPathAction()
     if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
     {
       setStatusLabel(this->get_path_action_goal_status_, "Planner action stopped", status_success);
-      next_get_path_goal_.reset();
-      goal_handle_get_path_.reset();
     } else {
       setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
     }
+
+    goal_handle_get_path_.reset();
   });
 }
 
@@ -609,11 +698,12 @@ void MbfGoalActionsPanel::stopExePathAction()
     if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
     {
       setStatusLabel(this->exe_path_action_goal_status_, "Controller action stopped", status_success);
-      next_exe_path_goal_.reset();
-      goal_handle_exe_path_.reset();
     } else {
       setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
     }
+
+    RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: stopExePathAction");
+    goal_handle_exe_path_.reset();
   });
 }
 
@@ -623,6 +713,9 @@ void MbfGoalActionsPanel::onInitialize()
   goal_input_topic_->initialize(ros_node_abstraction);
   get_path_action_server_path_->initialize(ros_node_abstraction);
   exe_path_action_server_path_->initialize(ros_node_abstraction);
+
+  // TODO: I think the external spinner makes problems with the action clients
+  // ros_node_ = rclcpp::Node::make_shared("mbf_goal_actions_panel_node");
   ros_node_ = ros_node_abstraction.lock()->get_raw_node();
 
   conn_check_thread_get_path_stop_ = false;
@@ -668,10 +761,10 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
 
   goal_retry_cnt_ = 0;
   current_goal_ = msg;
-  mbf_msgs::action::GetPath::Goal goal;
-  goal.target_pose = msg;
-  goal.planner = planner_name_property_->getStdString();
-  goal.use_start_pose = false; // planner shall use the current robot pose
+  mbf_msgs::action::GetPath::Goal get_path_goal;
+  get_path_goal.target_pose = msg;
+  get_path_goal.planner = planner_name_property_->getStdString();
+  get_path_goal.use_start_pose = false; // planner shall use the current robot pose
 
   if(!action_client_get_path_->action_server_is_ready())
   {
@@ -683,22 +776,26 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
     // planner is currently active, cancel first
     // result callback will start new planner with next_get_path_goal_ as goal
     // UI currently cannot properly handle parallel actions
-    next_get_path_goal_ = goal;
+    // next_get_path_goal_ = get_path_goal;
+
     setStatusLabel(get_path_action_goal_status_, "Cancelling...", status_warning);
-    bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
-    if(!success)
+    action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this, get_path_goal](
+        const typename GetPathClient::CancelResponse::SharedPtr & response) 
     {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal.");
-      setStatusLabel(get_path_action_goal_status_, "Failed to cancel active goal", status_error);
-      // force deactivate goal
-      goal_handle_get_path_.reset();
-    } else {
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal.");
-      setStatusLabel(get_path_action_goal_status_, "Cancelled", status_success);
-    }
+      if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
+      {
+        setStatusLabel(this->get_path_action_goal_status_, "Cancelled", status_success);
+        // next_get_path_goal_.reset();
+        goal_handle_get_path_.reset();
+      } else {
+        setStatusLabel(this->get_path_action_goal_status_, "Failed to cancel active goal", status_error);
+      }
+
+      sendGetPathGoal(get_path_goal);
+    });
 
   } else {
-    sendGetPathGoal(goal);
+    sendGetPathGoal(get_path_goal);
   }
 }
 
@@ -745,20 +842,23 @@ void MbfGoalActionsPanel::getPathResultCallback(
         // path execution is currently active, cancel first
         // result callback will start new path execution with next_exe_path_goal_ as goal
         // UI currently cannot properly handle parallel actions
-        next_exe_path_goal_ = exe_path_goal;
+        // next_exe_path_goal_ = exe_path_goal;
         setStatusLabel(exe_path_action_goal_status_, "Cancel existing", status_warning);
 
-        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this, exe_path_goal](
             const typename ExePathClient::CancelResponse::SharedPtr & response) 
         {
           if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
           {
             setStatusLabel(this->exe_path_action_goal_status_, "Existing goal cancelled", status_success);
-            next_exe_path_goal_.reset();
-            goal_handle_exe_path_.reset();
           } else {
             setStatusLabel(this->exe_path_action_goal_status_, "Failed to cancel existing goal", status_error);
           }
+
+          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: getPathResultCallback");
+          goal_handle_exe_path_.reset();
+
+          sendExePathGoal(exe_path_goal);
         });
 
       } else {
@@ -770,10 +870,10 @@ void MbfGoalActionsPanel::getPathResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       setStatusLabel(get_path_action_goal_status_, QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
-      if (next_get_path_goal_.has_value()) {
-        sendGetPathGoal(next_get_path_goal_.value());
-        next_get_path_goal_.reset();
-      }
+      // if (next_get_path_goal_.has_value()) {
+      //   sendGetPathGoal(next_get_path_goal_.value());
+      //   next_get_path_goal_.reset();
+      // }
       break;
     default:
       setStatusLabel(get_path_action_goal_status_, "Error: Unknown action result code", status_error);
@@ -787,7 +887,8 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
   const auto goal_stamp = goal.path.header.stamp;
   ExePathClient::SendGoalOptions options;
   options.goal_response_callback =
-    [goal_stamp, this](const ExePathClient::GoalHandle::SharedPtr & goal_handle) {
+    [this, goal_stamp](const ExePathClient::GoalHandle::SharedPtr & goal_handle) {
+      RCLCPP_WARN(this->ros_node_->get_logger(), "SETTING GOAL HANDLE");
       this->goal_handle_exe_path_ = goal_handle;
       if (goal_handle) {
         setStatusLabel(this->exe_path_action_goal_status_, QString("Goal (t=%1) accepted").arg(goal_stamp.sec), status_success);
@@ -807,6 +908,14 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
 
   action_client_exe_path_->async_send_goal(goal, options);
   setStatusLabel(exe_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
+
+  // this is required to make sure we wait for the result of our goal request
+  //  what():  Node '/rviz' has already been added to an executor.
+  // if(rclcpp::spin_until_future_complete(this->ros_node_->get_node_base_interface(), goal_fut)
+  //   != rclcpp::FutureReturnCode::SUCCESS)
+  // {
+  //   RCLCPP_ERROR(this->ros_node_->get_logger(), "ERROR waiting for goal request");
+  // }
 }
 
 void MbfGoalActionsPanel::exePathResultCallback(
@@ -837,15 +946,13 @@ void MbfGoalActionsPanel::exePathResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       setStatusLabel(exe_path_action_goal_status_, QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
-      if (next_exe_path_goal_.has_value()) {
-        sendExePathGoal(next_exe_path_goal_.value());
-        next_get_path_goal_.reset();
-      }
       break;
     default:
       setStatusLabel(exe_path_action_goal_status_, "Error: Unknown action result code", status_error);
       break;
   }
+
+  RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: exePathResultCallback");
   goal_handle_exe_path_.reset();
 }
 
