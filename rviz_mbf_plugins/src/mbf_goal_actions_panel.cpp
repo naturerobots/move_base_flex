@@ -46,6 +46,8 @@
 
 #include <mbf_msgs/action/exe_path.hpp>
 
+#include <atomic>
+
 namespace
 {
 constexpr auto default_goal_input_topic = "pick topic";
@@ -185,13 +187,11 @@ void MbfGoalActionsPanel::load(const rviz_common::Config & config)
 
 void MbfGoalActionsPanel::updateGoalInputSubscription()
 {
-  auto node = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
-
   const std::string selected_topic = goal_input_topic_->getTopic().toStdString();
   if (selected_topic != default_goal_input_topic) {
-    goal_pose_subscription_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
+    goal_pose_subscription_ = ros_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       selected_topic, rclcpp::SystemDefaultsQoS(),
-      std::bind(&MbfGoalActionsPanel::newMeshGoalCallback, this, std::placeholders::_1));
+      std::bind(&MbfGoalActionsPanel::newGoalCallback, this, std::placeholders::_1));
   }
 }
 
@@ -211,37 +211,142 @@ std::string node_name_guess(const std::string& topic)
   }
 }
 
-void MbfGoalActionsPanel::updateGetPathActionClient()
+template<typename ActionClientT>
+bool sync_cancel_goal(
+  const typename ActionClientT::SharedPtr& action_client, 
+  const typename ActionClientT::GoalHandle::SharedPtr& goal_handle,
+  std::chrono::duration<double> timeout = std::chrono::seconds(5))
 {
-  auto node = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
+  using CancelResponse = typename ActionClientT::CancelResponse;
 
-  const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
+  std::atomic_bool cancel_process_finished = false;
+  std::atomic_bool cancel_successful = false;
 
-  if (selected_server != default_action_server_path) {
-    action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
-      node, selected_server);
+  action_client->async_cancel_goal(goal_handle, [&cancel_process_finished, &cancel_successful](
+      const typename CancelResponse::SharedPtr & response) 
+  {
+    cancel_successful = (response->return_code == CancelResponse::ERROR_NONE);
+    cancel_process_finished = true;
+  });
 
-    if (action_client_get_path_->action_server_is_ready()) {
-      get_path_action_server_status_->setText("ready");
-    } else {
-      get_path_action_server_status_->setText("connecting");
+  // wait for cancel process to finish (with timeout)
+  auto start_time = std::chrono::steady_clock::now();
+  while (!cancel_process_finished) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    if (std::chrono::steady_clock::now() - start_time > timeout) {
+      break;
     }
   }
 
-  // fetch planners via parameters: 
-  // string list: [node_name_of_action_server].planners
-  planner_name_property_->clearOptions();
+  return cancel_successful;
+}
 
-  // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
-  // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
-  std::string node_name = node_name_guess(selected_server);
+void MbfGoalActionsPanel::updateGetPathActionClient()
+{
+  const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
+  
+  if(selected_server == default_action_server_path)
+  {
+    // reset action client: first cancel active goal, then reset client
+    if (action_client_get_path_ && goal_handle_get_path_) {
 
-  RCLCPP_INFO_STREAM(node->get_logger(), "Guessed node name for planner list: " << node_name);
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+      bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
+      if(!success)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal during action server change. It might still be executing in the background.");
+      } else {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal during action server change.");
+      }
+    }
 
-  planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(node, node_name);
+    // reset action client and planner parameter client
+    action_client_get_path_.reset();
+    goal_handle_get_path_ = nullptr;
 
+    planner_parameter_client_.reset();
+    get_path_action_server_status_->setText("waiting for input");
+
+    return;
+  }
+  
+  // reset server if path has changed
+  if(selected_server != get_path_action_server_name_)
+  {
+    // reset action client: first cancel active goal, then reset client
+    if (action_client_get_path_ && goal_handle_get_path_) {
+
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+      bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
+      if(!success)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal during action server change. It might still be executing in the background.");
+      } else {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal during action server change.");
+      }
+    }
+    action_client_get_path_.reset();
+    goal_handle_get_path_ = nullptr;
+  }
+
+  // initialize action client if not initialized or resetted due to server change
+  if(!action_client_get_path_)
+  {
+    action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
+      ros_node_, selected_server);
+    planner_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
+    planner_name_property_->clearOptions();
+  }
+
+  // connecting
+  get_path_action_server_status_->setText("connecting...");
+  action_client_get_path_->wait_for_action_server(
+    std::chrono::seconds(1));
+
+  if(!action_client_get_path_->action_server_is_ready())
+  {
+    get_path_action_server_status_->setText("connection failed!");
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to get_path action server at " << selected_server);
+    return;
+  }
+  
+  get_path_action_server_name_ = selected_server;
+  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to get_path action server at " << selected_server);
+  get_path_action_server_status_->setText("ready");
+  get_path_action_server_status_->setStyleSheet("background-color: #90EE90;");
+  // { // make green
+  //   QPalette palette = get_path_action_server_status_->palette();
+  //   palette.setColor(QPalette::Window, Qt::green);
+  //   get_path_action_server_status_->setPalette(palette);
+  //   get_path_action_server_status_->setAutoFillBackground(true);
+  // }
+
+  // bool parameter_client_reinitialized = false;
+  if(!planner_parameter_client_)
+  {
+    // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
+    // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
+    get_path_node_name_ = node_name_guess(selected_server);
+
+    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for planner list: " << get_path_node_name_);
+
+    get_path_action_server_status_->setText("connecting to parameters...");
+    planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, get_path_node_name_);
+  }
+  planner_parameter_client_->wait_for_service(std::chrono::seconds(1));
+
+  if(!planner_parameter_client_->service_is_ready())
+  {
+    get_path_action_server_status_->setText("Could not connect to parameters!");
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of planner action server node " << get_path_node_name_);
+    return;
+  }
+
+  // update list of planners
+  get_path_action_server_status_->setText("updating planner list...");
   planner_parameter_client_->get_parameters({"planners"},
-    [this, node, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+    [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+      
       auto parameters = future.get();
       if(!parameters.empty())
       {
@@ -250,43 +355,110 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
         {
           planner_name_property_->addOptionStd(planner);
         }
-        RCLCPP_INFO_STREAM(node->get_logger(), "Received planner list with " << planners.size() << " entries for planner action " << selected_server);
+        RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received planner list with " << planners.size() << " entries for planner action " << selected_server);
+        this->get_path_action_server_status_->setText("ready");
       } else {
-        this->get_path_action_goal_status_->setText(QString("No planner found!"));
-        RCLCPP_WARN_STREAM(node->get_logger(), "No planner found for planner action " << selected_server);
+        this->get_path_action_server_status_->setText("No planner found!");
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No planner found for planner action " << selected_server);
       }
     });
 }
 
 void MbfGoalActionsPanel::updateExePathActionClient()
 {
-  auto node = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
-
   const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
-  if (selected_server != default_action_server_path) {
-    action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
-      node, selected_server);
-    if (action_client_exe_path_->action_server_is_ready()) {
-      exe_path_action_server_status_->setText("ready");
-    } else {
-      exe_path_action_server_status_->setText("connecting");
+
+  if (selected_server == default_action_server_path) {
+
+    // reset action client: first cancel active goal, then reset client
+    if (action_client_exe_path_ && goal_handle_exe_path_) {
+
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
+      bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
+      if(!success)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal during action server change. It might still be executing in the background.");
+      } else {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal during action server change.");
+      }
     }
+    action_client_exe_path_.reset();
+    goal_handle_exe_path_ = nullptr;
+
+    controller_parameter_client_.reset();
+    exe_path_action_server_status_->setText("waiting for input");
   }
 
-  // fetch controllers via parameters: 
-  // string list: [node_name_of_action_server].controllers
-  controller_name_property_->clearOptions();
+  // reset server if path has changed
+  if(selected_server != exe_path_action_server_name_)
+  {
+    // reset action client: first cancel active goal, then reset client
+    if (action_client_exe_path_ && goal_handle_exe_path_) {
 
-  // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
-  // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
-  std::string node_name = node_name_guess(selected_server);
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
+      bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
+      if(!success)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal during action server change. It might still be executing in the background.");
+      } else {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal during action server change.");
+      }
+    }
+    action_client_exe_path_.reset();
+    goal_handle_exe_path_ = nullptr;
+  }
 
-  RCLCPP_INFO_STREAM(node->get_logger(), "Guessed node name for controller list: " << node_name);
+  // initialize action client if not initialized or resetted due to server change
+  if(!action_client_exe_path_)
+  {
+    action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
+      ros_node_, selected_server);
+    controller_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
+    controller_name_property_->clearOptions();
+  }
 
-  controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(node, node_name);
+  // connecting
+  exe_path_action_server_status_->setText("connecting...");
+  action_client_exe_path_->wait_for_action_server(
+    std::chrono::seconds(1));
+  
+  if(!action_client_exe_path_->action_server_is_ready())
+  {
+    exe_path_action_server_status_->setText("connection failed!");
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to exe_path action server at " << selected_server);
+    return;
+  }
+  
+  exe_path_action_server_name_ = selected_server;
+  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to exe_path action server at " << selected_server);
+  exe_path_action_server_status_->setText("ready");
 
+  // bool parameter_client_reinitialized = false;
+  if(!controller_parameter_client_)
+  {
+    // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
+    // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
+    exe_path_node_name_ = node_name_guess(selected_server);
+
+    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for controller list: " << exe_path_node_name_);
+
+    exe_path_action_server_status_->setText("connecting to parameters...");
+    controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, exe_path_node_name_);
+  }
+  controller_parameter_client_->wait_for_service(std::chrono::seconds(1));
+
+  if(!controller_parameter_client_->service_is_ready())
+  {
+    exe_path_action_server_status_->setText("Could not connect to parameters!");
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of exe_path action server node " << exe_path_node_name_);
+    return;
+  }
+
+  // update list of controllers
+  exe_path_action_server_status_->setText("updating controller list...");
   controller_parameter_client_->get_parameters({"controllers"},
-    [this, node, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+    [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+      
       auto parameters = future.get();
       if(!parameters.empty())
       {
@@ -295,10 +467,11 @@ void MbfGoalActionsPanel::updateExePathActionClient()
         {
           controller_name_property_->addOptionStd(controller);
         }
-        RCLCPP_INFO_STREAM(node->get_logger(), "Received controller list with " << controllers.size() << " entries for controller action " << selected_server);
+        RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received controller list with " << controllers.size() << " entries for exe_path action " << selected_server);
+        this->exe_path_action_server_status_->setText("ready");
       } else {
-        this->exe_path_action_goal_status_->setText(QString("No controller found!"));
-        RCLCPP_WARN_STREAM(node->get_logger(), "No controller found for controller action " << selected_server);
+        this->exe_path_action_server_status_->setText("No controller found!");
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No controller found for exe_path action " << selected_server);
       }
     });
 }
@@ -309,9 +482,10 @@ void MbfGoalActionsPanel::onInitialize()
   goal_input_topic_->initialize(ros_node_abstraction);
   get_path_action_server_path_->initialize(ros_node_abstraction);
   exe_path_action_server_path_->initialize(ros_node_abstraction);
+  ros_node_ = ros_node_abstraction.lock()->get_raw_node();
 }
 
-void MbfGoalActionsPanel::newMeshGoalCallback(const geometry_msgs::msg::PoseStamped & msg)
+void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped & msg)
 {
   goal_input_status_->setText(QString("Goal received at t=%1").arg(msg.header.stamp.sec));
 
@@ -321,14 +495,37 @@ void MbfGoalActionsPanel::newMeshGoalCallback(const geometry_msgs::msg::PoseStam
   goal.target_pose = msg;
   goal.planner = planner_name_property_->getStdString();
   goal.use_start_pose = false; // planner shall use the current robot pose
+
+  if(!action_client_get_path_->action_server_is_ready())
+  {
+    RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Received new goal, but get_path action server is not ready. Restarting ...");
+    updateGetPathActionClient();
+
+    if(!action_client_get_path_->action_server_is_ready())
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
+    }
+
+    return;
+  }
+  
   if (goal_handle_get_path_) {
     // planner is currently active, cancel first
     // result callback will start new planner with next_get_path_goal_ as goal
     // UI currently cannot properly handle parallel actions
     next_get_path_goal_ = goal;
     get_path_action_goal_status_->setText("Cancelling...");
-    action_client_get_path_->async_cancel_goal(goal_handle_get_path_);
+    bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
+    if(!success)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal. It might still be executing in the background.");
+      get_path_action_goal_status_->setText("Failed to cancel active goal");
+    } else {
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal.");
+    }
+
   } else {
+
     sendGetPathGoal(goal);
   }
 }
@@ -369,13 +566,35 @@ void MbfGoalActionsPanel::getPathResultCallback(
       exe_path_goal.path = wrapped_result.result->path;
       exe_path_goal.controller = controller_name_property_->getStdString();
 
+      if(!action_client_exe_path_->action_server_is_ready())
+      {
+        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Received new goal, but exe_path action server is not ready. Restarting ...");
+        updateExePathActionClient();
+
+        if(!action_client_exe_path_->action_server_is_ready())
+        {
+          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
+        }
+
+        return;
+      }
+
       if (goal_handle_exe_path_) {
         // path execution is currently active, cancel first
         // result callback will start new path execution with next_exe_path_goal_ as goal
         // UI currently cannot properly handle parallel actions
         next_exe_path_goal_ = exe_path_goal;
         exe_path_action_goal_status_->setText("Requested cancel");
-        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_);
+        bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
+        if(!success)
+        {
+          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal.");
+          // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
+          exe_path_action_goal_status_->setText("Failed to cancel active goal.");
+        } else {
+          RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal.");
+        }
+
       } else {
         sendExePathGoal(exe_path_goal);
       }
