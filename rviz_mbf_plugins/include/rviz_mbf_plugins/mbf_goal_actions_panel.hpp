@@ -54,6 +54,7 @@
 #include <QLabel>
 #include <QGroupBox>
 #include <QVBoxLayout>
+#include <QPushButton>
 
 #include <memory>
 #include <optional>
@@ -100,6 +101,8 @@ private Q_SLOTS:
   void updateGoalInputSubscription();
   void updateGetPathActionClient();
   void updateExePathActionClient();
+  void stopGetPathAction();
+  void stopExePathAction();
 
 protected:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription_;
@@ -169,6 +172,7 @@ protected:
   QHBoxLayout * get_path_ui_layout_goal_status_;
   QLabel * get_path_action_goal_status_desc_;
   QLabel * get_path_action_goal_status_;
+  QPushButton * stop_get_path_button_;
 
   QGroupBox * exe_path_ui_box_;
   QVBoxLayout * exe_path_ui_layout_;
@@ -178,6 +182,7 @@ protected:
   QHBoxLayout * exe_path_ui_layout_goal_status_;
   QLabel * exe_path_action_goal_status_desc_;
   QLabel * exe_path_action_goal_status_;
+  QPushButton * stop_exe_path_button_;
 };
 
 } // namespace rviz_mbf_plugins

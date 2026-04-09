@@ -178,9 +178,13 @@ void MbfGoalActionsPanel::constructGetPathWidget()
   get_path_ui_layout_goal_status_->addWidget(get_path_action_goal_status_desc_);
   get_path_ui_layout_goal_status_->addWidget(get_path_action_goal_status_);
 
+  stop_get_path_button_ = new QPushButton("Stop Planner Action");
+  connect(stop_get_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopGetPathAction);
+
   get_path_ui_layout_ = new QVBoxLayout();
   get_path_ui_layout_->addLayout(get_path_ui_layout_server_status_);
   get_path_ui_layout_->addLayout(get_path_ui_layout_goal_status_);
+  get_path_ui_layout_->addWidget(stop_get_path_button_);
 
   get_path_ui_box_ = new QGroupBox("Get Path");
   get_path_ui_box_->setLayout(get_path_ui_layout_);
@@ -201,9 +205,13 @@ void MbfGoalActionsPanel::constructExePathWidget()
   exe_path_ui_layout_goal_status_->addWidget(exe_path_action_goal_status_desc_);
   exe_path_ui_layout_goal_status_->addWidget(exe_path_action_goal_status_);
 
+  stop_exe_path_button_ = new QPushButton("Stop Controller Action");
+  connect(stop_exe_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopExePathAction);
+
   exe_path_ui_layout_ = new QVBoxLayout();
   exe_path_ui_layout_->addLayout(exe_path_ui_layout_server_status_);
   exe_path_ui_layout_->addLayout(exe_path_ui_layout_goal_status_);
+  exe_path_ui_layout_->addWidget(stop_exe_path_button_);
 
   exe_path_ui_box_ = new QGroupBox("Execute Path");
   exe_path_ui_box_->setLayout(exe_path_ui_layout_);
@@ -305,7 +313,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
     // reset action client and planner parameter client
     action_client_get_path_.reset();
-    goal_handle_get_path_ = nullptr;
+    goal_handle_get_path_.reset();
 
     planner_parameter_client_.reset();
     setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
@@ -330,7 +338,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
       }
     }
     action_client_get_path_.reset();
-    goal_handle_get_path_ = nullptr;
+    goal_handle_get_path_.reset();
     setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
@@ -340,7 +348,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     try {
       action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
         ros_node_, selected_server);
-      goal_handle_get_path_ = nullptr;
+      goal_handle_get_path_.reset();
     } catch (const std::exception& e) {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for get_path action server at " << selected_server << ": " << e.what());
       setStatusLabel(get_path_action_server_status_, "connection failed!", status_error);
@@ -430,7 +438,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       }
     }
     action_client_exe_path_.reset();
-    goal_handle_exe_path_ = nullptr;
+    goal_handle_exe_path_.reset();
 
     controller_parameter_client_.reset();
     setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
@@ -454,7 +462,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       }
     }
     action_client_exe_path_.reset();
-    goal_handle_exe_path_ = nullptr;
+    goal_handle_exe_path_.reset();
     setStatusLabel(exe_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
@@ -464,7 +472,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     try {
       action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
         ros_node_, selected_server);
-      goal_handle_exe_path_ = nullptr;
+      goal_handle_exe_path_.reset();
     } catch (const std::exception& e) {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for exe_path action server at " << selected_server << ": " << e.what());
       setStatusLabel(exe_path_action_server_status_, "connection failed!", status_error);
@@ -531,6 +539,70 @@ void MbfGoalActionsPanel::updateExePathActionClient()
         RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No controller found for exe_path action " << selected_server);
       }
     });
+}
+
+void MbfGoalActionsPanel::stopGetPathAction()
+{
+  std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+
+  if (!action_client_get_path_) 
+  {
+    setStatusLabel(get_path_action_goal_status_, "No planner action to stop", status_neutral);
+    return;
+  }
+
+  if(!goal_handle_get_path_)
+  {
+    setStatusLabel(get_path_action_goal_status_, "No planner goal to stop", status_neutral);
+    return;
+  }
+
+  // start stopping planner action
+  setStatusLabel(get_path_action_goal_status_, "Stopping planner action...", status_warning);
+  action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+      const typename GetPathClient::CancelResponse::SharedPtr & response) 
+  {
+    if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
+    {
+      setStatusLabel(this->get_path_action_goal_status_, "Planner action stopped", status_success);
+      next_get_path_goal_.reset();
+      goal_handle_get_path_.reset();
+    } else {
+      setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
+    }
+  });
+}
+
+void MbfGoalActionsPanel::stopExePathAction()
+{
+  std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+
+  if (!action_client_exe_path_) 
+  {
+    setStatusLabel(exe_path_action_goal_status_, "No controller action to stop", status_neutral);
+    return;
+  }
+
+  if(!goal_handle_exe_path_)
+  {
+    setStatusLabel(exe_path_action_goal_status_, "No controller goal to stop", status_neutral);
+    return;
+  }
+
+  // start stopping controller action
+  setStatusLabel(exe_path_action_goal_status_, "Stopping controller action...", status_warning);
+  action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+      const typename ExePathClient::CancelResponse::SharedPtr & response) 
+  {
+    if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+    {
+      setStatusLabel(this->exe_path_action_goal_status_, "Controller action stopped", status_success);
+      next_exe_path_goal_.reset();
+      goal_handle_exe_path_.reset();
+    } else {
+      setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
+    }
+  });
 }
 
 void MbfGoalActionsPanel::onInitialize()
@@ -607,7 +679,7 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal.");
       setStatusLabel(get_path_action_goal_status_, "Failed to cancel active goal", status_error);
       // force deactivate goal
-      goal_handle_get_path_ = nullptr;
+      goal_handle_get_path_.reset();
     } else {
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal.");
       setStatusLabel(get_path_action_goal_status_, "Cancelled", status_success);
@@ -668,7 +740,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
           RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal.");
           // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
           setStatusLabel(exe_path_action_goal_status_, "Failed to cancel active goal.", status_error);
-          goal_handle_exe_path_ = nullptr; // remove goal as active, even though it might still be executing in the background. This is to avoid being stuck in a state where no new goals can be sent anymore
+          goal_handle_exe_path_.reset(); // remove goal as active, even though it might still be executing in the background. This is to avoid being stuck in a state where no new goals can be sent anymore
            // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
         } else {
           RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal.");
