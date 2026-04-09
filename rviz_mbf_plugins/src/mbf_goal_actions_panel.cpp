@@ -309,6 +309,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
     planner_parameter_client_.reset();
     setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
+    setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
 
     return;
   }
@@ -330,6 +331,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     }
     action_client_get_path_.reset();
     goal_handle_get_path_ = nullptr;
+    setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
   // initialize action client if not initialized or resetted due to server change
@@ -432,6 +434,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
 
     controller_parameter_client_.reset();
     setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+    setStatusLabel(exe_path_action_goal_status_, "None sent yet", status_neutral);
     return;
   }
 
@@ -452,6 +455,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     }
     action_client_exe_path_.reset();
     goal_handle_exe_path_ = nullptr;
+    setStatusLabel(exe_path_action_goal_status_, "None sent yet", status_neutral);
   }
 
   // initialize action client if not initialized or resetted due to server change
@@ -546,6 +550,10 @@ void MbfGoalActionsPanel::onInitialize()
         RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Get_path action server not ready. Attempting to reconnect...");
         setStatusLabel(get_path_action_server_status_, "not connected", status_error);
         updateGetPathActionClient();
+      } else {
+        // RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Get_path action server is ready.");
+        std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+        setStatusLabel(get_path_action_server_status_, "ready", status_success);
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -560,6 +568,10 @@ void MbfGoalActionsPanel::onInitialize()
         RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Exe_path action server not ready. Attempting to reconnect...");
         setStatusLabel(exe_path_action_server_status_, "not connected", status_error);
         updateExePathActionClient();
+      } else {
+        // RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Exe_path action server is ready.");
+        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+        setStatusLabel(exe_path_action_server_status_, "ready", status_success);
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -588,20 +600,20 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
     // result callback will start new planner with next_get_path_goal_ as goal
     // UI currently cannot properly handle parallel actions
     next_get_path_goal_ = goal;
-    get_path_action_goal_status_->setText("Cancelling...");
+    setStatusLabel(get_path_action_goal_status_, "Cancelling...", status_warning);
     bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
     if(!success)
     {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal. It might still be executing in the background.");
-      get_path_action_goal_status_->setText("Failed to cancel active goal");
-      // remove goal as active
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal.");
+      setStatusLabel(get_path_action_goal_status_, "Failed to cancel active goal", status_error);
+      // force deactivate goal
       goal_handle_get_path_ = nullptr;
     } else {
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal.");
+      setStatusLabel(get_path_action_goal_status_, "Cancelled", status_success);
     }
 
   } else {
-
     sendGetPathGoal(goal);
   }
 }
@@ -614,9 +626,9 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
     [goal_stamp, this](const GetPathClient::GoalHandle::SharedPtr & goal_handle) {
       this->goal_handle_get_path_ = goal_handle;
       if (goal_handle) {
-        this->get_path_action_goal_status_->setText(QString("(t=%1) accepted").arg(goal_stamp.sec));
+        setStatusLabel(get_path_action_goal_status_, QString("(t=%1) accepted").arg(goal_stamp.sec), status_success);
       } else {
-        this->get_path_action_goal_status_->setText(QString("(t=%1) rejected").arg(goal_stamp.sec));
+        setStatusLabel(get_path_action_goal_status_, QString("(t=%1) rejected").arg(goal_stamp.sec), status_error);
       }
     };
   options.result_callback = std::bind(
@@ -624,9 +636,7 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
     std::placeholders::_1);
 
   action_client_get_path_->async_send_goal(goal, options);
-  get_path_action_goal_status_->setText(
-    QString("(t=%1) sent, awaiting response").arg(
-      goal_stamp.sec));
+  setStatusLabel(get_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::getPathResultCallback(
@@ -635,9 +645,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
   mbf_msgs::action::ExePath::Goal exe_path_goal;
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      get_path_action_goal_status_->setText(
-        QString("Succeeded. Path cost %1").arg(
-          wrapped_result.result->cost));
+      setStatusLabel(get_path_action_goal_status_, QString("Succeeded. Path cost %1").arg(wrapped_result.result->cost), status_success);
 
       exe_path_goal.path = wrapped_result.result->path;
       exe_path_goal.controller = controller_name_property_->getStdString();
@@ -653,13 +661,13 @@ void MbfGoalActionsPanel::getPathResultCallback(
         // result callback will start new path execution with next_exe_path_goal_ as goal
         // UI currently cannot properly handle parallel actions
         next_exe_path_goal_ = exe_path_goal;
-        exe_path_action_goal_status_->setText("Requested cancel");
+        setStatusLabel(exe_path_action_goal_status_, "Requested cancel", status_warning);
         bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
         if(!success)
         {
           RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal.");
           // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
-          exe_path_action_goal_status_->setText("Failed to cancel active goal.");
+          setStatusLabel(exe_path_action_goal_status_, "Failed to cancel active goal.", status_error);
           goal_handle_exe_path_ = nullptr; // remove goal as active, even though it might still be executing in the background. This is to avoid being stuck in a state where no new goals can be sent anymore
            // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
         } else {
@@ -671,25 +679,17 @@ void MbfGoalActionsPanel::getPathResultCallback(
       }
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      get_path_action_goal_status_->setText(
-        QString("Aborted. %1").arg(
-          QString::fromStdString(
-            wrapped_result.result->
-            message)));
+      setStatusLabel(get_path_action_goal_status_, QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      get_path_action_goal_status_->setText(
-        QString("Cancelled. %1").arg(
-          QString::fromStdString(
-            wrapped_result.result->
-            message)));
+      setStatusLabel(get_path_action_goal_status_, QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
       if (next_get_path_goal_.has_value()) {
         sendGetPathGoal(next_get_path_goal_.value());
         next_get_path_goal_.reset();
       }
       break;
     default:
-      get_path_action_goal_status_->setText("Error: Unknown action result code");
+      setStatusLabel(get_path_action_goal_status_, "Error: Unknown action result code", status_error);
       break;
   }
   goal_handle_get_path_.reset();
@@ -703,33 +703,23 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
     [goal_stamp, this](const ExePathClient::GoalHandle::SharedPtr & goal_handle) {
       this->goal_handle_exe_path_ = goal_handle;
       if (goal_handle) {
-        this->exe_path_action_goal_status_->setText(
-          QString("Goal (t=%1) accepted").arg(
-            goal_stamp.
-            sec));
+        setStatusLabel(this->exe_path_action_goal_status_, QString("Goal (t=%1) accepted").arg(goal_stamp.sec), status_success);
       } else {
-        this->exe_path_action_goal_status_->setText(
-          QString("Goal (t=%1) rejected").arg(
-            goal_stamp.
-            sec));
+        setStatusLabel(this->exe_path_action_goal_status_, QString("Goal (t=%1) rejected").arg(goal_stamp.sec), status_error);
       }
     };
   options.feedback_callback = [this](
     ExePathClient::GoalHandle::SharedPtr,
     const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr feedback)
     {
-      this->exe_path_action_goal_status_->setText(
-        QString("Executing. Remaining distance: %1m").arg(
-          feedback->dist_to_goal));
+      setStatusLabel(this->exe_path_action_goal_status_, QString("Executing. Remaining distance: %1m").arg(feedback->dist_to_goal), status_info);
     };
   options.result_callback = std::bind(
     &MbfGoalActionsPanel::exePathResultCallback, this,
     std::placeholders::_1);
 
   action_client_exe_path_->async_send_goal(goal, options);
-  exe_path_action_goal_status_->setText(
-    QString("(t=%1) sent, awaiting response").arg(
-      goal_stamp.sec));
+  setStatusLabel(exe_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::exePathResultCallback(
@@ -737,9 +727,7 @@ void MbfGoalActionsPanel::exePathResultCallback(
 {
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      exe_path_action_goal_status_->setText(
-        QString("Succeeded (remaining distance: %1").arg(
-          wrapped_result.result->dist_to_goal));
+      setStatusLabel(exe_path_action_goal_status_, QString("Succeeded (remaining distance: %1)").arg(wrapped_result.result->dist_to_goal), status_success);
       break;
     case rclcpp_action::ResultCode::ABORTED:
       if (wrapped_result.result->outcome == mbf_msgs::action::ExePath::Result::ROBOT_STUCK) {
@@ -752,35 +740,23 @@ void MbfGoalActionsPanel::exePathResultCallback(
           goal.target_pose.header.set__stamp(getDisplayContext()->getClock()->now());
           goal.use_start_pose = false;
           sendGetPathGoal(goal);
-          exe_path_action_goal_status_->setText(
-            QString("Robot stuck. Replanning ...")
-          );
+          setStatusLabel(exe_path_action_goal_status_, QString("Robot stuck. Replanning ..."), status_info);
         } else {
-          exe_path_action_goal_status_->setText(
-            QString("Robot stuck. Maximum retries exceeded! Goal failed!")
-          );
+          setStatusLabel(exe_path_action_goal_status_, QString("Robot stuck. Maximum retries exceeded! Goal failed!"), status_error);
         }
         break;
       }
-      exe_path_action_goal_status_->setText(
-        QString("Aborted. %1").arg(
-          QString::fromStdString(
-            wrapped_result.result->
-            message)));
+      setStatusLabel(exe_path_action_goal_status_, QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      exe_path_action_goal_status_->setText(
-        QString("Cancelled. %1").arg(
-          QString::fromStdString(
-            wrapped_result.result->
-            message)));
+      setStatusLabel(exe_path_action_goal_status_, QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
       if (next_exe_path_goal_.has_value()) {
         sendExePathGoal(next_exe_path_goal_.value());
         next_get_path_goal_.reset();
       }
       break;
     default:
-      exe_path_action_goal_status_->setText("Error: Unknown action result code");
+      setStatusLabel(exe_path_action_goal_status_, "Error: Unknown action result code", status_error);
       break;
   }
   goal_handle_exe_path_.reset();
