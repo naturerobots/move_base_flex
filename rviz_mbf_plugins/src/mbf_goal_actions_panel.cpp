@@ -266,17 +266,14 @@ bool sync_cancel_goal(
   std::chrono::duration<double> timeout = std::chrono::seconds(5))
 {
   using CancelResponse = typename ActionClientT::CancelResponse;
-
   std::atomic_bool cancel_process_finished = false;
   std::atomic_bool cancel_successful = false;
-
   action_client->async_cancel_goal(goal_handle, [&cancel_process_finished, &cancel_successful](
       const typename CancelResponse::SharedPtr & response) 
   {
     cancel_successful = (response->return_code == CancelResponse::ERROR_NONE);
     cancel_process_finished = true;
   });
-
   // wait for cancel process to finish (with timeout)
   auto start_time = std::chrono::steady_clock::now();
   while (!cancel_process_finished) {
@@ -302,22 +299,37 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     if (action_client_get_path_ && goal_handle_get_path_) {
 
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
-      bool success = sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_);
-      if(!success)
-      {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal during action server change. It might still be executing in the background.");
-      } else {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal during action server change.");
-      }
+      setStatusLabel(get_path_action_goal_status_, "Cancelling active goal", status_warning);
+
+      action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+          const typename GetPathClient::CancelResponse::SharedPtr & response) 
+        {
+          if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
+          {
+            setStatusLabel(this->get_path_action_goal_status_, "Planner action stopped", status_success);
+            next_get_path_goal_.reset();
+            goal_handle_get_path_.reset();
+          } else {
+            setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
+          }
+
+          // reset action client and planner parameter client
+          action_client_get_path_.reset();
+          goal_handle_get_path_.reset();
+
+          planner_parameter_client_.reset();
+          setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
+          setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
+        });
+        
+    } else {
+      action_client_get_path_.reset();
+      goal_handle_get_path_.reset();
+
+      planner_parameter_client_.reset();
+      setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
+      setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
     }
-
-    // reset action client and planner parameter client
-    action_client_get_path_.reset();
-    goal_handle_get_path_.reset();
-
-    planner_parameter_client_.reset();
-    setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
-    setStatusLabel(get_path_action_goal_status_, "None sent yet", status_neutral);
 
     return;
   }
@@ -729,22 +741,25 @@ void MbfGoalActionsPanel::getPathResultCallback(
       }
 
       if (goal_handle_exe_path_) {
+
         // path execution is currently active, cancel first
         // result callback will start new path execution with next_exe_path_goal_ as goal
         // UI currently cannot properly handle parallel actions
         next_exe_path_goal_ = exe_path_goal;
-        setStatusLabel(exe_path_action_goal_status_, "Requested cancel", status_warning);
-        bool success = sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_);
-        if(!success)
+        setStatusLabel(exe_path_action_goal_status_, "Cancel existing", status_warning);
+
+        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+            const typename ExePathClient::CancelResponse::SharedPtr & response) 
         {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal.");
-          // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
-          setStatusLabel(exe_path_action_goal_status_, "Failed to cancel active goal.", status_error);
-          goal_handle_exe_path_.reset(); // remove goal as active, even though it might still be executing in the background. This is to avoid being stuck in a state where no new goals can be sent anymore
-           // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
-        } else {
-          RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal.");
-        }
+          if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+          {
+            setStatusLabel(this->exe_path_action_goal_status_, "Existing goal cancelled", status_success);
+            next_exe_path_goal_.reset();
+            goal_handle_exe_path_.reset();
+          } else {
+            setStatusLabel(this->exe_path_action_goal_status_, "Failed to cancel existing goal", status_error);
+          }
+        });
 
       } else {
         sendExePathGoal(exe_path_goal);
