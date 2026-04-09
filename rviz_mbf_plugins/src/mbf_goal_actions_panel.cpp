@@ -355,7 +355,6 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
       return;
     }
     planner_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
-    planner_name_property_->clearOptions();
   }
 
   // connecting
@@ -403,6 +402,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
       auto parameters = future.get();
       if(!parameters.empty())
       {
+        planner_name_property_->clearOptions();
         const std::vector<std::string> planners = parameters[0].as_string_array();
         for(const std::string& planner : planners)
         {
@@ -479,7 +479,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       return;
     }
     controller_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
-    controller_name_property_->clearOptions();
   }
 
   // connecting
@@ -527,6 +526,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       auto parameters = future.get();
       if(!parameters.empty())
       {
+        controller_name_property_->clearOptions();
         const std::vector<std::string> controllers = parameters[0].as_string_array();
         for(const std::string& controller : controllers)
         {
