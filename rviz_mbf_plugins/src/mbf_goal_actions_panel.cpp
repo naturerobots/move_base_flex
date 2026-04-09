@@ -52,6 +52,31 @@ namespace
 {
 constexpr auto default_goal_input_topic = "pick topic";
 constexpr auto default_action_server_path = "input action server";
+
+// Color scheme for status messages
+struct StatusStyle
+{
+  QString background;
+  QString text;
+};
+
+static const StatusStyle status_success   = {"background-color: #90EE90;", "color: #1a1a1a;"};   // Light green, dark text
+static const StatusStyle status_error     = {"background-color: #FFB6C6;", "color: #ffffff;"};   // Light red, white text
+static const StatusStyle status_warning   = {"background-color: #FFE4B5;", "color: #1a1a1a;"};   // Light orange, dark text
+static const StatusStyle status_info      = {"background-color: #ADD8E6;", "color: #1a1a1a;"};   // Light blue, dark text
+static const StatusStyle status_neutral   = {"background-color: #D3D3D3;", "color: #1a1a1a;"};   // Light gray, dark text
+
+inline void setStatusLabel(QLabel* label, const QString& text, const StatusStyle& style)
+{
+  label->setText(text);
+  label->setStyleSheet(style.background + " " + style.text);
+}
+
+inline void setStatusColor(QLabel* label, const StatusStyle& style)
+{
+  label->setStyleSheet(style.background + " " + style.text);
+}
+
 } // anonymous namespace
 
 namespace rviz_mbf_plugins
@@ -73,6 +98,21 @@ MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
   ui_layout_->addWidget(get_path_ui_box_);
   ui_layout_->addWidget(exe_path_ui_box_);
   setLayout(ui_layout_);
+}
+
+MbfGoalActionsPanel::~MbfGoalActionsPanel() {
+
+  // joining threads here
+  conn_check_thread_get_path_stop_ = true;
+  if(conn_check_thread_get_path_.joinable())
+  {
+    conn_check_thread_get_path_.join();
+  }
+  conn_check_thread_exe_path_stop_ = true;
+  if(conn_check_thread_exe_path_.joinable())
+  {
+    conn_check_thread_exe_path_.join();
+  }
 }
 
 void MbfGoalActionsPanel::constructPropertiesWidget()
@@ -243,6 +283,9 @@ bool sync_cancel_goal(
 
 void MbfGoalActionsPanel::updateGetPathActionClient()
 {
+  // this function is changing the action client, so we lock the mutex for the whole function to avoid race conditions with the connection check thread
+  std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+
   const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
   
   if(selected_server == default_action_server_path)
@@ -265,7 +308,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     goal_handle_get_path_ = nullptr;
 
     planner_parameter_client_.reset();
-    get_path_action_server_status_->setText("waiting for input");
+    setStatusLabel(get_path_action_server_status_, "waiting for input", status_neutral);
 
     return;
   }
@@ -292,34 +335,34 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
   // initialize action client if not initialized or resetted due to server change
   if(!action_client_get_path_)
   {
-    action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
-      ros_node_, selected_server);
+    try {
+      action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
+        ros_node_, selected_server);
+      goal_handle_get_path_ = nullptr;
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for get_path action server at " << selected_server << ": " << e.what());
+      setStatusLabel(get_path_action_server_status_, "connection failed!", status_error);
+      return;
+    }
     planner_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
     planner_name_property_->clearOptions();
   }
 
   // connecting
-  get_path_action_server_status_->setText("connecting...");
+  setStatusLabel(get_path_action_server_status_, "connecting...", status_info);
   action_client_get_path_->wait_for_action_server(
     std::chrono::seconds(1));
 
   if(!action_client_get_path_->action_server_is_ready())
   {
-    get_path_action_server_status_->setText("connection failed!");
+    setStatusLabel(get_path_action_server_status_, "connection failed!", status_error);
     RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to get_path action server at " << selected_server);
     return;
   }
   
   get_path_action_server_name_ = selected_server;
   RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to get_path action server at " << selected_server);
-  get_path_action_server_status_->setText("ready");
-  get_path_action_server_status_->setStyleSheet("background-color: #90EE90;");
-  // { // make green
-  //   QPalette palette = get_path_action_server_status_->palette();
-  //   palette.setColor(QPalette::Window, Qt::green);
-  //   get_path_action_server_status_->setPalette(palette);
-  //   get_path_action_server_status_->setAutoFillBackground(true);
-  // }
+  setStatusLabel(get_path_action_server_status_, "ready", status_success);
 
   // bool parameter_client_reinitialized = false;
   if(!planner_parameter_client_)
@@ -330,20 +373,20 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
     RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for planner list: " << get_path_node_name_);
 
-    get_path_action_server_status_->setText("connecting to parameters...");
+    setStatusLabel(get_path_action_server_status_, "connecting to parameters...", status_info);
     planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, get_path_node_name_);
   }
   planner_parameter_client_->wait_for_service(std::chrono::seconds(1));
 
   if(!planner_parameter_client_->service_is_ready())
   {
-    get_path_action_server_status_->setText("Could not connect to parameters!");
+    setStatusLabel(get_path_action_server_status_, "Could not connect to parameters!", status_error);
     RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of planner action server node " << get_path_node_name_);
     return;
   }
 
   // update list of planners
-  get_path_action_server_status_->setText("updating planner list...");
+  setStatusLabel(get_path_action_server_status_, "updating planner list...", status_info);
   planner_parameter_client_->get_parameters({"planners"},
     [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
       
@@ -356,9 +399,9 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
           planner_name_property_->addOptionStd(planner);
         }
         RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received planner list with " << planners.size() << " entries for planner action " << selected_server);
-        this->get_path_action_server_status_->setText("ready");
+        setStatusLabel(this->get_path_action_server_status_, "ready", status_success);
       } else {
-        this->get_path_action_server_status_->setText("No planner found!");
+        setStatusLabel(this->get_path_action_server_status_, "No planner found!", status_error);
         RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No planner found for planner action " << selected_server);
       }
     });
@@ -366,6 +409,8 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
 void MbfGoalActionsPanel::updateExePathActionClient()
 {
+  std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+  
   const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
 
   if (selected_server == default_action_server_path) {
@@ -386,7 +431,8 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     goal_handle_exe_path_ = nullptr;
 
     controller_parameter_client_.reset();
-    exe_path_action_server_status_->setText("waiting for input");
+    setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
+    return;
   }
 
   // reset server if path has changed
@@ -411,27 +457,34 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   // initialize action client if not initialized or resetted due to server change
   if(!action_client_exe_path_)
   {
-    action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
-      ros_node_, selected_server);
+    try {
+      action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
+        ros_node_, selected_server);
+      goal_handle_exe_path_ = nullptr;
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for exe_path action server at " << selected_server << ": " << e.what());
+      setStatusLabel(exe_path_action_server_status_, "connection failed!", status_error);
+      return;
+    }
     controller_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
     controller_name_property_->clearOptions();
   }
 
   // connecting
-  exe_path_action_server_status_->setText("connecting...");
+  setStatusLabel(exe_path_action_server_status_, "connecting...", status_info);
   action_client_exe_path_->wait_for_action_server(
     std::chrono::seconds(1));
   
   if(!action_client_exe_path_->action_server_is_ready())
   {
-    exe_path_action_server_status_->setText("connection failed!");
+    setStatusLabel(exe_path_action_server_status_, "connection failed!", status_error);
     RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to exe_path action server at " << selected_server);
     return;
   }
   
   exe_path_action_server_name_ = selected_server;
   RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to exe_path action server at " << selected_server);
-  exe_path_action_server_status_->setText("ready");
+  setStatusLabel(exe_path_action_server_status_, "ready", status_success);
 
   // bool parameter_client_reinitialized = false;
   if(!controller_parameter_client_)
@@ -442,20 +495,20 @@ void MbfGoalActionsPanel::updateExePathActionClient()
 
     RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for controller list: " << exe_path_node_name_);
 
-    exe_path_action_server_status_->setText("connecting to parameters...");
+    setStatusLabel(exe_path_action_server_status_, "connecting to parameters...", status_info);
     controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, exe_path_node_name_);
   }
   controller_parameter_client_->wait_for_service(std::chrono::seconds(1));
 
   if(!controller_parameter_client_->service_is_ready())
   {
-    exe_path_action_server_status_->setText("Could not connect to parameters!");
+    setStatusLabel(exe_path_action_server_status_, "Could not connect to parameters!", status_error);
     RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of exe_path action server node " << exe_path_node_name_);
     return;
   }
 
   // update list of controllers
-  exe_path_action_server_status_->setText("updating controller list...");
+  setStatusLabel(exe_path_action_server_status_, "updating controller list...", status_info);
   controller_parameter_client_->get_parameters({"controllers"},
     [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
       
@@ -468,9 +521,9 @@ void MbfGoalActionsPanel::updateExePathActionClient()
           controller_name_property_->addOptionStd(controller);
         }
         RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received controller list with " << controllers.size() << " entries for exe_path action " << selected_server);
-        this->exe_path_action_server_status_->setText("ready");
+        setStatusLabel(this->exe_path_action_server_status_, "ready", status_success);
       } else {
-        this->exe_path_action_server_status_->setText("No controller found!");
+        setStatusLabel(this->exe_path_action_server_status_, "No controller found!", status_error);
         RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No controller found for exe_path action " << selected_server);
       }
     });
@@ -483,7 +536,35 @@ void MbfGoalActionsPanel::onInitialize()
   get_path_action_server_path_->initialize(ros_node_abstraction);
   exe_path_action_server_path_->initialize(ros_node_abstraction);
   ros_node_ = ros_node_abstraction.lock()->get_raw_node();
-}
+
+  conn_check_thread_get_path_stop_ = false;
+  conn_check_thread_get_path_ = std::thread([this]() -> void {
+    
+    while (rclcpp::ok() && !conn_check_thread_get_path_stop_) {
+      if(!action_client_get_path_ || !action_client_get_path_->action_server_is_ready())
+      {
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Get_path action server not ready. Attempting to reconnect...");
+        setStatusLabel(get_path_action_server_status_, "not connected", status_error);
+        updateGetPathActionClient();
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  });
+
+  conn_check_thread_exe_path_stop_ = false;
+  conn_check_thread_exe_path_ = std::thread([this]() -> void {
+    
+    while (rclcpp::ok() && !conn_check_thread_exe_path_stop_) {
+      if(!action_client_exe_path_ || !action_client_exe_path_->action_server_is_ready())
+      {
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Exe_path action server not ready. Attempting to reconnect...");
+        setStatusLabel(exe_path_action_server_status_, "not connected", status_error);
+        updateExePathActionClient();
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  });
+} 
 
 void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped & msg)
 {
@@ -498,14 +579,7 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
 
   if(!action_client_get_path_->action_server_is_ready())
   {
-    RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Received new goal, but get_path action server is not ready. Restarting ...");
-    updateGetPathActionClient();
-
-    if(!action_client_get_path_->action_server_is_ready())
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
-    }
-
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
     return;
   }
   
@@ -520,6 +594,8 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
     {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active get_path goal. It might still be executing in the background.");
       get_path_action_goal_status_->setText("Failed to cancel active goal");
+      // remove goal as active
+      goal_handle_get_path_ = nullptr;
     } else {
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active get_path goal.");
     }
@@ -568,14 +644,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
 
       if(!action_client_exe_path_->action_server_is_ready())
       {
-        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Received new goal, but exe_path action server is not ready. Restarting ...");
-        updateExePathActionClient();
-
-        if(!action_client_exe_path_->action_server_is_ready())
-        {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
-        }
-
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
         return;
       }
 
@@ -591,6 +660,8 @@ void MbfGoalActionsPanel::getPathResultCallback(
           RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to cancel active exe_path goal.");
           // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
           exe_path_action_goal_status_->setText("Failed to cancel active goal.");
+          goal_handle_exe_path_ = nullptr; // remove goal as active, even though it might still be executing in the background. This is to avoid being stuck in a state where no new goals can be sent anymore
+           // directly send new goal, even though the previous one is not properly cancelled. UI might be a bit inconsistent, but at least we try to execute the new goal
         } else {
           RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Successfully cancelled active exe_path goal.");
         }

@@ -58,6 +58,8 @@
 #include <memory>
 #include <optional>
 #include <future>
+#include <thread>
+#include <atomic>
 
 namespace rviz_mbf_plugins
 {
@@ -70,7 +72,7 @@ class MbfGoalActionsPanel : public rviz_common::Panel
 
 public:
   explicit MbfGoalActionsPanel(QWidget * parent = nullptr);
-  ~MbfGoalActionsPanel() noexcept override = default;
+  ~MbfGoalActionsPanel() noexcept override;
 
   void onInitialize() override;
   void save(rviz_common::Config config) const override;
@@ -105,6 +107,7 @@ protected:
   rclcpp::Node::SharedPtr ros_node_;
 
   //! Action client for getting a path
+  std::mutex get_path_action_client_mutex_;
   GetPathClient::SharedPtr action_client_get_path_;
   std::shared_ptr<rclcpp::AsyncParametersClient>  planner_parameter_client_;
   std::string get_path_node_name_;
@@ -118,6 +121,7 @@ protected:
   std::optional<mbf_msgs::action::GetPath::Goal> next_get_path_goal_;
 
   //! Action client for traversing a path
+  std::mutex exe_path_action_client_mutex_;
   ExePathClient::SharedPtr action_client_exe_path_;
   std::shared_ptr<rclcpp::AsyncParametersClient>  controller_parameter_client_;
   std::string exe_path_node_name_;
@@ -128,6 +132,11 @@ protected:
   ExePathClient::GoalHandle::SharedPtr goal_handle_exe_path_;
   //! Potential next exe path goal, used for quickly restarting the path execution after cancelling the previous goal
   std::optional<mbf_msgs::action::ExePath::Goal> next_exe_path_goal_;
+
+  std::atomic_bool conn_check_thread_get_path_stop_;
+  std::thread conn_check_thread_get_path_;
+  std::atomic_bool conn_check_thread_exe_path_stop_;
+  std::thread conn_check_thread_exe_path_;
 
   //! Retry counter for goal execution
   size_t goal_retry_cnt_;
