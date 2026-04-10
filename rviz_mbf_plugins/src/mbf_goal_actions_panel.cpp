@@ -477,9 +477,9 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   if(selected_server == notset_action_server_path)
   {
     // reset action client: first cancel active goal, then reset client
-    if (action_client_get_path_ && goal_handle_get_path_) {
+    if (action_client_exe_path_ && goal_handle_exe_path_) {
 
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
       setStatusLabel(exe_path_action_goal_status_, "Cancelling active goal", status_warning);
 
       action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
@@ -779,10 +779,18 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
   get_path_goal.planner = planner_name_property_->getStdString();
   get_path_goal.use_start_pose = false; // planner shall use the current robot pose
 
-  if(!action_client_get_path_->action_server_is_ready())
   {
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
-    return;
+    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+    if(!action_client_get_path_)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized");
+      return;
+    }
+    if(!action_client_get_path_->action_server_is_ready())
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
+      return;
+    }
   }
   
   if (goal_handle_get_path_) {
@@ -814,6 +822,16 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
 
 void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal & goal)
 {
+  {
+    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+    if(!action_client_get_path_)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized when sending goal");
+      setStatusLabel(get_path_action_goal_status_, "Goal sending failed: client not ready", status_error);
+      return;
+    }
+  }
+
   GetPathClient::SendGoalOptions options;
   const auto goal_stamp = goal.target_pose.header.stamp;
   options.goal_response_callback =
@@ -829,19 +847,14 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
     &MbfGoalActionsPanel::getPathResultCallback, this,
     std::placeholders::_1);
 
-  auto goal_fut = action_client_get_path_->async_send_goal(goal, options);
-  setStatusLabel(get_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
-
-  // Check if action server is receiving our goals
-  auto status = goal_fut.wait_for(std::chrono::milliseconds(3000));
-  if (status != std::future_status::ready) {
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "GetPath: goal response future not ready after 3 seconds. Status: " << static_cast<int>(status));
-    if (status == std::future_status::timeout) {
-      setStatusLabel(get_path_action_goal_status_, QString("Goal (t=%1) response timeout").arg(goal_stamp.sec), status_error);
-    } else if (status == std::future_status::deferred) {
-      setStatusLabel(get_path_action_goal_status_, QString("Goal (t=%1) response deferred").arg(goal_stamp.sec), status_warning);
+  {
+    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+    if(action_client_get_path_)
+    {
+      action_client_get_path_->async_send_goal(goal, options);
     }
   }
+  setStatusLabel(get_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::getPathResultCallback(
@@ -855,10 +868,18 @@ void MbfGoalActionsPanel::getPathResultCallback(
       exe_path_goal.path = wrapped_result.result->path;
       exe_path_goal.controller = controller_name_property_->getStdString();
 
-      if(!action_client_exe_path_->action_server_is_ready())
       {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
-        return;
+        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+        if(!action_client_exe_path_)
+        {
+          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
+          return;
+        }
+        if(!action_client_exe_path_->action_server_is_ready())
+        {
+          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
+          return;
+        }
       }
 
       if (goal_handle_exe_path_) {
@@ -902,6 +923,16 @@ void MbfGoalActionsPanel::getPathResultCallback(
 
 void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal)
 {
+  {
+    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+    if(!action_client_exe_path_)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe path action client not initialized when sending goal");
+      setStatusLabel(exe_path_action_goal_status_, "Goal sending failed: client not ready", status_error);
+      return;
+    }
+  }
+
   const auto goal_stamp = goal.path.header.stamp;
   ExePathClient::SendGoalOptions options;
   options.goal_response_callback =
@@ -924,19 +955,14 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
     &MbfGoalActionsPanel::exePathResultCallback, this,
     std::placeholders::_1);
 
-  auto goal_fut = action_client_exe_path_->async_send_goal(goal, options);
-  setStatusLabel(exe_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
-
-  // Check if action server is receiving our goals
-  auto status = goal_fut.wait_for(std::chrono::milliseconds(3000));
-  if (status != std::future_status::ready) {
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "ExePath: goal response future not ready after 3 seconds. Status: " << static_cast<int>(status));
-    if (status == std::future_status::timeout) {
-      setStatusLabel(exe_path_action_goal_status_, QString("Goal (t=%1) response timeout").arg(goal_stamp.sec), status_error);
-    } else if (status == std::future_status::deferred) {
-      setStatusLabel(exe_path_action_goal_status_, QString("Goal (t=%1) response deferred").arg(goal_stamp.sec), status_warning);
+  {
+    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+    if(action_client_exe_path_)
+    {
+      action_client_exe_path_->async_send_goal(goal, options);
     }
   }
+  setStatusLabel(exe_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::exePathResultCallback(
