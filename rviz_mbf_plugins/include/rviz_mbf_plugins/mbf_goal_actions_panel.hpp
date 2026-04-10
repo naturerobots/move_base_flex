@@ -135,6 +135,8 @@ protected:
   std::thread conn_check_thread_get_path_;
   std::atomic_bool conn_check_thread_exe_path_stop_;
   std::thread conn_check_thread_exe_path_;
+  std::atomic_bool executor_thread_stop_;
+  std::thread executor_thread_;
 
   //! Retry counter for goal execution
   size_t goal_retry_cnt_;

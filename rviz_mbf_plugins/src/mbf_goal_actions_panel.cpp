@@ -50,8 +50,8 @@
 
 namespace
 {
-constexpr auto default_goal_input_topic = "pick topic";
-constexpr auto default_action_server_path = "input action server";
+constexpr auto notset_goal_input_topic = "pick topic";
+constexpr auto notset_action_server_path = "input action server";
 
 // Color scheme for status messages
 struct StatusStyle
@@ -113,6 +113,11 @@ MbfGoalActionsPanel::~MbfGoalActionsPanel() {
   {
     conn_check_thread_exe_path_.join();
   }
+  executor_thread_stop_ = true;
+  if(executor_thread_.joinable())
+  {
+    executor_thread_.join();
+  }
 }
 
 void MbfGoalActionsPanel::constructPropertiesWidget()
@@ -121,7 +126,7 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
     new rviz_common::properties::Property());
 
   goal_input_topic_ = new rviz_common::properties::RosTopicProperty(
-    "Goal Topic", default_goal_input_topic,
+    "Goal Topic", notset_goal_input_topic,
     QString::fromStdString(rosidl_generator_traits::name<geometry_msgs::msg::PoseStamped>()),
     "Goal input topic to subscribe to",
     nullptr,
@@ -129,7 +134,7 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
   properity_tree_model_->getRoot()->addChild(goal_input_topic_);
   
   get_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
-    "Planner Action", default_action_server_path, "mbf_msgs/action/GetPath",
+    "Planner Action", notset_action_server_path, "mbf_msgs/action/GetPath",
     "ROS path to move base flex get_path action server",
     nullptr,
     SLOT(updateGetPathActionClient()), this);
@@ -140,7 +145,7 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
   properity_tree_model_->getRoot()->addChild(planner_name_property_);
 
   exe_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
-    "Controller Action", default_action_server_path, "mbf_msgs/action/ExePath",
+    "Controller Action", notset_action_server_path, "mbf_msgs/action/ExePath",
     "ROS path to move base flex exe_path action server",
     nullptr,
     SLOT(updateExePathActionClient()), this);
@@ -236,7 +241,7 @@ void MbfGoalActionsPanel::load(const rviz_common::Config & config)
 void MbfGoalActionsPanel::updateGoalInputSubscription()
 {
   const std::string selected_topic = goal_input_topic_->getTopic().toStdString();
-  if (selected_topic != default_goal_input_topic) {
+  if (selected_topic != notset_goal_input_topic) {
     goal_pose_subscription_ = ros_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       selected_topic, rclcpp::SystemDefaultsQoS(),
       std::bind(&MbfGoalActionsPanel::newGoalCallback, this, std::placeholders::_1));
@@ -293,7 +298,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
   const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
 
-  if(selected_server == default_action_server_path)
+  if(selected_server == notset_action_server_path)
   {
     // reset action client: first cancel active goal, then reset client
     if (action_client_get_path_ && goal_handle_get_path_) {
@@ -469,7 +474,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   
   const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
 
-  if(selected_server == default_action_server_path)
+  if(selected_server == notset_action_server_path)
   {
     // reset action client: first cancel active goal, then reset client
     if (action_client_get_path_ && goal_handle_get_path_) {
@@ -489,7 +494,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
 
           // reset action client and controller parameter client
           action_client_exe_path_.reset();
-          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 1");
           goal_handle_exe_path_.reset();
 
           controller_parameter_client_.reset();
@@ -499,7 +503,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
         
     } else {
       action_client_exe_path_.reset();
-      RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 2");
       goal_handle_exe_path_.reset();
 
       controller_parameter_client_.reset();
@@ -521,7 +524,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
         RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to exe_path action server lost. Resetting action client...");
         setStatusLabel(exe_path_action_server_status_, "connection lost", status_error);
         action_client_exe_path_.reset(); // reset so that reinitialization is triggered
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 3");
         goal_handle_exe_path_.reset();
         controller_parameter_client_.reset();
         setStatusLabel(exe_path_action_server_status_, "waiting for input", status_neutral);
@@ -545,7 +547,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
             } else {
               setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
             }
-            RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 4");
             goal_handle_exe_path_.reset();
           });
       }
@@ -571,8 +572,6 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     try {
       action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
         ros_node_, selected_server);
-
-      RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: updateExePathActionClient 5");
       goal_handle_exe_path_.reset();
     } catch (const std::exception& e) {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for exe_path action server at " << selected_server << ": " << e.what());
@@ -669,7 +668,6 @@ void MbfGoalActionsPanel::stopGetPathAction()
     } else {
       setStatusLabel(this->get_path_action_goal_status_, "Failed to stop planner action", status_error);
     }
-
     goal_handle_get_path_.reset();
   });
 }
@@ -701,36 +699,37 @@ void MbfGoalActionsPanel::stopExePathAction()
     } else {
       setStatusLabel(this->exe_path_action_goal_status_, "Failed to stop controller action", status_error);
     }
-
-    RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: stopExePathAction");
     goal_handle_exe_path_.reset();
   });
 }
 
 void MbfGoalActionsPanel::onInitialize()
 {
-  const auto ros_node_abstraction = getDisplayContext()->getRosNodeAbstraction();
-  goal_input_topic_->initialize(ros_node_abstraction);
-  get_path_action_server_path_->initialize(ros_node_abstraction);
-  exe_path_action_server_path_->initialize(ros_node_abstraction);
+  const auto rviz_ros_node_abstraction = getDisplayContext()->getRosNodeAbstraction();
+  goal_input_topic_->initialize(rviz_ros_node_abstraction);
+  get_path_action_server_path_->initialize(rviz_ros_node_abstraction);
+  exe_path_action_server_path_->initialize(rviz_ros_node_abstraction);
 
-  // TODO: I think the external spinner makes problems with the action clients
-  // ros_node_ = rclcpp::Node::make_shared("mbf_goal_actions_panel_node");
-  ros_node_ = ros_node_abstraction.lock()->get_raw_node();
+  // rviz node is spinned externally. But we need full control when calling action clients
+  ros_node_ = rclcpp::Node::make_shared("mbf_goal_actions_panel");
 
   conn_check_thread_get_path_stop_ = false;
   conn_check_thread_get_path_ = std::thread([this]() -> void {
-    
     while (rclcpp::ok() && !conn_check_thread_get_path_stop_) {
-      if(!action_client_get_path_ || !action_client_get_path_->action_server_is_ready())
+
+      const bool server_set = (get_path_action_server_path_->getAction().toStdString() != notset_action_server_path);
+
+      if(server_set)
       {
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Get_path action server not ready. Attempting to reconnect...");
-        setStatusLabel(get_path_action_server_status_, "not connected", status_error);
-        updateGetPathActionClient();
-      } else {
-        // RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Get_path action server is ready.");
-        std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-        setStatusLabel(get_path_action_server_status_, "ready", status_success);
+        if(!action_client_get_path_ || !action_client_get_path_->action_server_is_ready())
+        {
+          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Get_path action server not ready. Attempting to reconnect...");
+          setStatusLabel(get_path_action_server_status_, "not connected", status_error);
+          updateGetPathActionClient();
+        } else {
+          std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+          setStatusLabel(get_path_action_server_status_, "ready", status_success);
+        }
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -738,21 +737,35 @@ void MbfGoalActionsPanel::onInitialize()
 
   conn_check_thread_exe_path_stop_ = false;
   conn_check_thread_exe_path_ = std::thread([this]() -> void {
-    
     while (rclcpp::ok() && !conn_check_thread_exe_path_stop_) {
-      if(!action_client_exe_path_ || !action_client_exe_path_->action_server_is_ready())
+      const bool server_set = (exe_path_action_server_path_->getAction().toStdString() != notset_action_server_path);
+
+      if(server_set)
       {
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Exe_path action server not ready. Attempting to reconnect...");
-        setStatusLabel(exe_path_action_server_status_, "not connected", status_error);
-        updateExePathActionClient();
-      } else {
-        // RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Exe_path action server is ready.");
-        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-        setStatusLabel(exe_path_action_server_status_, "ready", status_success);
+        if(!action_client_exe_path_ || !action_client_exe_path_->action_server_is_ready())
+        {
+          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Exe_path action server not ready. Attempting to reconnect...");
+          setStatusLabel(exe_path_action_server_status_, "not connected", status_error);
+          updateExePathActionClient();
+        } else {
+          std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+          setStatusLabel(exe_path_action_server_status_, "ready", status_success);
+        }
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   });
+
+  // executor thread. needed so that actions work properly
+  executor_thread_stop_ = false;
+  executor_thread_ = std::thread([this]() -> void {
+    rclcpp::executors::SingleThreadedExecutor executor;
+    executor.add_node(ros_node_);
+    while (rclcpp::ok() && !executor_thread_stop_) {
+      executor.spin_once(std::chrono::milliseconds(100));
+    }
+  });
+
 } 
 
 void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped & msg)
@@ -816,8 +829,19 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
     &MbfGoalActionsPanel::getPathResultCallback, this,
     std::placeholders::_1);
 
-  action_client_get_path_->async_send_goal(goal, options);
+  auto goal_fut = action_client_get_path_->async_send_goal(goal, options);
   setStatusLabel(get_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
+
+  // Check if action server is receiving our goals
+  auto status = goal_fut.wait_for(std::chrono::milliseconds(3000));
+  if (status != std::future_status::ready) {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "GetPath: goal response future not ready after 3 seconds. Status: " << static_cast<int>(status));
+    if (status == std::future_status::timeout) {
+      setStatusLabel(get_path_action_goal_status_, QString("Goal (t=%1) response timeout").arg(goal_stamp.sec), status_error);
+    } else if (status == std::future_status::deferred) {
+      setStatusLabel(get_path_action_goal_status_, QString("Goal (t=%1) response deferred").arg(goal_stamp.sec), status_warning);
+    }
+  }
 }
 
 void MbfGoalActionsPanel::getPathResultCallback(
@@ -855,9 +879,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
             setStatusLabel(this->exe_path_action_goal_status_, "Failed to cancel existing goal", status_error);
           }
 
-          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: getPathResultCallback");
           goal_handle_exe_path_.reset();
-
           sendExePathGoal(exe_path_goal);
         });
 
@@ -870,10 +892,6 @@ void MbfGoalActionsPanel::getPathResultCallback(
       break;
     case rclcpp_action::ResultCode::CANCELED:
       setStatusLabel(get_path_action_goal_status_, QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
-      // if (next_get_path_goal_.has_value()) {
-      //   sendGetPathGoal(next_get_path_goal_.value());
-      //   next_get_path_goal_.reset();
-      // }
       break;
     default:
       setStatusLabel(get_path_action_goal_status_, "Error: Unknown action result code", status_error);
@@ -906,16 +924,19 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
     &MbfGoalActionsPanel::exePathResultCallback, this,
     std::placeholders::_1);
 
-  action_client_exe_path_->async_send_goal(goal, options);
+  auto goal_fut = action_client_exe_path_->async_send_goal(goal, options);
   setStatusLabel(exe_path_action_goal_status_, QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 
-  // this is required to make sure we wait for the result of our goal request
-  //  what():  Node '/rviz' has already been added to an executor.
-  // if(rclcpp::spin_until_future_complete(this->ros_node_->get_node_base_interface(), goal_fut)
-  //   != rclcpp::FutureReturnCode::SUCCESS)
-  // {
-  //   RCLCPP_ERROR(this->ros_node_->get_logger(), "ERROR waiting for goal request");
-  // }
+  // Check if action server is receiving our goals
+  auto status = goal_fut.wait_for(std::chrono::milliseconds(3000));
+  if (status != std::future_status::ready) {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "ExePath: goal response future not ready after 3 seconds. Status: " << static_cast<int>(status));
+    if (status == std::future_status::timeout) {
+      setStatusLabel(exe_path_action_goal_status_, QString("Goal (t=%1) response timeout").arg(goal_stamp.sec), status_error);
+    } else if (status == std::future_status::deferred) {
+      setStatusLabel(exe_path_action_goal_status_, QString("Goal (t=%1) response deferred").arg(goal_stamp.sec), status_warning);
+    }
+  }
 }
 
 void MbfGoalActionsPanel::exePathResultCallback(
@@ -951,8 +972,6 @@ void MbfGoalActionsPanel::exePathResultCallback(
       setStatusLabel(exe_path_action_goal_status_, "Error: Unknown action result code", status_error);
       break;
   }
-
-  RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Resetting exe path goal: exePathResultCallback");
   goal_handle_exe_path_.reset();
 }
 
