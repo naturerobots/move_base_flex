@@ -1014,7 +1014,7 @@ void MbfGoalActionsPanel::exePathResultCallback(
             get_path_goal.planner = get_path_planner_name_; // cached from GUI thread, protected by mutex
           }
           // Overwrite the timestamp to prevent tf extrapolation errors in the planners
-          get_path_goal.target_pose.header.set__stamp(ros_node_->get_clock()->now());
+          get_path_goal.target_pose.header.stamp = ros_node_->now();
           get_path_goal.use_start_pose = false;
           sendGetPathGoal(get_path_goal);
 
