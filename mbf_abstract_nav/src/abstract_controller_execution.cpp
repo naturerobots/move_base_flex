@@ -67,6 +67,8 @@ AbstractControllerExecution::AbstractControllerExecution(
   , current_goal_pub_(goal_pub)
   , loop_rate_(std::make_shared<rclcpp::Rate>(DEFAULT_CONTROLLER_FREQUENCY))
   , node_handle_(node_handle)
+  , event_work_guard_(boost::asio::make_work_guard(event_io_))
+  , event_thread_([this]{ event_io_.run(); })
 {
 
   // reconfigurable parameters
@@ -149,6 +151,23 @@ AbstractControllerExecution::AbstractControllerExecution(
 
 AbstractControllerExecution::~AbstractControllerExecution()
 {
+  event_work_guard_.reset();
+  event_io_.stop();
+  if (event_thread_.joinable())
+    event_thread_.join();
+}
+
+boost::signals2::connection AbstractControllerExecution::registerEventCallback(
+    std::function<void(const ControllerEvent&)> callback)
+{
+  return event_signal_.connect(callback);
+}
+
+void AbstractControllerExecution::notifyEventCallbacks(const ControllerEvent& event)
+{
+  boost::asio::post(event_io_, [this, event]() {
+    event_signal_(event);
+  });
 }
 
 bool AbstractControllerExecution::setControllerFrequency(double frequency)
@@ -414,6 +433,7 @@ bool AbstractControllerExecution::cancel()
     {
       setState(NO_PLAN);
       moving_ = false;
+      notifyEventCallbacks({NO_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
       RCLCPP_ERROR_STREAM(node_handle_->get_logger(), "robot navigation moving has no plan!");
     }
 
@@ -441,6 +461,7 @@ bool AbstractControllerExecution::cancel()
           setState(CANCELED);
           moving_ = false;
           condition_.notify_all();
+          notifyEventCallbacks({CANCELED, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
           return;
         }
 
@@ -464,6 +485,7 @@ bool AbstractControllerExecution::cancel()
             setState(EMPTY_PLAN);
             moving_ = false;
             condition_.notify_all();
+            notifyEventCallbacks({EMPTY_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
             return;
           }
 
@@ -473,6 +495,7 @@ bool AbstractControllerExecution::cancel()
             setState(INVALID_PLAN);
             moving_ = false;
             condition_.notify_all();
+            notifyEventCallbacks({INVALID_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
             return;
           }
           current_goal_pub_->publish(plan.back());
@@ -487,6 +510,7 @@ bool AbstractControllerExecution::cancel()
           setState(INTERNAL_ERROR);
           moving_ = false;
           condition_.notify_all();
+          notifyEventCallbacks({INTERNAL_ERROR, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
           return;
         }
 
@@ -502,6 +526,7 @@ bool AbstractControllerExecution::cancel()
           // goal reached, tell it the controller
           moving_ = false;
           condition_.notify_all();
+          notifyEventCallbacks({ARRIVED_GOAL, outcome_, message_, vel_cmd_stamped_});
           // if not, keep moving
         }
         else
@@ -535,6 +560,7 @@ bool AbstractControllerExecution::cancel()
             {
               setState(ROBOT_DISABLED);
               moving_ = false;
+              notifyEventCallbacks({ROBOT_DISABLED, outcome_, message_, vel_cmd_stamped_});
             }
           }
           else if (outcome_ == mbf_msgs::action::ExePath::Result::CANCELED)
@@ -581,6 +607,7 @@ bool AbstractControllerExecution::cancel()
           //cmd_vel_stamped.header.seq = seq++;  // sequence number
           setVelocityCmd(cmd_vel_stamped);
           condition_.notify_all();
+          notifyEventCallbacks({getState(), outcome_, message_, vel_cmd_stamped_});
         }
 
         if (moving_)
@@ -622,6 +649,7 @@ bool AbstractControllerExecution::cancel()
       setState(INTERNAL_ERROR);
       moving_ = false;
       condition_.notify_all();
+      notifyEventCallbacks({INTERNAL_ERROR, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
     }
 }
 
@@ -633,6 +661,7 @@ void AbstractControllerExecution::handle_thread_interrupted()
   publishZeroVelocity();
   setState(STOPPED);
   condition_.notify_all();
+  notifyEventCallbacks({STOPPED, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
   moving_ = false;
 }
 

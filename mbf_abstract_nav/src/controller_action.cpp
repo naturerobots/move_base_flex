@@ -116,7 +116,6 @@ void ControllerAction::start(
   slot_map_mtx_.unlock();
   if(!update_plan)
   {
-    // Otherwise run parent version of this method
     AbstractActionBase::start(goal_handle, execution_ptr);
   }
 }
@@ -177,6 +176,27 @@ void ControllerAction::runImpl(const GoalHandlePtr &goal_handle, AbstractControl
 
   rclcpp::Time last_oscillation_reset = node_->now();
   geometry_msgs::msg::PoseStamped oscillation_pose;
+
+
+  if(execution.getState() != AbstractControllerExecution::INITIALIZED)
+  {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger(name_), "The controller execution should be in state INITIALIZED when starting the action, but it is in state " << execution.getState());
+
+    throw std::runtime_error("The controller execution should be in state INITIALIZED when starting the action, but it is in state " + std::to_string(execution.getState()));
+  }
+
+  auto slot = execution.registerEventCallback([](const AbstractControllerExecution::ControllerEvent& evt){
+    std::cerr << "EVENT" << std::endl;
+  });
+
+  execution.setNewPlan(plan, goal->tolerance_from_action, goal->dist_tolerance, goal->angle_tolerance);
+
+  auto fut = execution.startAsync();
+
+
+
+  fut.wait();
+
 
   typename AbstractControllerExecution::ControllerState state_moving_input;
 

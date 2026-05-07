@@ -48,6 +48,10 @@
 #include <mutex>
 #include <thread>
 #include <functional>
+
+#include <boost/signals2.hpp>
+#include <boost/asio.hpp>
+
 #include <rclcpp/rate.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -160,6 +164,17 @@ namespace mbf_abstract_nav
      * @return current state, enum value of ControllerState
      */
     ControllerState getState() const;
+
+    struct ControllerEvent
+    {
+      ControllerState state;
+      uint32_t outcome;
+      std::string message;
+      geometry_msgs::msg::TwistStamped velocity_cmd;
+    };
+
+    boost::signals2::connection registerEventCallback(std::function<void(const ControllerEvent&)> callback);
+
 
     /**
      * @brief Returns the time of the last plugin call
@@ -321,6 +336,14 @@ namespace mbf_abstract_nav
      * @return The plan
      */
     std::vector<geometry_msgs::msg::PoseStamped> getNewPlan();
+
+
+    boost::signals2::signal<void(const ControllerEvent&)> event_signal_;
+    boost::asio::io_context event_io_;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> event_work_guard_;
+    std::thread event_thread_;
+    void notifyEventCallbacks(const ControllerEvent& event);
+
 
     //! the last calculated velocity command
     geometry_msgs::msg::TwistStamped vel_cmd_stamped_;

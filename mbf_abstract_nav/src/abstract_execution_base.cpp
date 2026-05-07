@@ -68,6 +68,30 @@ bool AbstractExecutionBase::start()
   return true;
 }
 
+std::shared_future<bool> AbstractExecutionBase::startAsync()
+{
+  if (thread_.joinable())
+  {
+    // if the user forgets to call stop(), we have to kill it
+    stop();
+    thread_.join();
+  }
+
+  should_exit_ = false;
+  std::packaged_task<bool()> task([this] {
+    this->run();
+    return true;
+  });
+  future_ = task.get_future().share();
+  thread_ = std::thread(std::move(task));
+  return future_;
+}
+
+std::shared_future<bool> AbstractExecutionBase::getFuture() const
+{
+  return future_;
+}
+
 void AbstractExecutionBase::stop()
 {
   RCLCPP_WARN_STREAM(node_->get_logger(),

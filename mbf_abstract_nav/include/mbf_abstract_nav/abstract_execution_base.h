@@ -44,6 +44,8 @@
 #include <condition_variable>
 #include <mbf_utility/robot_information.h>
 #include <string>
+#include <optional>
+#include <future>
 #include "rclcpp/rclcpp.hpp"
 
 namespace mbf_abstract_nav
@@ -63,6 +65,10 @@ class AbstractExecutionBase
    virtual ~AbstractExecutionBase();
 
    virtual bool start();
+
+   virtual std::shared_future<bool> startAsync();
+
+   virtual std::shared_future<bool> getFuture() const;
 
    virtual void stop();
 
@@ -112,6 +118,7 @@ protected:
 
   //! the controlling thread object
   std::thread thread_;
+  std::shared_future<bool> future_;
 
   //! mutex for locking the condition variable
   std::mutex should_exit_mutex_;

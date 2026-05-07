@@ -17,6 +17,8 @@ foreach(dep IN LISTS dependencies)
   find_package(${dep} REQUIRED)
 endforeach()
 
+find_package(Boost REQUIRED)
+
 include_directories(
   include
 )
@@ -34,6 +36,7 @@ add_library(${MBF_ABSTRACT_SERVER_LIB} SHARED
   src/abstract_recovery_execution.cpp
 )
 ament_target_dependencies(${MBF_ABSTRACT_SERVER_LIB} ${dependencies})
+target_link_libraries(${MBF_ABSTRACT_SERVER_LIB} Boost::boost)
 
 install(TARGETS ${MBF_ABSTRACT_SERVER_LIB}
   ARCHIVE DESTINATION lib
