@@ -35,6 +35,7 @@
  *  authors:
  *    Sebastian Pütz <spuetz@uni-osnabrueck.de>
  *    Jorge Santos Simón <santos@magazino.eu>
+ *    Alexander Mock <alexander.mock@naturerobots.com>
  *
  */
 
@@ -67,8 +68,8 @@ AbstractControllerExecution::AbstractControllerExecution(
   , current_goal_pub_(goal_pub)
   , loop_rate_(std::make_shared<rclcpp::Rate>(DEFAULT_CONTROLLER_FREQUENCY))
   , node_handle_(node_handle)
-  , event_work_guard_(boost::asio::make_work_guard(event_io_))
-  , event_thread_([this]{ event_io_.run(); })
+  , state_transition_work_guard_(boost::asio::make_work_guard(state_transition_io_))
+  , state_transition_thread_([this]{ state_transition_io_.run(); })
 {
 
   // reconfigurable parameters
@@ -151,22 +152,22 @@ AbstractControllerExecution::AbstractControllerExecution(
 
 AbstractControllerExecution::~AbstractControllerExecution()
 {
-  event_work_guard_.reset();
-  event_io_.stop();
-  if (event_thread_.joinable())
-    event_thread_.join();
+  state_transition_work_guard_.reset();
+  state_transition_io_.stop();
+  if (state_transition_thread_.joinable())
+    state_transition_thread_.join();
 }
 
-boost::signals2::connection AbstractControllerExecution::registerEventCallback(
-    std::function<void(const ControllerEvent&)> callback)
+boost::signals2::connection AbstractControllerExecution::registerStateTransitionCallback(
+    std::function<void(const ControllerStateTransition&)> callback)
 {
-  return event_signal_.connect(callback);
+  return state_transition_signal_.connect(callback);
 }
 
-void AbstractControllerExecution::notifyEventCallbacks(const ControllerEvent& event)
+void AbstractControllerExecution::notifyStateTransitionCallbacks(const ControllerStateTransition& state_transition)
 {
-  boost::asio::post(event_io_, [this, event]() {
-    event_signal_(event);
+  boost::asio::post(state_transition_io_, [this, state_transition]() {
+    state_transition_signal_(state_transition);
   });
 }
 
@@ -224,7 +225,15 @@ bool AbstractControllerExecution::start()
 void AbstractControllerExecution::setState(ControllerState state)
 {
   std::lock_guard<std::mutex> guard(state_mtx_);
+
+  const ControllerState previous_state = state_;
   state_ = state;
+
+  if(previous_state != state)
+  {
+    RCLCPP_DEBUG_STREAM(node_handle_->get_logger(), "Controller state changed from " << previous_state << " to " << state);
+    notifyStateTransitionCallbacks(ControllerStateTransition{previous_state, state});
+  }
 }
 
 typename AbstractControllerExecution::ControllerState AbstractControllerExecution::getState() const
@@ -433,7 +442,6 @@ bool AbstractControllerExecution::cancel()
     {
       setState(NO_PLAN);
       moving_ = false;
-      notifyEventCallbacks({NO_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
       RCLCPP_ERROR_STREAM(node_handle_->get_logger(), "robot navigation moving has no plan!");
     }
 
@@ -456,12 +464,11 @@ bool AbstractControllerExecution::cancel()
         {
           if (force_stop_on_cancel_)
           {
-            publishZeroVelocity();  // command the robot to stop on canceling navigation
+            publishZeroVelocityCmd();  // command the robot to stop on canceling navigation
           }
           setState(CANCELED);
           moving_ = false;
           condition_.notify_all();
-          notifyEventCallbacks({CANCELED, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
           return;
         }
 
@@ -469,7 +476,7 @@ bool AbstractControllerExecution::cancel()
         {
           // the specific implementation must have detected a risk situation; at this abstract level, we
           // cannot tell what the problem is, but anyway we command the robot to stop to avoid crashes
-          publishZeroVelocity();
+          publishZeroVelocityCmd();
           loop_rate_->sleep();
           continue;
         }
@@ -485,7 +492,6 @@ bool AbstractControllerExecution::cancel()
             setState(EMPTY_PLAN);
             moving_ = false;
             condition_.notify_all();
-            notifyEventCallbacks({EMPTY_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
             return;
           }
 
@@ -495,7 +501,6 @@ bool AbstractControllerExecution::cancel()
             setState(INVALID_PLAN);
             moving_ = false;
             condition_.notify_all();
-            notifyEventCallbacks({INVALID_PLAN, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
             return;
           }
           current_goal_pub_->publish(plan.back());
@@ -506,11 +511,11 @@ bool AbstractControllerExecution::cancel()
         {
           message_ = "Could not get the robot pose";
           outcome_ = mbf_msgs::action::ExePath::Result::TF_ERROR;
-          publishZeroVelocity();
+          publishZeroVelocityCmd();
           setState(INTERNAL_ERROR);
           moving_ = false;
           condition_.notify_all();
-          notifyEventCallbacks({INTERNAL_ERROR, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
+
           return;
         }
 
@@ -520,13 +525,12 @@ bool AbstractControllerExecution::cancel()
           RCLCPP_DEBUG(rclcpp::get_logger("abstract_controller_execution"), "Reached the goal!");
           if (force_stop_at_goal_)
           {
-            publishZeroVelocity();
+            publishZeroVelocityCmd();
           }
           setState(ARRIVED_GOAL);
           // goal reached, tell it the controller
           moving_ = false;
           condition_.notify_all();
-          notifyEventCallbacks({ARRIVED_GOAL, outcome_, message_, vel_cmd_stamped_});
           // if not, keep moving
         }
         else
@@ -560,7 +564,6 @@ bool AbstractControllerExecution::cancel()
             {
               setState(ROBOT_DISABLED);
               moving_ = false;
-              notifyEventCallbacks({ROBOT_DISABLED, outcome_, message_, vel_cmd_stamped_});
             }
           }
           else if (outcome_ == mbf_msgs::action::ExePath::Result::CANCELED)
@@ -593,7 +596,7 @@ bool AbstractControllerExecution::cancel()
             // could not compute a valid velocity command
             if (!moving_ || force_stop_on_retry_)
             {
-              publishZeroVelocity();  // command the robot to stop; we still feedback command calculated by the plugin
+              publishZeroVelocityCmd();  // command the robot to stop; we still feedback command calculated by the plugin
             }
             else
             {
@@ -607,7 +610,6 @@ bool AbstractControllerExecution::cancel()
           //cmd_vel_stamped.header.seq = seq++;  // sequence number
           setVelocityCmd(cmd_vel_stamped);
           condition_.notify_all();
-          notifyEventCallbacks({getState(), outcome_, message_, vel_cmd_stamped_});
         }
 
         if (moving_)
@@ -649,7 +651,6 @@ bool AbstractControllerExecution::cancel()
       setState(INTERNAL_ERROR);
       moving_ = false;
       condition_.notify_all();
-      notifyEventCallbacks({INTERNAL_ERROR, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
     }
 }
 
@@ -658,14 +659,13 @@ void AbstractControllerExecution::handle_thread_interrupted()
   // Controller thread interrupted; in most cases we have started a new plan
   // Can also be that robot is oscillating or we have exceeded planner patience
   RCLCPP_DEBUG(node_handle_->get_logger(), "Controller thread interrupted!");
-  publishZeroVelocity();
+  publishZeroVelocityCmd();
   setState(STOPPED);
   condition_.notify_all();
-  notifyEventCallbacks({STOPPED, outcome_, message_, geometry_msgs::msg::TwistStamped{}});
   moving_ = false;
 }
 
-void AbstractControllerExecution::publishZeroVelocity()
+void AbstractControllerExecution::publishZeroVelocityCmd()
 {
   geometry_msgs::msg::TwistStamped cmd_vel;
   cmd_vel.header.stamp = node_handle_->now();

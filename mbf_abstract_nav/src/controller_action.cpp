@@ -185,16 +185,19 @@ void ControllerAction::runImpl(const GoalHandlePtr &goal_handle, AbstractControl
     throw std::runtime_error("The controller execution should be in state INITIALIZED when starting the action, but it is in state " + std::to_string(execution.getState()));
   }
 
-  auto slot = execution.registerEventCallback([](const AbstractControllerExecution::ControllerEvent& evt){
-    std::cerr << "EVENT" << std::endl;
+  bool stop_execution = false;
+
+  auto slot = execution.registerStateTransitionCallback([&, this](const AbstractControllerExecution::ControllerStateTransition& state_transition){
+    
+    std::cerr << "STATE CHANGE" << std::endl;
+    std::cerr << "- previous state: " << state_transition.previous << std::endl;
+    std::cerr << "- current state: " << state_transition.current << std::endl;
+    std::cout << "- outcome: " << execution.getOutcome() << std::endl;
   });
 
   execution.setNewPlan(plan, goal->tolerance_from_action, goal->dist_tolerance, goal->angle_tolerance);
-
   auto fut = execution.startAsync();
-
-
-
+  
   fut.wait();
 
 
@@ -390,7 +393,7 @@ void ControllerAction::runImpl(const GoalHandlePtr &goal_handle, AbstractControl
     }
 
     first_cycle = false;
-  }  // while (controller_active && ros::ok())
+  }  // while (controller_active && rclcpp::ok())
 
   if (!controller_active)
   {

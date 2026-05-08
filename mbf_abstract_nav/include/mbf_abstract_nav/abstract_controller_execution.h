@@ -160,20 +160,21 @@ namespace mbf_abstract_nav
     };
 
     /**
+     * @brief Internal state transition
+     */
+    struct ControllerStateTransition
+    {
+      ControllerState previous;
+      ControllerState current;
+    };
+
+    /**
      * @brief Return the current state of the controller execution. Thread communication safe.
      * @return current state, enum value of ControllerState
      */
     ControllerState getState() const;
 
-    struct ControllerEvent
-    {
-      ControllerState state;
-      uint32_t outcome;
-      std::string message;
-      geometry_msgs::msg::TwistStamped velocity_cmd;
-    };
-
-    boost::signals2::connection registerEventCallback(std::function<void(const ControllerEvent&)> callback);
+    boost::signals2::connection registerStateTransitionCallback(std::function<void(const ControllerStateTransition&)> callback);
 
 
     /**
@@ -293,7 +294,7 @@ namespace mbf_abstract_nav
     /**
      * @brief Publishes a velocity command with zero values to stop the robot.
      */
-    void publishZeroVelocity();
+    void publishZeroVelocityCmd();
 
     /**
      * @brief Checks whether the goal has been reached in the range of tolerance or not
@@ -338,11 +339,11 @@ namespace mbf_abstract_nav
     std::vector<geometry_msgs::msg::PoseStamped> getNewPlan();
 
 
-    boost::signals2::signal<void(const ControllerEvent&)> event_signal_;
-    boost::asio::io_context event_io_;
-    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> event_work_guard_;
-    std::thread event_thread_;
-    void notifyEventCallbacks(const ControllerEvent& event);
+    boost::signals2::signal<void(const ControllerStateTransition&)> state_transition_signal_;
+    boost::asio::io_context state_transition_io_;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> state_transition_work_guard_;
+    std::thread state_transition_thread_;
+    void notifyStateTransitionCallbacks(const ControllerStateTransition& state_transition);
 
 
     //! the last calculated velocity command
