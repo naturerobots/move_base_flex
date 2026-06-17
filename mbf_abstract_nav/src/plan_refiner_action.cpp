@@ -63,8 +63,10 @@ void PlanRefinerAction::runImpl(
   mbf_msgs::action::RefinePath::Result::SharedPtr result =
     std::make_shared<mbf_msgs::action::RefinePath::Result>();
 
-  const std::vector<geometry_msgs::msg::PoseStamped> & plan = goal.path.poses;
+  result->refined_path.header.frame_id =
+    goal.path.header.frame_id.empty() ? robot_info_->getGlobalFrame() : goal.path.header.frame_id;
 
+  const std::vector<geometry_msgs::msg::PoseStamped> & plan = goal.path.poses;
   AbstractPlanRefinerExecution::PlanRefinerState plan_refiner_state;
 
   bool refiner_active = true;

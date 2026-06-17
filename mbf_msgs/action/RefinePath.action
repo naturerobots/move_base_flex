@@ -2,7 +2,7 @@
 
 nav_msgs/Path path
 
-# Plan refiner to use; defaults to the first one specified on "refiner" parameter
+# Plan refiner to use; defaults to the first one specified on "plan_refiners" parameter
 string refiner
 
 # use different slots for concurrency

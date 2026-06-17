@@ -156,7 +156,7 @@ public:
    * @brief Returns the current plan
    * @return the current plan
    */
-  const std::vector<geometry_msgs::msg::PoseStamped> & getPlan() const;
+  std::vector<geometry_msgs::msg::PoseStamped> getPlan() const;
 
 protected:
   //! the plan refiner to refine the given path

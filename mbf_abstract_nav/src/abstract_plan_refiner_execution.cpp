@@ -116,7 +116,7 @@ void AbstractPlanRefinerExecution::setNewPlan(
   has_new_plan_ = true;
 }
 
-const std::vector<geometry_msgs::msg::PoseStamped> & AbstractPlanRefinerExecution::getPlan() const
+std::vector<geometry_msgs::msg::PoseStamped> AbstractPlanRefinerExecution::getPlan() const
 {
   std::lock_guard<std::mutex> lock(plan_mtx_);
   return plan_;
@@ -189,13 +189,15 @@ void AbstractPlanRefinerExecution::run()
       float path_length_ratio = 0.0;
 
       // Check if a new plan is available
-      plan_mtx_.lock();
-      if (has_new_plan_) {
-        has_new_plan_ = false;
-        RCLCPP_INFO_STREAM(
-          node_handle_->get_logger(), "A new plan is available. Refining the new plan!");
+      {
+        std::lock_guard<std::mutex> plan_lock(plan_mtx_);
+        if (has_new_plan_) {
+          has_new_plan_ = false;
+          current_plan = plan_;
+          RCLCPP_INFO_STREAM(
+            node_handle_->get_logger(), "A new plan is available. Refining the new plan!");
+        }
       }
-      plan_mtx_.unlock();
 
       if (cancel_) {
         RCLCPP_INFO_STREAM(

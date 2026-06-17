@@ -119,9 +119,9 @@ public:
   );
 
   /**
-   * @brief Loads the plugin associated with the given planner_type parameter.
-   * @param planner_type The type of the planner plugin to load.
-   * @return true, if the plan refiner plugin was successfully loaded.
+   * @brief Loads the plugin associated with the given plan_refiner_type parameter.
+   * @param plan_refiner_type The type of the plan refiner plugin to load.
+   * @return Pointer to the loaded plan refiner plugin; empty pointer on failure.
    */
   virtual mbf_abstract_core::AbstractPlanRefiner::Ptr loadPlanRefinerPlugin(
     const std::string & plan_refiner_type);

@@ -46,6 +46,7 @@
 #include <stdint.h>
 #include <string>
 #include <memory>
+#include <vector>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 namespace mbf_abstract_core
