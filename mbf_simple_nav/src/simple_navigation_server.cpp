@@ -67,6 +67,7 @@ SimpleNavigationServer::~SimpleNavigationServer()
   controller_action_.reset();
   recovery_action_.reset();
   planner_plugin_manager_.clearPlugins();
+  plan_refiner_plugin_manager_.clearPlugins();
   controller_plugin_manager_.clearPlugins();
   recovery_plugin_manager_.clearPlugins();
 }
@@ -80,8 +81,10 @@ mbf_abstract_core::AbstractPlanner::Ptr SimpleNavigationServer::loadPlannerPlugi
     planner_ptr = planner_plugin_loader_.createSharedInstance(planner_type);
   } catch (const pluginlib::PluginlibException & ex) {
     RCLCPP_FATAL_STREAM(
-      node_->get_logger(), "Failed to load the " << planner_type << " planner, are you sure it is properly registered"
-                                                 << " and that the containing library is built? Exception: " <<
+      node_->get_logger(),
+      "Failed to load the " << planner_type << " planner, are you sure it is properly registered"
+                            <<
+        " and that the containing library is built? Exception: " <<
         ex.what());
   }
   RCLCPP_INFO(node_->get_logger(), "Global planner plugin loaded.");
@@ -113,7 +116,8 @@ mbf_abstract_core::AbstractPlanRefiner::Ptr SimpleNavigationServer::loadPlanRefi
   } catch (const pluginlib::PluginlibException & ex) {
     RCLCPP_FATAL_STREAM(
       node_->get_logger(),
-      "Failed to load the " << plan_refiner_type << " plan refiner, are you sure it's properly registered"
+      "Failed to load the " << plan_refiner_type <<
+        " plan refiner, are you sure it's properly registered"
                             << " and that the containing library is built? Exception: " <<
         ex.what());
   }
@@ -146,7 +150,8 @@ mbf_abstract_core::AbstractController::Ptr SimpleNavigationServer::loadControlle
   } catch (const pluginlib::PluginlibException & ex) {
     RCLCPP_FATAL_STREAM(
       node_->get_logger(),
-      "Failed to load the " << controller_type << " controller, are you sure it's properly registered"
+      "Failed to load the " << controller_type <<
+        " controller, are you sure it's properly registered"
                             << " and that the containing library is built? Exception: " <<
         ex.what());
   }
@@ -180,8 +185,11 @@ mbf_abstract_core::AbstractRecovery::Ptr SimpleNavigationServer::loadRecoveryPlu
     recovery_ptr = recovery_plugin_loader_.createSharedInstance(recovery_type);
   } catch (pluginlib::PluginlibException & ex) {
     RCLCPP_FATAL_STREAM(
-      node_->get_logger(), "Failed to load the " << recovery_type << " recovery behavior, are you sure it's properly registered"
-                                                 << " and that the containing library is built? Exception: " <<
+      node_->get_logger(),
+      "Failed to load the " << recovery_type <<
+        " recovery behavior, are you sure it's properly registered"
+                            <<
+        " and that the containing library is built? Exception: " <<
         ex.what());
   }
   return recovery_ptr;
