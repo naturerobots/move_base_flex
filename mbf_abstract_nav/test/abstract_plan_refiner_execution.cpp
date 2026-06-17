@@ -111,7 +111,7 @@ TEST_F(AbstractPlanRefinerExecutionFixture, cancel)
 TEST_F(AbstractPlanRefinerExecutionFixture, max_retries)
 {
   const int max_retries = 5;
-  initRosNode(rclcpp::NodeOptions().append_parameter_override("planner_max_retries", max_retries));
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("refiner_max_retries", max_retries));
 
   EXPECT_CALL(*mock_refiner_ptr_, applyRefinement(_, _, _, _, _, _))
   .Times(1 + max_retries)
@@ -126,7 +126,7 @@ TEST_F(AbstractPlanRefinerExecutionFixture, max_retries)
 TEST_F(AbstractPlanRefinerExecutionFixture, success_after_retries)
 {
   const int max_retries = 5;
-  initRosNode(rclcpp::NodeOptions().append_parameter_override("planner_max_retries", max_retries));
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("refiner_max_retries", max_retries));
 
   InSequence seq;
   EXPECT_CALL(*mock_refiner_ptr_, applyRefinement(_, _, _, _, _, _))
@@ -142,7 +142,7 @@ TEST_F(AbstractPlanRefinerExecutionFixture, success_after_retries)
 
 TEST_F(AbstractPlanRefinerExecutionFixture, no_plan_found_zero_retries)
 {
-  initRosNode(rclcpp::NodeOptions().append_parameter_override("planner_max_retries", 0));
+  initRosNode(rclcpp::NodeOptions().append_parameter_override("refiner_max_retries", 0));
 
   EXPECT_CALL(*mock_refiner_ptr_, applyRefinement(_, _, _, _, _, _)).Times(1).WillOnce(Return(11));
 

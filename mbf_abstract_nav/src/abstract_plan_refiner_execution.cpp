@@ -60,12 +60,12 @@ AbstractPlanRefinerExecution::AbstractPlanRefinerExecution(
   , node_handle_(node_handle)
 {
   auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
-  if (!node_handle_->has_parameter("planner_max_retries")) {
+  if (!node_handle_->has_parameter("refiner_max_retries")) {
     param_desc.description =
-      "How many times we will recall the planner in an attempt to find a valid plan before giving up";
-    node_handle_->declare_parameter("planner_max_retries", rclcpp::ParameterValue(-1), param_desc);
+      "How many times we will recall the refiner in an attempt to find a valid plan before giving up";
+    node_handle_->declare_parameter("refiner_max_retries", rclcpp::ParameterValue(-1), param_desc);
   }
-  node_handle_->get_parameter("planner_max_retries", max_retries_);
+  node_handle_->get_parameter("refiner_max_retries", max_retries_);
 }
 
 AbstractPlanRefinerExecution::~AbstractPlanRefinerExecution()
