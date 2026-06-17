@@ -1,30 +1,26 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<package format="2">
-    <name>mbf_abstract_core</name>
-    <version>0.4.0</version>
-    <description>
-        This package provides common interfaces for navigation specific robot actions. It contains the AbstractPlanner, AbstractController and AbstractRecovery plugin interfaces. This interfaces have to be implemented by the plugins to make the plugin available for Move Base Flex. The abstract classes provides a meaningful interface enabling the planners, controllers and recovery behaviors to return information, e.g. why something went wrong. Derivided interfaces can, for example, provide methods to initialize the planner, controller or recovery with map representations like costmap_2d, grid_map or other representations.
-    </description>
-    <url>http://wiki.ros.org/mbf_abstract_core</url>
-    <maintainer email="spuetz@uos.de">Sebastian Pütz</maintainer>
-    <maintainer email="santos@magazino.eu">Jorge Santos</maintainer>
-    <author email="spuetz@uos.de">Sebastian Pütz</author>
-    <author email="santos@magazino.eu">Jorge Santos</author>
-    <license>BSD-3</license>
-    
-    <export>
-      <build_type>ament_cmake</build_type>
-    </export>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mbf_abstract_core</name>
+  <version>1.0.5</version>
+  <description>
+      This package provides common interfaces for navigation specific robot actions. It contains the AbstractPlanner, AbstractController and AbstractRecovery plugin interfaces. This interfaces have to be implemented by the plugins to make the plugin available for Move Base Flex. The abstract classes provides a meaningful interface enabling the planners, controllers and recovery behaviors to return information, e.g. why something went wrong. Derivided interfaces can, for example, provide methods to initialize the planner, controller or recovery with map representations like costmap_2d, grid_map or other representations.
+  </description>
 
-    <depend>geometry_msgs</depend>
-    <depend>std_msgs</depend>
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
+  <license>BSD-3-Clause</license>
+  
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="spuetz@uos.de">Sebastian Pütz</author>
+  <author email="santos@magazino.eu">Jorge Santos</author>
+  
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
 
-    <!-- TODO -->
-    <!-- <export>
-      <rosdoc config="rosdoc.yaml" />
-    </export> -->
-
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 
 </package>

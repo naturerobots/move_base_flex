@@ -2,23 +2,32 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rviz_mbf_plugins</name>
-  <version>1.0.0</version>
+  <version>1.0.5</version>
   <description>
     Contains rviz plugins for interacting with move base flex.
   </description>
-  <author email="matthias.holoch@naturerobots.com">Matthias Holoch</author>
-  <maintainer email="matthias.holoch@naturerobots.com">Matthias Holoch</maintainer>
+  
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
   <license>BSD-3-Clause</license>
+
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="matthias.holoch@naturerobots.com">Matthias Holoch</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>mbf_msgs</depend>
-  <depend>pluginlib</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>pluginlib</depend>
+  <depend>mbf_msgs</depend>
   <depend>rviz_common</depend>
+  <depend>geometry_msgs</depend>
 
-  <test_depend>ament_cmake_auto</test_depend>
-  <test_depend>ament_cmake_uncrustify</test_depend>
+  <build_depend>qtbase5-dev</build_depend>
+  <build_export_depend>qtbase5-dev</build_export_depend>
+
+  <exec_depend>libqt5-widgets</exec_depend>
+  <exec_depend>libqt5-gui</exec_depend>
+  <exec_depend>libqt5-core</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

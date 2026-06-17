@@ -2,6 +2,28 @@
 Changelog for package mbf_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.5 (2026-03-06)
+------------------
+
+1.0.4 (2026-03-05)
+------------------
+
+1.0.3 (2026-03-05)
+------------------
+* Added action msgs for humble, see #371
+
+1.0.2 (2026-02-10)
+------------------
+* Removed unused dependencies, see #368
+
+1.0.1 (2026-02-10)
+------------------
+* Fixes tests, see #362
+
+1.0.0 (2025-06-03)
+------------------
+* ROS 2 migration, see #346
+
 0.4.0 (2021-10-26)
 ------------------
 * return empty footprint if partly outside of the map, see #272
@@ -48,4 +70,3 @@ Changelog for package mbf_msgs
 0.1.0 (2018-03-22)
 ------------------
 * First release of move_base_flex for kinetic and lunar
-ca

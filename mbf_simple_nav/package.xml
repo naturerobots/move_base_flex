@@ -1,37 +1,42 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-    <name>mbf_simple_nav</name>
-    <version>0.4.0</version>
-    <description>
-        The mbf_simple_nav package contains a simple navigation server implementation of Move Base Flex (MBF). The simple navigation server is bound to no map representation. It provides actions for planning, controlling and recovering. MBF loads all defined plugins which are defined in the lists *planners*, *controllers* and *recovery_behaviors*. Each list holds a pair of a *name* and a *type*. The *type* defines which kind of plugin to load. The *name* defines under which name the plugin should be callable by the actions. 
+  <name>mbf_simple_nav</name>
+  <version>1.0.5</version>
+  <description>
+      The mbf_simple_nav package contains a simple navigation server implementation of Move Base Flex (MBF). The simple navigation server is bound to no map representation. It provides actions for planning, controlling and recovering. MBF loads all defined plugins which are defined in the lists *planners*, *controllers* and *recovery_behaviors*. Each list holds a pair of a *name* and a *type*. The *type* defines which kind of plugin to load. The *name* defines under which name the plugin should be callable by the actions. 
 
-        It tries to load the defined plugins which implements the defined interfaces in <a href="wiki.ros.org/mbf_abstract_core">mbf_abstract_core</a>.
-    </description>
-    <url>http://wiki.ros.org/move_base_flex</url>
-    <author email="spuetz@uos.de">Sebastian Pütz</author>
-    <maintainer email="spuetz@uos.de">Sebastian Pütz</maintainer>
-    <maintainer email="santos@magazino.eu">Jorge Santos</maintainer>
-    <license>BSD-3</license>
+      It tries to load the defined plugins which implements the defined interfaces in <a href="wiki.ros.org/mbf_abstract_core">mbf_abstract_core</a>.
+  </description>
+  
+  <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
+  <license>BSD-3-Clause</license>
 
-    <depend>geometry_msgs</depend>
-    <depend>mbf_abstract_core</depend>
-    <depend>mbf_abstract_nav</depend>
-    <depend>mbf_msgs</depend>
-    <depend>mbf_simple_core</depend>
-    <depend>mbf_utility</depend>
-    <depend>nav_msgs</depend>
-    <depend>pluginlib</depend>
-    <depend>rclcpp_action</depend>
-    <depend>rclcpp</depend>
-    <depend>std_msgs</depend>
-    <depend>std_srvs</depend>
-    <depend>tf2_ros</depend>
-    <depend>tf2</depend>
+  <url>http://github.com/naturerobots/move_base_flex</url>
+  <author email="sebastian.puetz@naturerobots.com">Sebastian Pütz</author>
 
-    <test_depend>mbf_test_utility</test_depend>
-    <test_depend>ament_cmake_gmock</test_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-    <export>
+  <depend>geometry_msgs</depend>
+  <depend>mbf_abstract_core</depend>
+  <depend>mbf_abstract_nav</depend>
+  <depend>mbf_msgs</depend>
+  <depend>mbf_simple_core</depend>
+  <depend>mbf_utility</depend>
+  <depend>nav_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp_action</depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2</depend>
+
+  <test_depend>mbf_test_utility</test_depend>
+  <test_depend>ament_cmake_gmock</test_depend>
+
+  <export>
       <!-- TODO <rosdoc config="rosdoc.yaml" /> -->
       <build_type>ament_cmake</build_type>
-    </export>
+  </export>
 </package>

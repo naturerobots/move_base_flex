@@ -42,14 +42,25 @@
 #include <mbf_msgs/action/get_path.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/parameter_client.hpp>
+
 #include <rviz_common/panel.hpp>
+#include <rviz_common/properties/editable_enum_property.hpp>
 #include <rviz_common/properties/ros_topic_property.hpp>
+#include <rviz_common/properties/ros_action_property.hpp>
 #include <rviz_common/properties/property_tree_model.hpp>
 #include <rviz_common/properties/property_tree_widget.hpp>
 
 #include <QLabel>
 #include <QGroupBox>
 #include <QVBoxLayout>
+#include <QPushButton>
+
+#include <memory>
+#include <optional>
+#include <future>
+#include <thread>
+#include <atomic>
 
 namespace rviz_mbf_plugins
 {
@@ -62,13 +73,13 @@ class MbfGoalActionsPanel : public rviz_common::Panel
 
 public:
   explicit MbfGoalActionsPanel(QWidget * parent = nullptr);
-  virtual ~MbfGoalActionsPanel() {}
+  ~MbfGoalActionsPanel() noexcept override;
 
   void onInitialize() override;
   void save(rviz_common::Config config) const override;
   void load(const rviz_common::Config & config) override;
 
-  void newMeshGoalCallback(const geometry_msgs::msg::PoseStamped & msg);
+  void newGoalCallback(const geometry_msgs::msg::PoseStamped & msg);
 
 protected:
   //! Sets up the properties widget, which contains editable fields that configures the panel (e.g. which topic to subscribe to)
@@ -88,36 +99,63 @@ protected:
 
 private Q_SLOTS:
   void updateGoalInputSubscription();
-  void updateGetPathServiceClient();
-  void updateExePathServiceClient();
+  void updateGetPathActionClient();
+  void updateExePathActionClient();
+  void stopGetPathAction();
+  void stopExePathAction();
 
 protected:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscription_;
 
+  rclcpp::Node::SharedPtr ros_node_;
+
   //! Action client for getting a path
+  std::mutex get_path_action_client_mutex_;
   GetPathClient::SharedPtr action_client_get_path_;
+  std::shared_ptr<rclcpp::AsyncParametersClient>  planner_parameter_client_;
+  std::string get_path_node_name_;
+  std::string get_path_action_server_name_;
+  std::string get_path_planner_name_;
+
   //! Goal handle of active get path action
   GetPathClient::GoalHandle::SharedPtr goal_handle_get_path_;
-  //! Potential next get path goal, used for quickly restarting the planner after cancelling the previous goal
-  std::optional<mbf_msgs::action::GetPath::Goal> next_get_path_goal_;
 
   //! Action client for traversing a path
+  std::mutex exe_path_action_client_mutex_;
   ExePathClient::SharedPtr action_client_exe_path_;
+  std::shared_ptr<rclcpp::AsyncParametersClient>  controller_parameter_client_;
+  std::string exe_path_node_name_;
+  std::string exe_path_action_server_name_;
+  std::string exe_path_controller_name_;
+
   //! Goal handle of active exe path action
   ExePathClient::GoalHandle::SharedPtr goal_handle_exe_path_;
-  //! Potential next exe path goal, used for quickly restarting the path execution after cancelling the previous goal
-  std::optional<mbf_msgs::action::ExePath::Goal> next_exe_path_goal_;
+
+  std::atomic_bool conn_check_thread_get_path_stop_;
+  std::thread conn_check_thread_get_path_;
+  std::atomic_bool conn_check_thread_exe_path_stop_;
+  std::thread conn_check_thread_exe_path_;
+  std::atomic_bool executor_thread_stop_;
+  std::thread executor_thread_;
+
+  //! Retry counter for goal execution
+  size_t goal_retry_cnt_;
+  //! Current goal pose
+  geometry_msgs::msg::PoseStamped current_goal_;
 
   ////////////////
   // UI elements
   ////////////////
   QVBoxLayout * ui_layout_;
 
-  rviz_common::properties::PropertyTreeWidget * properity_tree_widget_;
-  rviz_common::properties::PropertyTreeModel * properity_tree_model_;
-  rviz_common::properties::RosTopicProperty * goal_input_topic_;
-  rviz_common::properties::RosTopicProperty * get_path_action_server_path_;
-  rviz_common::properties::RosTopicProperty * exe_path_action_server_path_;
+  rviz_common::properties::PropertyTreeWidget*    properity_tree_widget_;
+  rviz_common::properties::PropertyTreeModel*     properity_tree_model_;
+  rviz_common::properties::RosTopicProperty*      goal_input_topic_;
+  rviz_common::properties::RosActionProperty*     get_path_action_server_path_;
+  rviz_common::properties::EditableEnumProperty*  planner_name_property_;
+  rviz_common::properties::RosActionProperty*     exe_path_action_server_path_;
+  rviz_common::properties::EditableEnumProperty*  controller_name_property_;
+
 
   QGroupBox * goal_input_ui_box_;
   QVBoxLayout * goal_input_ui_layout_;
@@ -131,6 +169,7 @@ protected:
   QHBoxLayout * get_path_ui_layout_goal_status_;
   QLabel * get_path_action_goal_status_desc_;
   QLabel * get_path_action_goal_status_;
+  QPushButton * stop_get_path_button_;
 
   QGroupBox * exe_path_ui_box_;
   QVBoxLayout * exe_path_ui_layout_;
@@ -140,6 +179,7 @@ protected:
   QHBoxLayout * exe_path_ui_layout_goal_status_;
   QLabel * exe_path_action_goal_status_desc_;
   QLabel * exe_path_action_goal_status_;
+  QPushButton * stop_exe_path_button_;
 };
 
 } // namespace rviz_mbf_plugins

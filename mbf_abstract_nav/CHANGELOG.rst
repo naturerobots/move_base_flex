@@ -2,6 +2,27 @@
 Changelog for package mbf_abstract_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.5 (2026-03-06)
+------------------
+
+1.0.4 (2026-03-05)
+------------------
+
+1.0.3 (2026-03-05)
+------------------
+
+1.0.2 (2026-02-10)
+------------------
+* Removed unused dependencies, see #368
+
+1.0.1 (2026-02-10)
+------------------
+* Fixes tests, see #362
+
+1.0.0 (2025-06-03)
+------------------
+* ROS 2 migration, see #346
+
 0.4.0 (2021-10-26)
 ------------------
 * Fixes planner execution API compatibility, see #279 and https://github.com/uos/mesh_navigation/issues/18

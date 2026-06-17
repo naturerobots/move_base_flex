@@ -2,6 +2,28 @@
 Changelog for package move_base_flex
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.5 (2026-03-06)
+------------------
+
+1.0.4 (2026-03-05)
+------------------
+
+1.0.3 (2026-03-05)
+------------------
+* Added ament_cmake as build tool dependeny for move_base_flex meta package, see #373
+
+1.0.2 (2026-02-10)
+------------------
+* Removed unused dependencies, see #368
+
+1.0.1 (2026-02-10)
+------------------
+* Fixes tests, see #362
+
+1.0.0 (2025-06-03)
+------------------
+* ROS 2 migration, see #346
+
 0.4.0 (2021-10-26)
 ------------------
 

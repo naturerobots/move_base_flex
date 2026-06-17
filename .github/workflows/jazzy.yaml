@@ -3,7 +3,8 @@ name: Jazzy CI
 on:
   push:
     branches:
-      - 'humble'
+      - 'jazzy'
+      - 'ros2'
   pull_request:
   workflow_dispatch:
     branches:
