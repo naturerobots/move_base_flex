@@ -76,6 +76,10 @@ if(BUILD_TESTING)
     test/abstract_planner_execution.cpp)
   target_link_libraries(abstract_planner_execution_test ${MBF_ABSTRACT_SERVER_LIB})
 
+  ament_add_gmock(abstract_plan_refiner_execution_test
+    test/abstract_plan_refiner_execution.cpp)
+  target_link_libraries(abstract_plan_refiner_execution_test ${MBF_ABSTRACT_SERVER_LIB})
+
   ament_add_gmock(planner_action_test
     test/planner_action.cpp)
   target_link_libraries(planner_action_test ${MBF_ABSTRACT_SERVER_LIB})
