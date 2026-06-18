@@ -2,12 +2,13 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>mbf_msgs</name>
-  <version>1.0.5</version>
+  <version>1.1.0</version>
   <description>
       The move_base_flex messages package providing the action definition files for the action GetPath, ExePath, Recovery and MoveBase. The action servers providing these action are implemented in <a href="http://wiki.ros.org/mbf_abstract_nav">mbf_abstract_nav</a>.
   </description>
 
   <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
+  <maintainer email="georg.john@naturerobots.com">Georg John</maintainer>
   <license>BSD-3-Clause</license>
 
   <url>http://github.com/naturerobots/move_base_flex</url>

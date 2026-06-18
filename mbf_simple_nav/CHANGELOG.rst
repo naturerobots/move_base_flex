@@ -2,6 +2,10 @@
 Changelog for package mbf_simple_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.1.0 (2026-06-18)
+------------------
+* Added PlanRefiner interface, see #353
+
 1.0.5 (2026-03-06)
 ------------------
 
