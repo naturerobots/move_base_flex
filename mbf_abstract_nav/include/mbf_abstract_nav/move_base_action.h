@@ -48,6 +48,7 @@
 
 #include <mbf_msgs/action/move_base.hpp>
 #include <mbf_msgs/action/get_path.hpp>
+#include <mbf_msgs/action/refine_path.hpp>
 #include <mbf_msgs/action/exe_path.hpp>
 #include <mbf_msgs/action/recovery.hpp>
 
@@ -59,6 +60,8 @@ namespace mbf_abstract_nav
 
 //! ExePath action topic name
 const std::string name_action_exe_path = "~/exe_path";
+//! RefinePath action topic name
+const std::string name_action_refine_path = "~/refine_path";
 //! GetPath action topic name
 const std::string name_action_get_path = "~/get_path";
 //! Recovery action topic name
@@ -68,7 +71,7 @@ const std::string name_action_move_base = "~/move_base";
 
 class MoveBaseAction
 {
- public:
+public:
   typedef std::shared_ptr<MoveBaseAction> Ptr;
 
   //! Action clients for the MoveBase action
@@ -78,9 +81,10 @@ class MoveBaseAction
 
   typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::MoveBase> GoalHandle;
 
-  MoveBaseAction(const rclcpp::Node::SharedPtr &node, const std::string &name,
-                 const mbf_utility::RobotInformation::ConstPtr &robot_info,
-                 const std::vector<std::string> &controllers);
+  MoveBaseAction(
+    const rclcpp::Node::SharedPtr & node, const std::string & name,
+    const mbf_utility::RobotInformation::ConstPtr & robot_info,
+    const std::vector<std::string> & controllers);
 
   ~MoveBaseAction();
 
@@ -88,20 +92,27 @@ class MoveBaseAction
 
   void cancel();
 
-  rcl_interfaces::msg::SetParametersResult reconfigure(const std::vector<rclcpp::Parameter> &parameters);
+  rcl_interfaces::msg::SetParametersResult reconfigure(
+    const std::vector<rclcpp::Parameter> & parameters);
 
- protected:
+protected:
+  void actionGetPathGoalResponse(
+    const rclcpp_action::ClientGoalHandle<GetPath>::ConstSharedPtr & get_path_goal_handle);
+  void actionGetPathResult(const rclcpp_action::ClientGoalHandle<GetPath>::WrappedResult & result);
 
-  void actionGetPathGoalResponse(const rclcpp_action::ClientGoalHandle<GetPath>::ConstSharedPtr& get_path_goal_handle);
-  void actionGetPathResult(const rclcpp_action::ClientGoalHandle<GetPath>::WrappedResult &result);
+  void actionExePathGoalResponse(
+    const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr & exe_path_goal_handle);
+  void actionExePathFeedback(
+    const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr & goal_handle,
+    const ExePath::Feedback::ConstSharedPtr & feedback);
+  void actionExePathResult(const rclcpp_action::ClientGoalHandle<ExePath>::WrappedResult & result);
 
-  void actionExePathGoalResponse(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& exe_path_goal_handle);
-  void actionExePathFeedback(const rclcpp_action::ClientGoalHandle<ExePath>::ConstSharedPtr& goal_handle, const ExePath::Feedback::ConstSharedPtr &feedback);
-  void actionExePathResult(const rclcpp_action::ClientGoalHandle<ExePath>::WrappedResult &result);
-
-  void actionRecoveryGoalResponse(const rclcpp_action::ClientGoalHandle<Recovery>::ConstSharedPtr& recovery_goal_handle);
-  void actionRecoveryResult(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result);
-  void recoveryRejectedOrAborted(const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult &result); // TODO keep?
+  void actionRecoveryGoalResponse(
+    const rclcpp_action::ClientGoalHandle<Recovery>::ConstSharedPtr & recovery_goal_handle);
+  void actionRecoveryResult(
+    const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult & result);
+  void recoveryRejectedOrAborted(
+    const rclcpp_action::ClientGoalHandle<Recovery>::WrappedResult & result);                             // TODO keep?
 
   //! Checks whether the move base client requested canceling of action. If so, returns true and handles goal state transition. Otherwise, returns false.
   //! Regularly call this function before doing further work (e.g. before calling the next exepath action), so canceling remains responsive.
@@ -119,14 +130,19 @@ class MoveBaseAction
    * @param result
    * @param move_base_result
    */
-  template <typename ResultType>
-  void fillMoveBaseResult(const ResultType& result, mbf_msgs::action::MoveBase::Result& move_base_result)
+  template<typename ResultType>
+  void fillMoveBaseResult(
+    const ResultType & result,
+    mbf_msgs::action::MoveBase::Result & move_base_result)
   {
     // copy outcome and message from action client result
     move_base_result.outcome = result.outcome;
     move_base_result.message = result.message;
-    move_base_result.dist_to_goal = static_cast<float>(mbf_utility::distance(robot_pose_, goal_pose_));
-    move_base_result.angle_to_goal = static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
+    move_base_result.dist_to_goal = static_cast<float>(mbf_utility::distance(
+        robot_pose_,
+        goal_pose_));
+    move_base_result.angle_to_goal =
+      static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
     move_base_result.final_pose = robot_pose_;
   }
 

@@ -53,10 +53,12 @@
 
 #include "mbf_abstract_nav/abstract_plugin_manager.h"
 #include "mbf_abstract_nav/abstract_planner_execution.h"
+#include "mbf_abstract_nav/abstract_plan_refiner_execution.h"
 #include "mbf_abstract_nav/abstract_controller_execution.h"
 #include "mbf_abstract_nav/abstract_recovery_execution.h"
 
 #include "mbf_abstract_nav/planner_action.h"
+#include "mbf_abstract_nav/plan_refiner_action.h"
 #include "mbf_abstract_nav/controller_action.h"
 #include "mbf_abstract_nav/recovery_action.h"
 #include "mbf_abstract_nav/move_base_action.h"
@@ -79,6 +81,11 @@ namespace mbf_abstract_nav
 typedef rclcpp_action::Server<mbf_msgs::action::GetPath> ActionServerGetPath;
 typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::GetPath> ServerGoalHandleGetPath;
 typedef std::shared_ptr<ServerGoalHandleGetPath> ServerGoalHandleGetPathPtr;
+
+//! RefinePath action server
+typedef rclcpp_action::Server<mbf_msgs::action::RefinePath> ActionServerRefinePath;
+typedef rclcpp_action::ServerGoalHandle<mbf_msgs::action::RefinePath> ServerGoalHandleRefinePath;
+typedef std::shared_ptr<ServerGoalHandleRefinePath> ServerGoalHandleRefinePathPtr;
 
 //! ExePath action server
 typedef rclcpp_action::Server<mbf_msgs::action::ExePath> ActionServerExePath;
@@ -105,216 +112,277 @@ typedef std::shared_ptr<ServerGoalHandleMoveBase> ServerGoalHandleMoveBasePtr;
  *
  * @ingroup abstract_server navigation_server
  */
-  class AbstractNavigationServer
-  {
-  public:
+class AbstractNavigationServer
+{
+public:
+  /**
+   * @brief Constructor, reads all parameters and initializes all action servers and creates the plugin instances.
+   *        Parameters are the concrete implementations of the abstract classes.
+   * @param tf_listener_ptr shared pointer to the common TransformListener buffering transformations
+   */
+  AbstractNavigationServer(const TFPtr & tf_listener_ptr, const rclcpp::Node::SharedPtr & node);
 
-    /**
-     * @brief Constructor, reads all parameters and initializes all action servers and creates the plugin instances.
-     *        Parameters are the concrete implementations of the abstract classes.
-     * @param tf_listener_ptr shared pointer to the common TransformListener buffering transformations
-     */
-    AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node);
+  /**
+   * @brief Destructor
+   */
+  virtual ~AbstractNavigationServer();
 
-    /**
-     * @brief Destructor
-     */
-    virtual ~AbstractNavigationServer();
+  virtual void stop();
 
-    virtual void stop();
+  /**
+   * @brief Create a new abstract planner execution.
+   * @param plugin_name Name of the planner to use.
+   * @param plugin_ptr Shared pointer to the plugin to use.
+   * @return Shared pointer to a new @ref planner_execution "PlannerExecution".
+   */
+  virtual mbf_abstract_nav::AbstractPlannerExecution::Ptr newPlannerExecution(
+    const std::string & plugin_name,
+    const mbf_abstract_core::AbstractPlanner::Ptr & plugin_ptr);
 
-    /**
-     * @brief Create a new abstract planner execution.
-     * @param plugin_name Name of the planner to use.
-     * @param plugin_ptr Shared pointer to the plugin to use.
-     * @return Shared pointer to a new @ref planner_execution "PlannerExecution".
-     */
-    virtual mbf_abstract_nav::AbstractPlannerExecution::Ptr newPlannerExecution(
-        const std::string &plugin_name,
-        const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr);
+  /**
+   * @brief Create a new abstract plan refiner execution.
+   * @param plugin_name Name of the plan refiner to use.
+   * @param plugin_ptr Shared pointer to the plugin to use.
+   * @return Shared pointer to a new @ref plan_refiner_execution "PlanRefinerExecution".
+   */
+  virtual mbf_abstract_nav::AbstractPlanRefinerExecution::Ptr newPlanRefinerExecution(
+    const std::string & plugin_name,
+    const mbf_abstract_core::AbstractPlanRefiner::Ptr & plugin_ptr);
 
-    /**
-     * @brief Create a new abstract controller execution.
-     * @param plugin_name Name of the controller to use.
-     * @param plugin_ptr Shared pointer to the plugin to use.
-     * @return Shared pointer to a new @ref controller_execution "ControllerExecution".
-     */
-    virtual mbf_abstract_nav::AbstractControllerExecution::Ptr newControllerExecution(
-        const std::string &plugin_name,
-        const mbf_abstract_core::AbstractController::Ptr &plugin_ptr);
+  /**
+   * @brief Create a new abstract controller execution.
+   * @param plugin_name Name of the controller to use.
+   * @param plugin_ptr Shared pointer to the plugin to use.
+   * @return Shared pointer to a new @ref controller_execution "ControllerExecution".
+   */
+  virtual mbf_abstract_nav::AbstractControllerExecution::Ptr newControllerExecution(
+    const std::string & plugin_name,
+    const mbf_abstract_core::AbstractController::Ptr & plugin_ptr);
 
-    /**
-     * @brief Create a new abstract recovery behavior execution.
-     * @param plugin_name Name of the recovery behavior to run.
-     * @param plugin_ptr Shared pointer to the plugin to use
-     * @return Shared pointer to a new @ref recovery_execution "RecoveryExecution".
-     */
-    virtual mbf_abstract_nav::AbstractRecoveryExecution::Ptr newRecoveryExecution(
-        const std::string &plugin_name,
-        const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr);
+  /**
+   * @brief Create a new abstract recovery behavior execution.
+   * @param plugin_name Name of the recovery behavior to run.
+   * @param plugin_ptr Shared pointer to the plugin to use
+   * @return Shared pointer to a new @ref recovery_execution "RecoveryExecution".
+   */
+  virtual mbf_abstract_nav::AbstractRecoveryExecution::Ptr newRecoveryExecution(
+    const std::string & plugin_name,
+    const mbf_abstract_core::AbstractRecovery::Ptr & plugin_ptr);
 
-    /**
-     * @brief Loads the plugin associated with the given planner_type parameter.
-     * @param planner_type The type of the planner plugin to load.
-     * @return Pointer to the loaded plugin
-     */
-    virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(const std::string &planner_type) = 0;
+  /**
+   * @brief Loads the plugin associated with the given planner_type parameter.
+   * @param planner_type The type of the planner plugin to load.
+   * @return Pointer to the loaded plugin
+   */
+  virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(
+    const std::string & planner_type) = 0;
 
-    /**
-     * @brief Loads the plugin associated with the given controller type parameter
-     * @param controller_type The type of the controller plugin
-     * @return A shared pointer to a new loaded controller, if the controller plugin was loaded successfully,
-     *         an empty pointer otherwise.
-     */
-    virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(const std::string &controller_type) = 0;
+  /**
+   * @brief Loads the plugin associated with the given plan refiner type parameter
+   * @param plan_refiner_type The type of the plan refiner plugin
+   * @return A shared pointer to a new loaded plan refiner, if the plan refiner plugin was loaded successfully,
+   *         an empty pointer otherwise.
+   */
+  virtual mbf_abstract_core::AbstractPlanRefiner::Ptr loadPlanRefinerPlugin(
+    const std::string & plan_refiner_type) = 0;
 
-    /**
-     * @brief Loads a Recovery plugin associated with given recovery type parameter
-     * @param recovery_name The name of the Recovery plugin
-     * @return A shared pointer to a Recovery plugin, if the plugin was loaded successfully, an empty pointer otherwise.
-     */
-    virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(const std::string &recovery_type) = 0;
+  /**
+   * @brief Loads the plugin associated with the given controller type parameter
+   * @param controller_type The type of the controller plugin
+   * @return A shared pointer to a new loaded controller, if the controller plugin was loaded successfully,
+   *         an empty pointer otherwise.
+   */
+  virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(
+    const std::string & controller_type) = 0;
 
-    /**
-     * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
-     *        some plugins need to be initialized!
-     * @param name The name of the planner
-     * @param planner_ptr pointer to the planner object which corresponds to the name param
-     * @return true if init succeeded, false otherwise
-     */
-    virtual bool initializePlannerPlugin(
-        const std::string &name,
-        const mbf_abstract_core::AbstractPlanner::Ptr &planner_ptr
-    ) = 0;
+  /**
+   * @brief Loads a Recovery plugin associated with given recovery type parameter
+   * @param recovery_name The name of the Recovery plugin
+   * @return A shared pointer to a Recovery plugin, if the plugin was loaded successfully, an empty pointer otherwise.
+   */
+  virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(
+    const std::string & recovery_type) = 0;
 
-    /**
-     * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
-     *        some plugins need to be initialized!
-     * @param name The name of the controller
-     * @param controller_ptr pointer to the controller object which corresponds to the name param
-     * @return true if init succeeded, false otherwise
-     */
-    virtual bool initializeControllerPlugin(
-        const std::string &name,
-        const mbf_abstract_core::AbstractController::Ptr &controller_ptr
-    ) = 0;
+  /**
+   * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
+   *        some plugins need to be initialized!
+   * @param name The name of the planner
+   * @param planner_ptr pointer to the planner object which corresponds to the name param
+   * @return true if init succeeded, false otherwise
+   */
+  virtual bool initializePlannerPlugin(
+    const std::string & name,
+    const mbf_abstract_core::AbstractPlanner::Ptr & planner_ptr
+  ) = 0;
 
-    /**
-     * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
-     *        some plugins need to be initialized!
-     * @param name The name of the recovery behavior
-     * @param behavior_ptr pointer to the recovery behavior object which corresponds to the name param
-     * @return true if init succeeded, false otherwise
-     */
-    virtual bool initializeRecoveryPlugin(
-        const std::string &name,
-        const mbf_abstract_core::AbstractRecovery::Ptr &behavior_ptr
-    ) = 0;
+  /**
+   * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
+   *        some plugins need to be initialized!
+   * @param name The name of the plan refiner
+   * @param plan_refiner_ptr pointer to the plan refiner object which corresponds to the name param
+   * @return true if init succeeded, false otherwise
+   */
+  virtual bool initializePlanRefinerPlugin(
+    const std::string & name,
+    const mbf_abstract_core::AbstractPlanRefiner::Ptr & plan_refiner_ptr
+  ) = 0;
 
+  /**
+   * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
+   *        some plugins need to be initialized!
+   * @param name The name of the controller
+   * @param controller_ptr pointer to the controller object which corresponds to the name param
+   * @return true if init succeeded, false otherwise
+   */
+  virtual bool initializeControllerPlugin(
+    const std::string & name,
+    const mbf_abstract_core::AbstractController::Ptr & controller_ptr
+  ) = 0;
 
-    virtual rclcpp_action::GoalResponse handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal);
+  /**
+   * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
+   *        some plugins need to be initialized!
+   * @param name The name of the recovery behavior
+   * @param behavior_ptr pointer to the recovery behavior object which corresponds to the name param
+   * @return true if init succeeded, false otherwise
+   */
+  virtual bool initializeRecoveryPlugin(
+    const std::string & name,
+    const mbf_abstract_core::AbstractRecovery::Ptr & behavior_ptr
+  ) = 0;
 
-    /**
-     * @brief GetPath action execution method. This method will be called if the action server receives a goal
-     * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
-     *        definitions in mbf_msgs.
-     */
-    virtual void callActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
+  virtual rclcpp_action::GoalResponse handleGoalGetPath(
+    const rclcpp_action::GoalUUID & uuid,
+    mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal);
 
-    virtual rclcpp_action::CancelResponse cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
+  /**
+   * @brief GetPath action execution method. This method will be called if the action server receives a goal
+   * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
+   *        definitions in mbf_msgs.
+   */
+  virtual void callActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalExePath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal);
+  virtual rclcpp_action::CancelResponse cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle);
 
-    /**
-     * @brief ExePath action execution method. This method will be called if the action server receives a goal
-     * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
-     *        definitions in mbf_msgs.
-     */
-    virtual void callActionExePath(ServerGoalHandleExePathPtr goal_handle);
+  virtual rclcpp_action::GoalResponse handleGoalRefinePath(
+    const rclcpp_action::GoalUUID & uuid,
+    mbf_msgs::action::RefinePath::Goal::ConstSharedPtr goal);
 
-    virtual rclcpp_action::CancelResponse cancelActionExePath(ServerGoalHandleExePathPtr goal_handle);
+  /**
+   * @brief RefinePath action execution method. This method will be called if the action server receives a goal
+   * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
+   *        definitions in mbf_msgs.
+   */
+  virtual void callActionRefinePath(ServerGoalHandleRefinePathPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal);
+  virtual rclcpp_action::CancelResponse cancelActionRefinePath(
+    ServerGoalHandleRefinePathPtr goal_handle);
 
-    /**
-     * @brief Recovery action execution method. This method will be called if the action server receives a goal
-     * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
-     *        definitions in mbf_msgs.
-     */
-    virtual void callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
+  virtual rclcpp_action::GoalResponse handleGoalExePath(
+    const rclcpp_action::GoalUUID & uuid,
+    mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal);
 
-    virtual rclcpp_action::CancelResponse cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
+  /**
+   * @brief ExePath action execution method. This method will be called if the action server receives a goal
+   * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
+   *        definitions in mbf_msgs.
+   */
+  virtual void callActionExePath(ServerGoalHandleExePathPtr goal_handle);
 
-    virtual rclcpp_action::GoalResponse handleGoalMoveBase(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal);
+  virtual rclcpp_action::CancelResponse cancelActionExePath(ServerGoalHandleExePathPtr goal_handle);
 
-    /**
-     * @brief MoveBase action execution method. This method will be called if the action server receives a goal
-     * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
-     *        definitions in mbf_msgs.
-     */
-    virtual void callActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
+  virtual rclcpp_action::GoalResponse handleGoalRecovery(
+    const rclcpp_action::GoalUUID & uuid,
+    mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal);
 
-    virtual rclcpp_action::CancelResponse cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
+  /**
+   * @brief Recovery action execution method. This method will be called if the action server receives a goal
+   * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
+   *        definitions in mbf_msgs.
+   */
+  virtual void callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle);
 
-    /**
-     * @brief initializes all server components. Initializing the plugins of the @ref planner_execution "Planner", the
-     *        @ref controller_execution "Controller", and the @ref recovery_execution "Recovery Behavior".
-     */
-    virtual void initializeServerComponents();
+  virtual rclcpp_action::CancelResponse cancelActionRecovery(
+    ServerGoalHandleRecoveryPtr goal_handle);
 
-  protected:
+  virtual rclcpp_action::GoalResponse handleGoalMoveBase(
+    const rclcpp_action::GoalUUID & uuid,
+    mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal);
 
-    /**
-     * @brief Transforms a plan to the global frame (global_frame_) coord system.
-     * @param plan Input plan to be transformed.
-     * @param global_plan Output plan, which is then transformed to the global frame.
-     * @return true, if the transformation succeeded, false otherwise
-     */
-    bool transformPlanToGlobalFrame(std::vector<geometry_msgs::msg::PoseStamped> &plan,
-                                    std::vector<geometry_msgs::msg::PoseStamped> &global_plan);
+  /**
+   * @brief MoveBase action execution method. This method will be called if the action server receives a goal
+   * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
+   *        definitions in mbf_msgs.
+   */
+  virtual void callActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle);
 
-    //! Ptr to node for logging, params and communication with other nodes
-    rclcpp::Node::SharedPtr node_;
+  virtual rclcpp_action::CancelResponse cancelActionMoveBase(
+    ServerGoalHandleMoveBasePtr goal_handle);
 
-    AbstractPluginManager<mbf_abstract_core::AbstractPlanner> planner_plugin_manager_;
-    AbstractPluginManager<mbf_abstract_core::AbstractController> controller_plugin_manager_;
-    AbstractPluginManager<mbf_abstract_core::AbstractRecovery> recovery_plugin_manager_;
+  /**
+   * @brief initializes all server components. Initializing the plugins of the @ref planner_execution "Planner", the
+   *        @ref controller_execution "Controller", and the @ref recovery_execution "Recovery Behavior".
+   */
+  virtual void initializeServerComponents();
 
-    //! shared pointer to the Recovery action server
-    ActionServerRecovery::SharedPtr action_server_recovery_ptr_;
+protected:
+  /**
+   * @brief Transforms a plan to the global frame (global_frame_) coord system.
+   * @param plan Input plan to be transformed.
+   * @param global_plan Output plan, which is then transformed to the global frame.
+   * @return true, if the transformation succeeded, false otherwise
+   */
+  bool transformPlanToGlobalFrame(
+    std::vector<geometry_msgs::msg::PoseStamped> & plan,
+    std::vector<geometry_msgs::msg::PoseStamped> & global_plan);
 
-    //! shared pointer to the ExePath action server
-    ActionServerExePath::SharedPtr action_server_exe_path_ptr_;
+  //! Ptr to node for logging, params and communication with other nodes
+  rclcpp::Node::SharedPtr node_;
 
-    //! shared pointer to the GetPath action server
-    ActionServerGetPath::SharedPtr action_server_get_path_ptr_;
+  AbstractPluginManager<mbf_abstract_core::AbstractPlanner> planner_plugin_manager_;
+  AbstractPluginManager<mbf_abstract_core::AbstractPlanRefiner> plan_refiner_plugin_manager_;
+  AbstractPluginManager<mbf_abstract_core::AbstractController> controller_plugin_manager_;
+  AbstractPluginManager<mbf_abstract_core::AbstractRecovery> recovery_plugin_manager_;
 
-    //! shared pointer to the MoveBase action server
-    ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
+  //! shared pointer to the Recovery action server
+  ActionServerRecovery::SharedPtr action_server_recovery_ptr_;
 
-    PlannerAction::Ptr planner_action_;
-    ControllerAction::Ptr controller_action_;
-    RecoveryAction::Ptr recovery_action_;
-    MoveBaseAction::Ptr move_base_action_;
+  //! shared pointer to the ExePath action server
+  ActionServerExePath::SharedPtr action_server_exe_path_ptr_;
 
-    //! the robot frame, to get the current robot pose in the global_frame_
-    std::string robot_frame_;
+  //! shared pointer to the RefinePath action server
+  ActionServerRefinePath::SharedPtr action_server_refine_path_ptr_;
 
-    //! the global frame, in which the robot is moving
-    std::string global_frame_;
+  //! shared pointer to the GetPath action server
+  ActionServerGetPath::SharedPtr action_server_get_path_ptr_;
 
-    //! shared pointer to the common TransformListener
-    const TFPtr tf_listener_ptr_;
+  //! shared pointer to the MoveBase action server
+  ActionServerMoveBase::SharedPtr action_server_move_base_ptr_;
 
-    //! cmd_vel publisher for all controller execution objects
-    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_;
+  PlannerAction::Ptr planner_action_;
+  PlanRefinerAction::Ptr plan_refiner_action_;
+  ControllerAction::Ptr controller_action_;
+  RecoveryAction::Ptr recovery_action_;
+  MoveBaseAction::Ptr move_base_action_;
 
-    //! current_goal publisher for all controller execution objects
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
+  //! the robot frame, to get the current robot pose in the global_frame_
+  std::string robot_frame_;
 
-    //! current robot state
-    mbf_utility::RobotInformation::Ptr robot_info_;
-  };
+  //! the global frame, in which the robot is moving
+  std::string global_frame_;
+
+  //! shared pointer to the common TransformListener
+  const TFPtr tf_listener_ptr_;
+
+  //! cmd_vel publisher for all controller execution objects
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_;
+
+  //! current_goal publisher for all controller execution objects
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
+
+  //! current robot state
+  mbf_utility::RobotInformation::Ptr robot_info_;
+};
 
 } /* namespace mbf_abstract_nav */
 

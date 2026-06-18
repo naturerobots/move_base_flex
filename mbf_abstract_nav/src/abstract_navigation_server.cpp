@@ -47,38 +47,50 @@ namespace mbf_abstract_nav
 
 using namespace std::placeholders;
 
-AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node)
-    : tf_listener_ptr_(tf_listener_ptr), node_(node),
-      planner_plugin_manager_("planners",
-          std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2),
-          node),
-      controller_plugin_manager_("controllers",
-          std::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2),
-          node),
-      recovery_plugin_manager_("recovery_behaviors",
-          std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
-          std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2),
-          node)
+AbstractNavigationServer::AbstractNavigationServer(
+  const TFPtr & tf_listener_ptr,
+  const rclcpp::Node::SharedPtr & node)
+: tf_listener_ptr_(tf_listener_ptr), node_(node),
+  planner_plugin_manager_("planners",
+    std::bind(&AbstractNavigationServer::loadPlannerPlugin, this, _1),
+    std::bind(&AbstractNavigationServer::initializePlannerPlugin, this, _1, _2),
+    node),
+  plan_refiner_plugin_manager_("plan_refiners",
+    std::bind(&AbstractNavigationServer::loadPlanRefinerPlugin, this, _1),
+    std::bind(&AbstractNavigationServer::initializePlanRefinerPlugin, this, _1, _2),
+    node),
+  controller_plugin_manager_("controllers",
+    std::bind(&AbstractNavigationServer::loadControllerPlugin, this, _1),
+    std::bind(&AbstractNavigationServer::initializeControllerPlugin, this, _1, _2),
+    node),
+  recovery_plugin_manager_("recovery_behaviors",
+    std::bind(&AbstractNavigationServer::loadRecoveryPlugin, this, _1),
+    std::bind(&AbstractNavigationServer::initializeRecoveryPlugin, this, _1, _2),
+    node)
 {
   node_->declare_parameter<std::string>("global_frame", "map");
   node_->declare_parameter<std::string>("robot_frame", "base_link");
   node_->declare_parameter<double>("tf_timeout", 3.0);
   node_->declare_parameter<std::string>("odom_topic", "~/odom");
 
-  double tf_timeout_s;  
-  node_->get_parameter("tf_timeout",tf_timeout_s);
+  double tf_timeout_s;
+  node_->get_parameter("tf_timeout", tf_timeout_s);
   node_->get_parameter("global_frame", global_frame_);
   node_->get_parameter("robot_frame", robot_frame_);
 
-  robot_info_ = std::make_shared<mbf_utility::RobotInformation>(node, tf_listener_ptr, global_frame_, robot_frame_,
-                                                                rclcpp::Duration::from_seconds(tf_timeout_s),
-                                                                node_->get_parameter("odom_topic").as_string());
+  robot_info_ = std::make_shared<mbf_utility::RobotInformation>(
+    node, tf_listener_ptr, global_frame_, robot_frame_,
+    rclcpp::Duration::from_seconds(tf_timeout_s),
+    node_->get_parameter("odom_topic").as_string());
   controller_action_ = std::make_shared<ControllerAction>(node, name_action_exe_path, robot_info_);
   planner_action_ = std::make_shared<PlannerAction>(node, name_action_get_path, robot_info_);
+  plan_refiner_action_ = std::make_shared<PlanRefinerAction>(
+    node, name_action_refine_path,
+    robot_info_);
   recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, robot_info_);
-  move_base_action_ = std::make_shared<MoveBaseAction>(node, name_action_move_base, robot_info_, recovery_plugin_manager_.getLoadedNames());
+  move_base_action_ = std::make_shared<MoveBaseAction>(
+    node, name_action_move_base, robot_info_,
+    recovery_plugin_manager_.getLoadedNames());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
@@ -90,6 +102,13 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalGetPath, this, _1, _2),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionGetPath, this, _1),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionGetPath, this, _1));
+
+  action_server_refine_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::RefinePath>(
+    node_,
+    name_action_refine_path,
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalRefinePath, this, _1, _2),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionRefinePath, this, _1),
+    std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionRefinePath, this, _1));
 
   action_server_exe_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::ExePath>(
     node_,
@@ -116,6 +135,7 @@ AbstractNavigationServer::AbstractNavigationServer(const TFPtr &tf_listener_ptr,
 void AbstractNavigationServer::initializeServerComponents()
 {
   planner_plugin_manager_.loadPlugins();
+  plan_refiner_plugin_manager_.loadPlugins();
   controller_plugin_manager_.loadPlugins();
   recovery_plugin_manager_.loadPlugins();
 }
@@ -125,69 +145,86 @@ AbstractNavigationServer::~AbstractNavigationServer()
 
 }
 
-template <typename T>
-rclcpp_action::GoalResponse handleGoalHelper(const std::string& plugin_name_from_goal, const mbf_abstract_nav::AbstractPluginManager<T>& plugin_manager, rclcpp::Logger logger)
+template<typename T>
+rclcpp_action::GoalResponse handleGoalHelper(
+  const std::string & plugin_name_from_goal,
+  const mbf_abstract_nav::AbstractPluginManager<T> & plugin_manager, rclcpp::Logger logger)
 {
   std::string plugin_name;
-  if(!plugin_manager.getLoadedNames().empty())
-  {
-    plugin_name = plugin_name_from_goal.empty() ? plugin_manager.getLoadedNames().front() : plugin_name_from_goal;
-  }
-  else
-  {
+  if (!plugin_manager.getLoadedNames().empty()) {
+    plugin_name =
+      plugin_name_from_goal.empty() ? plugin_manager.getLoadedNames().front() :
+      plugin_name_from_goal;
+  } else {
     RCLCPP_WARN_STREAM(logger, "Rejecting goal: No plugins loaded at all!");
     return rclcpp_action::GoalResponse::REJECT;
   }
 
-  if(plugin_manager.hasPlugin(plugin_name))
-  {
+  if (plugin_manager.hasPlugin(plugin_name)) {
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
-  }
-  else
-  {
-    RCLCPP_ERROR_STREAM(logger, "Rejecting goal: No plugin loaded with the given name \"" << plugin_name_from_goal << "\"!");
+  } else {
+    RCLCPP_ERROR_STREAM(
+      logger,
+      "Rejecting goal: No plugin loaded with the given name \"" << plugin_name_from_goal <<
+        "\"!");
     return rclcpp_action::GoalResponse::REJECT;
   }
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal) 
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalGetPath(
+  const rclcpp_action::GoalUUID & uuid, mbf_msgs::action::GetPath::Goal::ConstSharedPtr goal)
 {
   return handleGoalHelper(goal->planner, planner_plugin_manager_, rclcpp::get_logger("get_path"));
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal)
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRefinePath(
+  const rclcpp_action::GoalUUID & uuid, mbf_msgs::action::RefinePath::Goal::ConstSharedPtr goal)
 {
-  return handleGoalHelper(goal->controller, controller_plugin_manager_, rclcpp::get_logger("exe_path"));
+  return handleGoalHelper(
+    goal->refiner, plan_refiner_plugin_manager_,
+    rclcpp::get_logger("refine_path"));
+}
+
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalExePath(
+  const rclcpp_action::GoalUUID & uuid, mbf_msgs::action::ExePath::Goal::ConstSharedPtr goal)
+{
+  return handleGoalHelper(
+    goal->controller, controller_plugin_manager_,
+    rclcpp::get_logger("exe_path"));
 }
 
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal)
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalRecovery(
+  const rclcpp_action::GoalUUID & uuid, mbf_msgs::action::Recovery::Goal::ConstSharedPtr goal)
 {
   return handleGoalHelper(goal->behavior, recovery_plugin_manager_, rclcpp::get_logger("recovery"));
 }
 
 void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
 {
-  const mbf_msgs::action::GetPath::Goal &goal = *(goal_handle->get_goal().get());
-  const geometry_msgs::msg::Point &p = goal.target_pose.pose.position;
-  const std::string planner_name = goal.planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal.planner;
+  const mbf_msgs::action::GetPath::Goal & goal = *(goal_handle->get_goal().get());
+  const geometry_msgs::msg::Point & p = goal.target_pose.pose.position;
+  const std::string planner_name =
+    goal.planner.empty() ? planner_plugin_manager_.getLoadedNames().front() : goal.planner;
 
-  mbf_abstract_core::AbstractPlanner::Ptr planner_plugin = planner_plugin_manager_.getPlugin(planner_name);
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("get_path"), "Start action \"get_path\" using planner \"" << planner_name
-                        << "\" of type \"" << planner_plugin_manager_.getType(planner_name) << "\"");
+  mbf_abstract_core::AbstractPlanner::Ptr planner_plugin = planner_plugin_manager_.getPlugin(
+    planner_name);
+  RCLCPP_DEBUG_STREAM(
+    rclcpp::get_logger(
+      "get_path"), "Start action \"get_path\" using planner \"" << planner_name
+                                                                << "\" of type \"" << planner_plugin_manager_.getType(
+      planner_name) << "\"");
 
 
-  if(planner_plugin)
-  {
-    mbf_abstract_nav::AbstractPlannerExecution::Ptr planner_execution
-        = newPlannerExecution(planner_name, planner_plugin);
+  if (planner_plugin) {
+    mbf_abstract_nav::AbstractPlannerExecution::Ptr planner_execution =
+      newPlannerExecution(planner_name, planner_plugin);
 
     //start another planning action
     planner_action_->start(goal_handle, planner_execution);
-  }
-  else
-  {
-    mbf_msgs::action::GetPath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::GetPath::Result>();
+  } else {
+    mbf_msgs::action::GetPath::Result::SharedPtr result =
+      std::make_shared<mbf_msgs::action::GetPath::Result>();
     result->outcome = mbf_msgs::action::GetPath::Result::INTERNAL_ERROR;
     result->message = "Internal Error: \"planner_plugin\" pointer should not be a null pointer!";
     RCLCPP_FATAL_STREAM(rclcpp::get_logger("get_path"), result->message);
@@ -195,34 +232,78 @@ void AbstractNavigationServer::callActionGetPath(ServerGoalHandleGetPathPtr goal
   }
 }
 
-rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionGetPath(ServerGoalHandleGetPathPtr goal_handle)
+rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionGetPath(
+  ServerGoalHandleGetPathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("get_path"), "Cancel action \"get_path\"");
   return rclcpp_action::CancelResponse::ACCEPT; // returning ACCEPT here will change the goal_handle state via rclcpp_action code. The planner_action reacts on that change and will stop execution and cancel the action
 }
 
+void AbstractNavigationServer::callActionRefinePath(ServerGoalHandleRefinePathPtr goal_handle)
+{
+  const mbf_msgs::action::RefinePath::Goal & goal = *(goal_handle->get_goal().get());
+
+  const std::string refiner_name =
+    goal.refiner.empty() ? plan_refiner_plugin_manager_.getLoadedNames().front() : goal.refiner;
+
+  mbf_abstract_core::AbstractPlanRefiner::Ptr plan_refiner_plugin =
+    plan_refiner_plugin_manager_.getPlugin(refiner_name);
+  RCLCPP_DEBUG_STREAM(
+    rclcpp::get_logger(
+      "refine_path"), "Start action \"refine_path\" using refiner \"" << refiner_name
+                                                                      << "\" of type \"" << plan_refiner_plugin_manager_.getType(
+      refiner_name) << "\"");
+
+  if (plan_refiner_plugin) {
+    mbf_abstract_nav::AbstractPlanRefinerExecution::Ptr plan_refiner_execution =
+      newPlanRefinerExecution(refiner_name, plan_refiner_plugin);
+
+    // starts another plan refiner action
+    plan_refiner_action_->start(goal_handle, plan_refiner_execution);
+  } else {
+    mbf_msgs::action::RefinePath::Result::SharedPtr result =
+      std::make_shared<mbf_msgs::action::RefinePath::Result>();
+    result->outcome = mbf_msgs::action::RefinePath::Result::INTERNAL_ERROR;
+    result->message =
+      "Internal Error: \"plan_refiner_plugin\" pointer should not be a null pointer!";
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("refine_path"), result->message);
+    goal_handle->abort(result);
+  }
+}
+
+rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionRefinePath(
+  ServerGoalHandleRefinePathPtr goal_handle)
+{
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("refine_path"), "Cancel action \"refine_path\"");
+  return rclcpp_action::CancelResponse::ACCEPT; // returning ACCEPT here will change the goal_handle state via rclcpp_action code. The plan_refiner_action reacts on that change and will stop execution and cancel the action
+}
+
 void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal_handle)
 {
-  const mbf_msgs::action::ExePath::Goal &goal = *(goal_handle->get_goal());
+  const mbf_msgs::action::ExePath::Goal & goal = *(goal_handle->get_goal());
 
-  const std::string controller_name = goal.controller.empty() ? controller_plugin_manager_.getLoadedNames().front() : goal.controller;
+  const std::string controller_name =
+    goal.controller.empty() ? controller_plugin_manager_.getLoadedNames().front() : goal.
+    controller;
 
-  mbf_abstract_core::AbstractController::Ptr controller_plugin = controller_plugin_manager_.getPlugin(controller_name);
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("exe_path"), "Start action \"exe_path\" using controller \"" << controller_name
-                        << "\" of type \"" << controller_plugin_manager_.getType(controller_name) << "\"");
+  mbf_abstract_core::AbstractController::Ptr controller_plugin =
+    controller_plugin_manager_.getPlugin(controller_name);
+  RCLCPP_DEBUG_STREAM(
+    rclcpp::get_logger(
+      "exe_path"), "Start action \"exe_path\" using controller \"" << controller_name
+                                                                   << "\" of type \"" << controller_plugin_manager_.getType(
+      controller_name) << "\"");
 
 
-  if(controller_plugin)
-  {
-    mbf_abstract_nav::AbstractControllerExecution::Ptr controller_execution
-        = newControllerExecution(controller_name, controller_plugin);
+  if (controller_plugin) {
+    mbf_abstract_nav::AbstractControllerExecution::Ptr controller_execution =
+      newControllerExecution(controller_name, controller_plugin);
 
     // starts another controller action
     controller_action_->start(goal_handle, controller_execution);
-  }
-  else
-  {
-    mbf_msgs::action::ExePath::Result::SharedPtr result = std::make_shared<mbf_msgs::action::ExePath::Result>();
+  } else {
+    mbf_msgs::action::ExePath::Result::SharedPtr result =
+      std::make_shared<mbf_msgs::action::ExePath::Result>();
     result->outcome = mbf_msgs::action::ExePath::Result::INTERNAL_ERROR;
     result->message = "Internal Error: \"controller_plugin\" pointer should not be a null pointer!";
     RCLCPP_FATAL_STREAM(rclcpp::get_logger("exe_path"), result->message);
@@ -230,7 +311,8 @@ void AbstractNavigationServer::callActionExePath(ServerGoalHandleExePathPtr goal
   }
 }
 
-rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionExePath(ServerGoalHandleExePathPtr goal_handle)
+rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionExePath(
+  ServerGoalHandleExePathPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("exe_path"), "Cancel action \"exe_path\"");
   controller_action_->cancel(goal_handle);
@@ -239,13 +321,14 @@ rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionExePath(Serv
 
 void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
 {
-  const mbf_msgs::action::Recovery::Goal &goal = *(goal_handle->get_goal());
+  const mbf_msgs::action::Recovery::Goal & goal = *(goal_handle->get_goal());
 
-  const std::string recovery_name = goal.behavior.empty() ? recovery_plugin_manager_.getLoadedNames().front() : goal.behavior;
+  const std::string recovery_name =
+    goal.behavior.empty() ? recovery_plugin_manager_.getLoadedNames().front() : goal.behavior;
 
-  if(!recovery_plugin_manager_.hasPlugin(recovery_name))
-  {
-    mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
+  if (!recovery_plugin_manager_.hasPlugin(recovery_name)) {
+    mbf_msgs::action::Recovery::Result::SharedPtr result =
+      std::make_shared<mbf_msgs::action::Recovery::Result>();
     result->outcome = mbf_msgs::action::Recovery::Result::INVALID_PLUGIN;
     result->message = "No plugin loaded with the given name \"" + goal.behavior + "\"!";
     RCLCPP_ERROR_STREAM(rclcpp::get_logger("recovery"), result->message);
@@ -253,21 +336,23 @@ void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr go
     return;
   }
 
-  mbf_abstract_core::AbstractRecovery::Ptr recovery_plugin = recovery_plugin_manager_.getPlugin(recovery_name);
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("recovery"), "Start action \"recovery\" using recovery \"" << recovery_name
-                        << "\" of type \"" << recovery_plugin_manager_.getType(recovery_name) << "\"");
+  mbf_abstract_core::AbstractRecovery::Ptr recovery_plugin = recovery_plugin_manager_.getPlugin(
+    recovery_name);
+  RCLCPP_DEBUG_STREAM(
+    rclcpp::get_logger(
+      "recovery"), "Start action \"recovery\" using recovery \"" << recovery_name
+                                                                 << "\" of type \"" << recovery_plugin_manager_.getType(
+      recovery_name) << "\"");
 
 
-  if(recovery_plugin)
-  {
-    mbf_abstract_nav::AbstractRecoveryExecution::Ptr recovery_execution
-        = newRecoveryExecution(recovery_name, recovery_plugin);
+  if (recovery_plugin) {
+    mbf_abstract_nav::AbstractRecoveryExecution::Ptr recovery_execution =
+      newRecoveryExecution(recovery_name, recovery_plugin);
 
     recovery_action_->start(goal_handle, recovery_execution);
-  }
-  else
-  {
-    mbf_msgs::action::Recovery::Result::SharedPtr result = std::make_shared<mbf_msgs::action::Recovery::Result>();
+  } else {
+    mbf_msgs::action::Recovery::Result::SharedPtr result =
+      std::make_shared<mbf_msgs::action::Recovery::Result>();
     result->outcome = mbf_msgs::action::Recovery::Result::INTERNAL_ERROR;
     result->message = "Internal Error: \"recovery_plugin\" pointer should not be a null pointer!";
     RCLCPP_FATAL_STREAM(rclcpp::get_logger("recovery"), result->message);
@@ -275,7 +360,8 @@ void AbstractNavigationServer::callActionRecovery(ServerGoalHandleRecoveryPtr go
   }
 }
 
-rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionRecovery(ServerGoalHandleRecoveryPtr goal_handle)
+rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionRecovery(
+  ServerGoalHandleRecoveryPtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("recovery"), "Cancel action \"recovery\"");
   recovery_action_->cancel(goal_handle);
@@ -288,12 +374,14 @@ void AbstractNavigationServer::callActionMoveBase(ServerGoalHandleMoveBasePtr go
   move_base_action_->start(goal_handle);
 }
 
-rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalMoveBase(const rclcpp_action::GoalUUID& uuid, mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal)
+rclcpp_action::GoalResponse AbstractNavigationServer::handleGoalMoveBase(
+  const rclcpp_action::GoalUUID & uuid, mbf_msgs::action::MoveBase::Goal::ConstSharedPtr goal)
 {
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionMoveBase(ServerGoalHandleMoveBasePtr goal_handle)
+rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionMoveBase(
+  ServerGoalHandleMoveBasePtr goal_handle)
 {
   RCLCPP_INFO_STREAM(rclcpp::get_logger("move_base"), "Cancel action \"move_base\"");
   move_base_action_->cancel();
@@ -302,31 +390,46 @@ rclcpp_action::CancelResponse AbstractNavigationServer::cancelActionMoveBase(Ser
 }
 
 mbf_abstract_nav::AbstractPlannerExecution::Ptr AbstractNavigationServer::newPlannerExecution(
-    const std::string &plugin_name,
-    const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
+  const std::string & plugin_name,
+  const mbf_abstract_core::AbstractPlanner::Ptr & plugin_ptr)
 {
-  return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(plugin_name, plugin_ptr,
-                                                                      robot_info_, node_);
+  return std::make_shared<mbf_abstract_nav::AbstractPlannerExecution>(
+    plugin_name, plugin_ptr,
+    robot_info_, node_);
+}
+
+mbf_abstract_nav::AbstractPlanRefinerExecution::Ptr AbstractNavigationServer::
+newPlanRefinerExecution(
+  const std::string & plugin_name,
+  const mbf_abstract_core::AbstractPlanRefiner::Ptr & plugin_ptr)
+{
+  return std::make_shared<mbf_abstract_nav::AbstractPlanRefinerExecution>(
+    plugin_name, plugin_ptr,
+    robot_info_, node_);
 }
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr AbstractNavigationServer::newControllerExecution(
-    const std::string &plugin_name,
-    const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
+  const std::string & plugin_name,
+  const mbf_abstract_core::AbstractController::Ptr & plugin_ptr)
 {
-  return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(plugin_name, plugin_ptr, robot_info_,
-                                                                         vel_pub_, goal_pub_, node_);
+  return std::make_shared<mbf_abstract_nav::AbstractControllerExecution>(
+    plugin_name, plugin_ptr, robot_info_,
+    vel_pub_, goal_pub_, node_);
 }
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr AbstractNavigationServer::newRecoveryExecution(
-    const std::string &plugin_name,
-    const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
+  const std::string & plugin_name,
+  const mbf_abstract_core::AbstractRecovery::Ptr & plugin_ptr)
 {
-  return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(plugin_name, plugin_ptr,
-                                                                       robot_info_, node_);
+  return std::make_shared<mbf_abstract_nav::AbstractRecoveryExecution>(
+    plugin_name, plugin_ptr,
+    robot_info_, node_);
 }
 
-void AbstractNavigationServer::stop(){
+void AbstractNavigationServer::stop()
+{
   planner_action_->cancelAll();
+  plan_refiner_action_->cancelAll();
   controller_action_->cancelAll();
   recovery_action_->cancelAll();
   move_base_action_->cancel();

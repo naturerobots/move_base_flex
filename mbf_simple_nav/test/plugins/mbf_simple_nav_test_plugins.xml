@@ -13,6 +13,13 @@
             A controller meant for unit testing.
         </description>
     </class>
+    <class name="mbf_simple_nav/TestPlanRefiner"
+            type="mbf_simple_nav::TestPlanRefiner"
+            base_class_type="mbf_simple_core::SimplePlanRefiner">
+        <description>
+            A plan refiner meant for unit testing.
+        </description>
+    </class>
     <class name="mbf_simple_nav/TestRecovery"
             type="mbf_simple_nav::TestRecovery"
             base_class_type="mbf_simple_core::SimpleRecovery">

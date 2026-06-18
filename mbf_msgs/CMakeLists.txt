@@ -18,6 +18,7 @@ find_package(nav_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/ExePath.action"
   "action/GetPath.action"
+  "action/RefinePath.action"
   "action/MoveBase.action"
   "action/Recovery.action"
   "srv/CheckPath.srv"

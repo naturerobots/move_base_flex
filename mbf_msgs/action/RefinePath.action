@@ -1,0 +1,42 @@
+# Refine a given path
+
+nav_msgs/Path path
+
+# Plan refiner to use; defaults to the first one specified on "plan_refiners" parameter
+string refiner
+
+# use different slots for concurrency
+uint8 concurrency_slot
+
+---
+
+# Predefined success codes:
+uint8 SUCCESS           = 0
+# 1..9 are reserved as plugin specific non-error results
+
+# Predefined error codes:
+uint8 FAILURE           = 200  # Unspecified failure, only used for old, non-mfb_core based plugins
+uint8 CANCELED          = 201  # The action has been canceled by a action client
+uint8 DEPLETED          = 202  # The action has been run out of attempts
+uint8 MAP_ERROR         = 210  # The map is not available or not running properly
+uint8 INTERNAL_ERROR    = 211  # An internal error occurred in the plan refiner
+uint8 STOPPED           = 212  # The refiner execution has been stopped rigorously
+
+uint8 ERROR_RANGE_START = 200
+uint8 ERROR_RANGE_END   = 249
+
+# 221..249 are reserved as plugin specific errors:
+uint8 PLUGIN_ERROR_RANGE_START = 221
+uint8 PLUGIN_ERROR_RANGE_END   = 249
+
+uint32 outcome
+string message
+
+nav_msgs/Path refined_path
+
+# Metrics
+float64 final_position_error     # Final position error between the original and refined path
+float64 final_orientation_error  # Final orientation error between the original and refined path
+float64 path_length_ratio        # Ratio of the refined path length to the original path length
+
+---

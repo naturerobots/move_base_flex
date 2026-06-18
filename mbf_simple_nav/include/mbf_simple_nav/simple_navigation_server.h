@@ -46,6 +46,7 @@
 #include <mbf_utility/types.h>
 
 #include <mbf_simple_core/simple_planner.h>
+#include <mbf_simple_core/simple_plan_refiner.h>
 #include <mbf_simple_core/simple_controller.h>
 #include <mbf_simple_core/simple_recovery.h>
 
@@ -67,12 +68,11 @@ namespace mbf_simple_nav
 class SimpleNavigationServer : public mbf_abstract_nav::AbstractNavigationServer
 {
 public:
-
   /**
    * @brief Constructor
    * @param tf_listener_ptr Shared pointer to a common TransformListener
    */
-  SimpleNavigationServer(const TFPtr &tf_listener_ptr, const rclcpp::Node::SharedPtr& node);
+  SimpleNavigationServer(const TFPtr & tf_listener_ptr, const rclcpp::Node::SharedPtr & node);
 
   /**
    * @brief Destructor
@@ -85,7 +85,8 @@ public:
    * @return A shared pointer to a new loaded controller, if the controller plugin was loaded successfully,
    *         an empty pointer otherwise.
    */
-  virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(const std::string& controller_type);
+  virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(
+    const std::string & controller_type);
 
   /**
    * @brief Empty init method. Nothing to initialize.
@@ -94,8 +95,8 @@ public:
    * @return true always
    */
   virtual bool initializeControllerPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractController::Ptr& controller_ptr
+    const std::string & name,
+    const mbf_abstract_core::AbstractController::Ptr & controller_ptr
   );
 
   /**
@@ -103,7 +104,8 @@ public:
    * @param planner_type The type of the planner plugin to load.
    * @return true, if the local planner plugin was successfully loaded.
    */
-  virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(const std::string& planner_type);
+  virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(
+    const std::string & planner_type);
 
   /**
    * @brief Empty init method. Nothing to initialize.
@@ -112,8 +114,27 @@ public:
    * @return true always
    */
   virtual bool initializePlannerPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr
+    const std::string & name,
+    const mbf_abstract_core::AbstractPlanner::Ptr & planner_ptr
+  );
+
+  /**
+   * @brief Loads the plugin associated with the given plan_refiner_type parameter.
+   * @param plan_refiner_type The type of the plan refiner plugin to load.
+   * @return Pointer to the loaded plan refiner plugin; empty pointer on failure.
+   */
+  virtual mbf_abstract_core::AbstractPlanRefiner::Ptr loadPlanRefinerPlugin(
+    const std::string & plan_refiner_type);
+
+  /**
+   * @brief Empty init method. Nothing to initialize.
+   * @param name The name of the plan refiner
+   * @param plan_refiner_ptr pointer to the plan refiner object which corresponds to the name param
+   * @return true always
+   */
+  virtual bool initializePlanRefinerPlugin(
+    const std::string & name,
+    const mbf_abstract_core::AbstractPlanRefiner::Ptr & plan_refiner_ptr
   );
 
   /**
@@ -121,7 +142,8 @@ public:
    * @param recovery_name The name of the Recovery plugin
    * @return A shared pointer to a Recovery plugin, if the plugin was loaded successfully, an empty pointer otherwise.
    */
-  virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(const std::string& recovery_type);
+  virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(
+    const std::string & recovery_type);
 
   /**
    * @brief Pure virtual method, the derived class has to implement. Depending on the plugin base class,
@@ -131,13 +153,14 @@ public:
    * @return true always
    */
   virtual bool initializeRecoveryPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractRecovery::Ptr& behavior_ptr
+    const std::string & name,
+    const mbf_abstract_core::AbstractRecovery::Ptr & behavior_ptr
   );
 
- private:
+private:
   pluginlib::ClassLoader<mbf_simple_core::SimplePlanner> planner_plugin_loader_;
   pluginlib::ClassLoader<mbf_simple_core::SimpleController> controller_plugin_loader_;
+  pluginlib::ClassLoader<mbf_simple_core::SimplePlanRefiner> plan_refiner_plugin_loader_;
   pluginlib::ClassLoader<mbf_simple_core::SimpleRecovery> recovery_plugin_loader_;
 };
 

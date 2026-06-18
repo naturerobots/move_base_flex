@@ -58,6 +58,7 @@ if(BUILD_TESTING)
   # Add test lib with plugin(s)
   add_library(${PROJECT_NAME}_test_plugins
     test/plugins/test_planner.cpp
+    test/plugins/test_plan_refiner.cpp
     test/plugins/test_controller.cpp
     test/plugins/test_recovery.cpp
   )
