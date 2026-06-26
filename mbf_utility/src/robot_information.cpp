@@ -61,7 +61,7 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   const auto t_now = node_->now();
 
   std::string err_string;
-  if (!tf_buffer_->canTransform(robot_frame_, global_frame_, t_now, tf_timeout_, &err_string))
+  if (!tf_buffer_->canTransform(robot_frame_, global_frame_, rclcpp::Time(0), tf_timeout_, &err_string))
   {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to get robot pose. Reason: " << err_string);
     return false;
@@ -72,7 +72,7 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   robot_pose_robotFrame.header.frame_id = robot_frame_;
   tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
   const auto t_end = node_->now();
-  RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu", (t_end - t_now).nanoseconds());
+  RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu ns", (t_end - t_now).nanoseconds());
   return true;
 }
 
