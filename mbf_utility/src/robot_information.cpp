@@ -71,6 +71,8 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   robot_pose_robotFrame.header.stamp = t_now;
   robot_pose_robotFrame.header.frame_id = robot_frame_;
   tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
+  const auto t_end = node_->now();
+  RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu", (t_end - t_now).nanoseconds());
   return true;
 }
 
