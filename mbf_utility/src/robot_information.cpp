@@ -68,7 +68,7 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   }
 
   geometry_msgs::msg::PoseStamped robot_pose_robotFrame; // default constructed pose at origin
-  robot_pose_robotFrame.header.stamp = t_now;
+  robot_pose_robotFrame.header.stamp = rclcpp::Time(0);
   robot_pose_robotFrame.header.frame_id = robot_frame_;
   tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
   const auto t_end = node_->now();
