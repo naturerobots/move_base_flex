@@ -68,9 +68,16 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   }
 
   geometry_msgs::msg::PoseStamped robot_pose_robotFrame; // default constructed pose at origin
+  geometry_msgs::msg::PoseStamped robot_pose_odomFrame; // default constructed pose at origin
   robot_pose_robotFrame.header.stamp = rclcpp::Time(0);
   robot_pose_robotFrame.header.frame_id = robot_frame_;
-  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
+  // Latest transform from base -> odom
+  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_odomFrame, "odom");
+
+  // Latest transform from odom -> map
+  robot_pose_odomFrame.header.stamp = rclcpp::Time(0);
+  tf_buffer_->transform(robot_pose_odomFrame, robot_pose_globalFrame, global_frame_);
+
   const auto t_end = node_->now();
   RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu ns", (t_end - t_now).nanoseconds());
   return true;
