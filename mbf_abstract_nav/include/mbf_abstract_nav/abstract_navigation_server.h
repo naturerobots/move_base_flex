@@ -368,6 +368,9 @@ protected:
   //! the robot frame, to get the current robot pose in the global_frame_
   std::string robot_frame_;
 
+  //! the odometry frame, in which the robot is moving
+  std::string odom_frame_;
+
   //! the global frame, in which the robot is moving
   std::string global_frame_;
 

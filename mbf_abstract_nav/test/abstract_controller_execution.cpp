@@ -59,7 +59,7 @@ struct AbstractControllerExecutionFixture : public Test
     goal_pub_ptr_ = node_ptr_->create_publisher<PoseStamped>("pose", 1);
     tf_ptr_ = std::make_shared<TF>(node_ptr_->get_clock());
     tf_ptr_->setUsingDedicatedThread(true);
-    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame",
+    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame", "odom_frame",
                                                                 "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
 
     mock_controller_ptr_ = std::make_shared<AbstractControllerMock>();
@@ -183,8 +183,9 @@ TEST_F(AbstractControllerExecutionFixture, internalError)
 // fixture making us pass computeRobotPose()
 struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
 {
-  ComputeRobotPoseFixture () 
+  ComputeRobotPoseFixture ()
   : global_frame_("global_frame")
+  , odom_frame_("odom_frame")
   , robot_frame_("robot_frame")
   {}
 
@@ -192,6 +193,7 @@ struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
   {
 
     node_options.append_parameter_override("global_frame", global_frame_)
+                .append_parameter_override("odom_frame", odom_frame_)
                 .append_parameter_override("robot_frame", robot_frame_);
     AbstractControllerExecutionFixture::initRosNode(node_options);
     // setup the transform.
@@ -199,15 +201,24 @@ struct ComputeRobotPoseFixture : public AbstractControllerExecutionFixture
     TransformStamped transform;
     transform.header.stamp = t_now;
     transform.header.frame_id = global_frame_;
-    transform.child_frame_id = robot_frame_;
+    transform.child_frame_id = odom_frame_;
     transform.transform.rotation.w = 1;
-    // add transforms to the buffer such that move base flex can transform between global and robot frame for one second, starting now
+    // add transforms to the buffer such that move base flex can transform between global and odom frame for one second, starting now
+    tf_ptr_->setTransform(transform, "test_tf_authority");
+    transform.header.stamp = t_now + rclcpp::Duration::from_seconds(1.0);
+    tf_ptr_->setTransform(transform, "test_tf_authority");
+
+    // also add transform from odom_frame to robot_frame so getRobotPose() can resolve the full chain
+    transform.header.stamp = t_now;
+    transform.header.frame_id = odom_frame_;
+    transform.child_frame_id = robot_frame_;
     tf_ptr_->setTransform(transform, "test_tf_authority");
     transform.header.stamp = t_now + rclcpp::Duration::from_seconds(1.0);
     tf_ptr_->setTransform(transform, "test_tf_authority");
   }
-protected: 
+protected:
   const std::string global_frame_;
+  const std::string odom_frame_;
   const std::string robot_frame_;
 };
 

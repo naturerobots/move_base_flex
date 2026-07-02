@@ -50,7 +50,7 @@ struct AbstractExecutionFixture : public Test
   AbstractExecutionFixture() :
     node_(std::make_shared<rclcpp::Node>("test")), 
     tf_(new TF(node_->get_clock())),
-    ri_(new mbf_utility::RobotInformation(node_, tf_, "global_frame", "local_frame", rclcpp::Duration::from_seconds(0), "")), 
+    ri_(new mbf_utility::RobotInformation(node_, tf_, "global_frame", "odom_frame", "local_frame", rclcpp::Duration::from_seconds(0), "")),
     impl_("foo", ri_, node_)
   {
   }

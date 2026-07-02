@@ -38,8 +38,8 @@ struct AbstractPlannerExecutionFixture : public Test
     node_ptr_->get_logger().set_level(rclcpp::Logger::Level::Fatal);
     tf_ptr_ = std::make_shared<TF>(node_ptr_->get_clock());
     tf_ptr_->setUsingDedicatedThread(true);
-    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame",
-                                                                "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
+    robot_info_ptr_ = std::make_shared<mbf_utility::RobotInformation>(node_ptr_, tf_ptr_, "global_frame", "odom_frame",
+                                                                 "robot_frame", rclcpp::Duration::from_seconds(1.0), "");
 
     mock_planner_ptr_ = std::make_shared<AbstractPlannerMock>();
     planner_execution_ptr_ = std::make_unique<AbstractPlannerExecution>("foo", mock_planner_ptr_,
