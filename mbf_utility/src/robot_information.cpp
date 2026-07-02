@@ -79,7 +79,8 @@ bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_
   tf_buffer_->transform(robot_pose_odomFrame, robot_pose_globalFrame, global_frame_);
 
   const auto t_end = node_->now();
-  RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu ns", (t_end - t_now).nanoseconds());
+  //RCLCPP_INFO(node_->get_logger(), "Robot pose query took: %lu ns", (t_end - t_now).nanoseconds());
+  RCLCPP_INFO(node_->get_logger(), "Latest odom: %f", (t_end - robot_pose_globalFrame.header.stamp).seconds() * 1000.0);
   return true;
 }
 
