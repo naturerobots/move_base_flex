@@ -44,7 +44,7 @@ struct AbstractActionBaseFixture
   {
     node_ = std::shared_ptr<rclcpp::Node>(new rclcpp::Node("test_node"));
     tf_ = std::make_shared<TF>(node_->get_clock());
-    ri_ = std::make_shared<mbf_utility::RobotInformation>(node_, tf_, "global_frame", "local_frame", rclcpp::Duration(0,0));
+    ri_ = std::make_shared<mbf_utility::RobotInformation>(node_, tf_, "global_frame", "odom_frame", "local_frame", rclcpp::Duration(0,0));
   }
 
   void runImpl(const GoalHandlePtr &goal_handle, MockedExecution &execution) {

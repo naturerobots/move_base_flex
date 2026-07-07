@@ -57,8 +57,9 @@ struct PlannerActionFixture : public Test
     , tf_(new TF(node_->get_clock()))
     , planner_(new MockPlanner())
     , global_frame_("global_frame")
+    , odom_frame_("odom_frame")
     , local_frame_("local_frame")
-    , robot_info_(new mbf_utility::RobotInformation(node_, tf_, global_frame_, local_frame_, rclcpp::Duration::from_seconds(0.0)))
+    , robot_info_(new mbf_utility::RobotInformation(node_, tf_, global_frame_, odom_frame_, local_frame_, rclcpp::Duration::from_seconds(0.0)))
     , planner_execution_(new AbstractPlannerExecution("plugin", planner_, robot_info_, node_))
     , planner_action_(node_, "action_name", robot_info_)
     , action_server_(rclcpp_action::create_server<mbf_msgs::action::GetPath>(
@@ -116,6 +117,7 @@ struct PlannerActionFixture : public Test
   TFPtr tf_;
   std::shared_ptr<MockPlanner> planner_; ///< the mocked planner
   std::string global_frame_;
+  std::string odom_frame_;
   std::string local_frame_;
   mbf_utility::RobotInformation::ConstPtr robot_info_;
   AbstractPlannerExecution::Ptr planner_execution_;

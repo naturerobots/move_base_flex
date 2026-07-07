@@ -37,19 +37,20 @@
  */
 
 #include "mbf_utility/robot_information.h"
-#include "mbf_utility/navigation_utility.h"
 
 #include <rclcpp/rclcpp.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace mbf_utility
 {
 RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
                                    const TFPtr &tf_buffer,
                                    const std::string &global_frame,
+                                   const std::string &odom_frame,
                                    const std::string &robot_frame,
                                    const rclcpp::Duration &tf_timeout,
                                    const std::string &odom_topic)
- : node_(node), tf_buffer_(tf_buffer), global_frame_(global_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
+ : node_(node), tf_buffer_(tf_buffer), global_frame_(global_frame), odom_frame_(odom_frame), robot_frame_(robot_frame), tf_timeout_(tf_timeout),
    odom_helper_(node_, odom_topic)
 {
 
@@ -58,19 +59,30 @@ RobotInformation::RobotInformation(const rclcpp::Node::SharedPtr& node,
 
 bool RobotInformation::getRobotPose(geometry_msgs::msg::PoseStamped &robot_pose_globalFrame) const
 {
-  const auto t_now = node_->now();
-
   std::string err_string;
-  if (!tf_buffer_->canTransform(robot_frame_, global_frame_, t_now, tf_timeout_, &err_string))
+  if (!tf_buffer_->canTransform(robot_frame_, odom_frame_, rclcpp::Time(0), tf_timeout_, &err_string))
+  {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to get robot pose. Reason: " << err_string);
+    return false;
+  }
+
+  if (!tf_buffer_->canTransform(odom_frame_, global_frame_, rclcpp::Time(0), tf_timeout_, &err_string))
   {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to get robot pose. Reason: " << err_string);
     return false;
   }
 
   geometry_msgs::msg::PoseStamped robot_pose_robotFrame; // default constructed pose at origin
-  robot_pose_robotFrame.header.stamp = t_now;
+  geometry_msgs::msg::PoseStamped robot_pose_odomFrame;
+  robot_pose_robotFrame.header.stamp = rclcpp::Time(0);
   robot_pose_robotFrame.header.frame_id = robot_frame_;
-  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_globalFrame, global_frame_);
+  // Latest transform from base -> odom
+  tf_buffer_->transform(robot_pose_robotFrame, robot_pose_odomFrame, odom_frame_);
+
+  // Latest transform from odom -> map
+  robot_pose_odomFrame.header.stamp = rclcpp::Time(0);
+  tf_buffer_->transform(robot_pose_odomFrame, robot_pose_globalFrame, global_frame_);
+
   return true;
 }
 

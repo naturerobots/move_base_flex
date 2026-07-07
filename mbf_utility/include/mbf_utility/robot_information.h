@@ -63,12 +63,13 @@ class RobotInformation
       const rclcpp::Node::SharedPtr& node,
       const TFPtr &tf_buffer,
       const std::string &global_frame,
+      const std::string &odom_frame,
       const std::string &robot_frame,
       const rclcpp::Duration &tf_timeout,
       const std::string &odom_topic = "odom");
 
   /**
-   * @brief Computes the current robot pose (robot_frame_) in the global frame (global_frame_).
+   * @brief Computes the latest robot pose estimate (robot_frame_) in the global frame (global_frame_).
    * @param robot_pose Reference to the robot_pose message object to be filled.
    * @return true, if the current robot pose could be computed, false otherwise.
    */
@@ -91,6 +92,8 @@ class RobotInformation
 
   const std::string& getGlobalFrame() const;
 
+  const std::string& getOdomFrame() const;
+
   const std::string& getRobotFrame() const;
 
   const TF& getTransformListener() const;
@@ -103,6 +106,8 @@ class RobotInformation
   const TFPtr tf_buffer_;
 
   const std::string global_frame_;
+
+  const std::string odom_frame_;
 
   const std::string robot_frame_;
 
