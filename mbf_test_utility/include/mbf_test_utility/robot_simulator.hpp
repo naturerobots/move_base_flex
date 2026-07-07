@@ -34,7 +34,7 @@
 #include <mbf_msgs/srv/set_test_robot_state.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.hpp>
 
 namespace mbf_test_utility
 {
