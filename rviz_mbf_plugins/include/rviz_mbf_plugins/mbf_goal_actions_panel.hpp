@@ -97,6 +97,13 @@ protected:
   void sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal);
   void exePathResultCallback(const ExePathClient::GoalHandle::WrappedResult & wrapped_result);
 
+Q_SIGNALS:
+  void getPathServerStatusChanged(const QString & text, const QString & style);
+  void getPathGoalStatusChanged(const QString & text, const QString & style);
+  void exePathServerStatusChanged(const QString & text, const QString & style);
+  void exePathGoalStatusChanged(const QString & text, const QString & style);
+  void goalInputStatusChanged(const QString & text);
+
 private Q_SLOTS:
   void updateGoalInputSubscription();
   void updateGetPathActionClient();
@@ -110,7 +117,7 @@ protected:
   rclcpp::Node::SharedPtr ros_node_;
 
   //! Action client for getting a path
-  std::mutex get_path_action_client_mutex_;
+  mutable std::mutex get_path_action_client_mutex_;
   GetPathClient::SharedPtr action_client_get_path_;
   std::shared_ptr<rclcpp::AsyncParametersClient>  planner_parameter_client_;
   std::string get_path_node_name_;
@@ -121,7 +128,7 @@ protected:
   GetPathClient::GoalHandle::SharedPtr goal_handle_get_path_;
 
   //! Action client for traversing a path
-  std::mutex exe_path_action_client_mutex_;
+  mutable std::mutex exe_path_action_client_mutex_;
   ExePathClient::SharedPtr action_client_exe_path_;
   std::shared_ptr<rclcpp::AsyncParametersClient>  controller_parameter_client_;
   std::string exe_path_node_name_;
@@ -156,10 +163,12 @@ protected:
   rviz_common::properties::RosActionProperty*     exe_path_action_server_path_;
   rviz_common::properties::EditableEnumProperty*  controller_name_property_;
 
-
   QGroupBox * goal_input_ui_box_;
   QVBoxLayout * goal_input_ui_layout_;
   QLabel * goal_input_status_;
+
+  void setGetPathServerStatusMessage(const QString & text, const QString& style);
+  void setGetPathGoalStatusMessage(const QString & text, const QString& style);
 
   QGroupBox * get_path_ui_box_;
   QVBoxLayout * get_path_ui_layout_;
@@ -170,6 +179,9 @@ protected:
   QLabel * get_path_action_goal_status_desc_;
   QLabel * get_path_action_goal_status_;
   QPushButton * stop_get_path_button_;
+
+  void setExePathServerStatusMessage(const QString & text, const QString& style);
+  void setExePathGoalStatusMessage(const QString & text, const QString& style);
 
   QGroupBox * exe_path_ui_box_;
   QVBoxLayout * exe_path_ui_layout_;
