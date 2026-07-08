@@ -1,0 +1,18 @@
+name: Lyrical CI
+
+on:
+  push:
+    branches:
+      - 'lyrical'
+      - 'ros2'
+  pull_request:
+  workflow_dispatch:
+    branches:
+      - '*'
+
+jobs:
+  lyrical_build_and_test:
+    uses: naturerobots/github_automation_public/.github/workflows/ros_ci.yaml@main
+    secrets: inherit
+    with:
+      ros_distro: lyrical
