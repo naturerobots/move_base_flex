@@ -2,8 +2,8 @@
 Changelog for package mbf_abstract_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.2.0 (2026-07-09)
+------------------
 * ROS 2 Lyrical Compatibility
 * Non-blocking RobotInfo for faster control cycles
 
