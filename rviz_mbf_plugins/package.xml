@@ -23,12 +23,19 @@
   <depend>rviz_common</depend>
   <depend>geometry_msgs</depend>
 
-  <build_depend>qt-base-dev</build_depend>
-  <build_export_depend>qt-base-dev</build_export_depend>
+  <!-- From humble, we cannot resolve the version-less keys -->
+  <build_depend condition="$ROS_DISTRO == humble">qtbase5-dev</build_depend>
+  <build_export_depend condition="$ROS_DISTRO == humble">qtbase5-dev</build_export_depend>
+  <exec_depend condition="$ROS_DISTRO == humble">libqt5-widgets</exec_depend>
+  <exec_depend condition="$ROS_DISTRO == humble">libqt5-gui</exec_depend>
+  <exec_depend condition="$ROS_DISTRO == humble">libqt5-core</exec_depend>
 
-  <exec_depend>libqtwidgets</exec_depend>
-  <exec_depend>libqtgui</exec_depend>
-  <exec_depend>libqtcore</exec_depend>
+  <!-- From > humble, we can the generic versions -->
+  <build_depend condition="$ROS_DISTRO != humble">qt-base-dev</build_depend>
+  <build_export_depend condition="$ROS_DISTRO != humble">qt-base-dev</build_export_depend>
+  <exec_depend condition="$ROS_DISTRO != humble">libqtwidgets</exec_depend>
+  <exec_depend condition="$ROS_DISTRO != humble">libqtgui</exec_depend>
+  <exec_depend condition="$ROS_DISTRO != humble">libqtcore</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
