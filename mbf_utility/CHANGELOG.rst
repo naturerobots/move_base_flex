@@ -2,6 +2,11 @@
 Changelog for package mbf_utility
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ROS 2 Lyrical Compatibility
+* Non-blocking RobotInfo for faster control cycles
+
 1.1.0 (2026-06-18)
 ------------------
 * Added PlanRefiner interface, see #353
