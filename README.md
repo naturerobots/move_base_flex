@@ -1,5 +1,6 @@
-[![Jazzy CI](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml)
 [![Humble CI](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/humble.yaml)
+[![Jazzy CI](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/jazzy.yaml)
+[![Lyrical CI](https://github.com/naturerobots/move_base_flex/actions/workflows/lyrical.yaml/badge.svg)](https://github.com/naturerobots/move_base_flex/actions/workflows/lyrical.yaml)
 
 # Move Base Flex: A Highly Flexible Navigation Framework
 
