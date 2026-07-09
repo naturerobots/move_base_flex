@@ -42,7 +42,7 @@
 
 #include "mbf_abstract_nav/abstract_controller_execution.h"
 
-#include <tf2/utils.h>
+#include <tf2/utils.hpp>
 #include <rclcpp/parameter_value.hpp>
 
 namespace mbf_abstract_nav

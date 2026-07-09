@@ -40,10 +40,10 @@
 #define MBF_UTILITY__TYPES_H_
 
 #include <memory>
-#include <tf2_ros/buffer.h>
+#include <tf2_ros/buffer.hpp>
 
 typedef std::shared_ptr<tf2_ros::Buffer> TFPtr;
 typedef tf2_ros::Buffer TF;
 typedef tf2::TransformException TFException;
 
-#endif
+#endif // MBF_UTILITY__TYPES_H_
