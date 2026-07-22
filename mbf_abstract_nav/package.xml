@@ -30,8 +30,6 @@
   <test_depend>ament_cmake_gmock</test_depend> 
 
   <export>
-    <!-- TODO -->
-    <!--rosdoc config="rosdoc.yaml" /-->
     <build_type>ament_cmake</build_type>
   </export>
 </package>

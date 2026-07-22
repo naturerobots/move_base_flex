@@ -22,7 +22,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 )
 
 target_link_libraries(${PROJECT_NAME} INTERFACE
-  rclcpp::rclcpp
+  ${rclcpp_TARGETS}
   ${mbf_utility_TARGETS}
   ${mbf_abstract_core_TARGETS}
   ${geometry_msgs_TARGETS}
