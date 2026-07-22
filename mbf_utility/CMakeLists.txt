@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 project(mbf_utility)
 
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
+
 find_package(ament_cmake REQUIRED)
 set(dependencies
+  rclcpp
   geometry_msgs
   mbf_msgs
-  rclcpp
   tf2
   tf2_ros
   tf2_geometry_msgs
@@ -26,9 +30,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
+  ${rclcpp_TARGETS}
   ${geometry_msgs_TARGETS}
   ${mbf_msgs_TARGETS}
-  ${rclcpp_TARGETS}
   ${tf2_TARGETS}
   ${tf2_ros_TARGETS}
   ${tf2_geometry_msgs_TARGETS}

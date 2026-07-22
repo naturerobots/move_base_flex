@@ -3,13 +3,13 @@ project(mbf_abstract_nav)
 
 find_package(ament_cmake REQUIRED)
 set(dependencies
+  rclcpp
+  rclcpp_action
   geometry_msgs
   mbf_abstract_core
   mbf_msgs
   mbf_utility
   nav_msgs
-  rclcpp
-  rclcpp_action
   std_msgs
   std_srvs
 )

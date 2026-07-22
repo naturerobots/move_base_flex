@@ -40,7 +40,7 @@ target_include_directories(rviz_mbf_plugins PUBLIC
 )
 
 target_link_libraries(rviz_mbf_plugins PUBLIC
-  rclcpp::rclcpp
+  ${rclcpp_TARGETS}
   ${rclcpp_action_TARGETS}
   ${pluginlib_TARGETS}
   ${geometry_msgs_TARGETS}
