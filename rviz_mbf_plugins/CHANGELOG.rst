@@ -2,6 +2,10 @@
 Changelog for package rviz_mbf_plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.2.1 (2026-07-23)
+------------------
+* Remove ament_cmake_ros dependency
+
 1.2.0 (2026-07-09)
 ------------------
 * ROS 2 Lyrical Compatibility
