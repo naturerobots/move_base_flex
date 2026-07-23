@@ -2,8 +2,8 @@
 Changelog for package mbf_simple_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.2.1 (2026-07-23)
+------------------
 * Remove ament_cmake_ros dependency
 
 1.2.0 (2026-07-09)
