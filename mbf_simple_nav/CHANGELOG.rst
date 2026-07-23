@@ -2,6 +2,10 @@
 Changelog for package mbf_simple_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Remove ament_cmake_ros dependency
+
 1.2.0 (2026-07-09)
 ------------------
 * ROS 2 Lyrical Compatibility
