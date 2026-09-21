@@ -184,7 +184,7 @@ private:
    * @param message An optional message which should correspond with the returned outcome
    * @return An outcome number, see also the action definition in the RefinePath.action file
    */
-  uint32_t refinePlan(
+  virtual uint32_t refinePlan(
     const std::vector<geometry_msgs::msg::PoseStamped> & plan,
     std::vector<geometry_msgs::msg::PoseStamped> & refined_plan,
     float & position_error,
