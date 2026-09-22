@@ -38,6 +38,7 @@
 
 #include "rviz_mbf_plugins/mbf_goal_actions_panel.hpp"
 
+#include <algorithm>
 #include <functional>
 
 #include <rviz_common/display_context.hpp>
@@ -46,6 +47,7 @@
 #include <QMetaObject>
 
 #include <mbf_msgs/action/exe_path.hpp>
+#include <mbf_msgs/action/refine_path.hpp>
 
 #include <atomic>
 
@@ -54,6 +56,7 @@ namespace rviz_mbf_plugins
 
 constexpr auto notset_goal_input_topic = "pick topic";
 constexpr auto notset_action_server_path = "input action server";
+constexpr auto notset_refiners = "none loaded";
 
 // Color scheme for status messages
 
@@ -65,11 +68,14 @@ static const QString status_neutral   = "background-color: #D3D3D3; color: #1a1a
 
 MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
 : Panel(parent)
+  , refiner_list_pending_(true)
+  , refine_queue_idx_(0)
   , goal_retry_cnt_(0)
 {
   constructPropertiesWidget();
   constructGoalInputWidget();
   constructGetPathWidget();
+  constructRefinePathWidget();
   constructExePathWidget();
 
   // outermost layout: put different widgets in vertical box
@@ -77,6 +83,7 @@ MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
   ui_layout_->addWidget(properity_tree_widget_);
   ui_layout_->addWidget(goal_input_ui_box_);
   ui_layout_->addWidget(get_path_ui_box_);
+  ui_layout_->addWidget(refine_path_ui_box_);
   ui_layout_->addWidget(exe_path_ui_box_);
   setLayout(ui_layout_);
 
@@ -92,6 +99,16 @@ MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
     this, [this](const QString& t, const QString& s) {
       get_path_action_goal_status_->setText(t);
       get_path_action_goal_status_->setStyleSheet(s);
+    });
+  connect(this, &MbfGoalActionsPanel::refinePathServerStatusChanged,
+    this, [this](const QString& t, const QString& s) {
+      refine_path_action_server_status_->setText(t);
+      refine_path_action_server_status_->setStyleSheet(s);
+    });
+  connect(this, &MbfGoalActionsPanel::refinePathGoalStatusChanged,
+    this, [this](const QString& t, const QString& s) {
+      refine_path_action_goal_status_->setText(t);
+      refine_path_action_goal_status_->setStyleSheet(s);
     });
   connect(this, &MbfGoalActionsPanel::exePathServerStatusChanged,
     this, [this](const QString& t, const QString& s) {
@@ -112,6 +129,11 @@ MbfGoalActionsPanel::~MbfGoalActionsPanel() {
   if(conn_check_thread_get_path_.joinable())
   {
     conn_check_thread_get_path_.join();
+  }
+  conn_check_thread_refine_path_stop_ = true;
+  if(conn_check_thread_refine_path_.joinable())
+  {
+    conn_check_thread_refine_path_.join();
   }
   conn_check_thread_exe_path_stop_ = true;
   if(conn_check_thread_exe_path_.joinable())
@@ -153,6 +175,22 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
     get_path_planner_name_ = planner_name_property_->getStdString();
   });
+
+  refine_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
+    "Refiner Action", notset_action_server_path, "mbf_msgs/action/RefinePath",
+    "ROS path to move base flex refine_path action server",
+    nullptr,
+    SLOT(updateRefinePathActionClient()), this);
+  properity_tree_model_->getRoot()->addChild(refine_path_action_server_path_);
+
+  // Parent node for one checkbox per loaded plan refiner. Children are created at runtime, once
+  // the "plan_refiners" parameter of the refiner action server node is known. Collapsing this
+  // node hides the list when it gets long.
+  refiners_property_ = new rviz_common::properties::Property(
+    "Plan Refiners", notset_refiners,
+    "Plan refiners to apply to the planned path before execution. "
+    "They are applied in the order they are listed here.");
+  properity_tree_model_->getRoot()->addChild(refiners_property_);
 
   exe_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
     "Controller Action", notset_action_server_path, "mbf_msgs/action/ExePath",
@@ -210,6 +248,89 @@ void MbfGoalActionsPanel::constructGetPathWidget()
   get_path_ui_box_->setLayout(get_path_ui_layout_);
 }
 
+void MbfGoalActionsPanel::cacheSelectedRefiners()
+{
+  // walking the children keeps the order of the "plan_refiners" parameter
+  std::vector<std::string> selected;
+  for (const auto * refiner_property : refiner_properties_) {
+    if (refiner_property->getBool()) {
+      selected.push_back(refiner_property->getName().toStdString());
+    }
+  }
+
+  if (refiner_properties_.empty()) {
+    refiners_property_->setValue(notset_refiners);
+  } else {
+    refiners_property_->setValue(
+      QString("%1 of %2 selected").arg(selected.size()).arg(refiner_properties_.size()));
+  }
+
+  std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+  selected_refiners_ = std::move(selected);
+}
+
+void MbfGoalActionsPanel::updateRefinerProperties(const std::vector<std::string> & refiner_names)
+{
+  // Which refiners were checked before? On the very first update we use what load() restored.
+  std::vector<std::string> checked;
+  if (refiner_list_pending_) {
+    checked = pending_selected_refiners_;
+    refiner_list_pending_ = false;
+  } else {
+    for (const auto * refiner_property : refiner_properties_) {
+      if (refiner_property->getBool()) {
+        checked.push_back(refiner_property->getName().toStdString());
+      }
+    }
+  }
+
+  refiners_property_->removeChildren();
+  for (auto * refiner_property : refiner_properties_) {
+    delete refiner_property;
+  }
+  refiner_properties_.clear();
+
+  for (const std::string & refiner_name : refiner_names) {
+    const bool was_checked =
+      std::find(checked.begin(), checked.end(), refiner_name) != checked.end();
+    auto * refiner_property = new rviz_common::properties::BoolProperty(
+      QString::fromStdString(refiner_name), was_checked,
+      "Apply this plan refiner to the planned path", refiners_property_);
+    connect(refiner_property, &rviz_common::properties::Property::changed, this,
+      [this]() {cacheSelectedRefiners();});
+    refiner_properties_.push_back(refiner_property);
+  }
+
+  cacheSelectedRefiners();
+}
+
+void MbfGoalActionsPanel::constructRefinePathWidget()
+{
+  refine_path_ui_layout_server_status_ = new QHBoxLayout();
+  refine_path_action_server_status_desc_ = new QLabel("Server:");
+  refine_path_action_server_status_ = new QLabel("input path");
+  refine_path_ui_layout_server_status_->addWidget(refine_path_action_server_status_desc_);
+  refine_path_ui_layout_server_status_->addWidget(refine_path_action_server_status_);
+
+  refine_path_ui_layout_goal_status_ = new QHBoxLayout();
+  refine_path_action_goal_status_desc_ = new QLabel("Goal:");
+  refine_path_action_goal_status_ = new QLabel("None sent yet");
+  refine_path_action_goal_status_->setWordWrap(true);
+  refine_path_ui_layout_goal_status_->addWidget(refine_path_action_goal_status_desc_);
+  refine_path_ui_layout_goal_status_->addWidget(refine_path_action_goal_status_);
+
+  stop_refine_path_button_ = new QPushButton("Stop Refiner Action");
+  connect(stop_refine_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopRefinePathAction);
+
+  refine_path_ui_layout_ = new QVBoxLayout();
+  refine_path_ui_layout_->addLayout(refine_path_ui_layout_server_status_);
+  refine_path_ui_layout_->addLayout(refine_path_ui_layout_goal_status_);
+  refine_path_ui_layout_->addWidget(stop_refine_path_button_);
+
+  refine_path_ui_box_ = new QGroupBox("Refine Path");
+  refine_path_ui_box_->setLayout(refine_path_ui_layout_);
+}
+
 void MbfGoalActionsPanel::constructExePathWidget()
 {
   exe_path_ui_layout_server_status_ = new QHBoxLayout();
@@ -242,7 +363,18 @@ void MbfGoalActionsPanel::save(rviz_common::Config config) const
   Panel::save(config);
   goal_input_topic_->save(config.mapMakeChild("goal_input_topic"));
   get_path_action_server_path_->save(config.mapMakeChild("get_path_action_server_path"));
+  refine_path_action_server_path_->save(config.mapMakeChild("refine_path_action_server_path"));
   exe_path_action_server_path_->save(config.mapMakeChild("exe_path_action_server_path"));
+
+  // The refiner checkboxes only exist while connected to a server, so we store the selected names
+  // instead of the properties themselves.
+  QStringList selected_refiners;
+  for (const auto * refiner_property : refiner_properties_) {
+    if (refiner_property->getBool()) {
+      selected_refiners.append(refiner_property->getName());
+    }
+  }
+  config.mapSetValue("selected_refiners", selected_refiners.join(","));
 }
 
 void MbfGoalActionsPanel::load(const rviz_common::Config & config)
@@ -250,7 +382,19 @@ void MbfGoalActionsPanel::load(const rviz_common::Config & config)
   Panel::load(config);
   goal_input_topic_->load(config.mapGetChild("goal_input_topic"));
   get_path_action_server_path_->load(config.mapGetChild("get_path_action_server_path"));
+  refine_path_action_server_path_->load(config.mapGetChild("refine_path_action_server_path"));
   exe_path_action_server_path_->load(config.mapGetChild("exe_path_action_server_path"));
+
+  // The refiner list is not known yet - remember the selection until the server tells us the
+  // loaded refiners (see updateRefinerProperties).
+  QString selected_refiners;
+  if (config.mapGetString("selected_refiners", &selected_refiners)) {
+    pending_selected_refiners_.clear();
+    for (const QString & refiner_name : selected_refiners.split(',', Qt::SkipEmptyParts)) {
+      pending_selected_refiners_.push_back(refiner_name.toStdString());
+    }
+    refiner_list_pending_ = true;
+  }
 }
 
 void MbfGoalActionsPanel::updateGoalInputSubscription()
@@ -485,6 +629,135 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     });
 }
 
+void MbfGoalActionsPanel::updateRefinePathActionClient()
+{
+  // this function is changing the action client, so we lock the mutex for the whole function to avoid race conditions with the connection check thread
+  std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+
+  const std::string selected_server = refine_path_action_server_path_->getAction().toStdString();
+
+  if(selected_server == notset_action_server_path)
+  {
+    // reset action client. An active refine goal is cancelled, but - other than for get_path and
+    // exe_path - we do not have to wait for it: the result callback stops the chain on cancel.
+    if (action_client_refine_path_ && goal_handle_refine_path_) {
+      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active refine_path goal due to action server change...");
+      action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_);
+    }
+
+    action_client_refine_path_.reset();
+    goal_handle_refine_path_.reset();
+    refine_queue_.clear();
+
+    refiner_parameter_client_.reset();
+    refine_path_action_server_name_.clear();
+    setRefinePathServerStatusMessage("waiting for input", status_neutral);
+    setRefinePathGoalStatusMessage("none sent yet", status_neutral);
+    return;
+  }
+
+  if(action_client_refine_path_)
+  {
+    // was already initialized
+    if(selected_server == refine_path_action_server_name_)
+    {
+      // same server than before: check if connection has been lost
+      if(!action_client_refine_path_->action_server_is_ready())
+      {
+        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to refine_path action server lost. Resetting action client...");
+        action_client_refine_path_.reset(); // reset so that reinitialization is triggered
+        goal_handle_refine_path_.reset();
+        refine_queue_.clear();
+        refiner_parameter_client_.reset();
+        setRefinePathServerStatusMessage("connection lost", status_error);
+        setRefinePathGoalStatusMessage("none sent yet", status_neutral);
+      }
+    } else {
+      // different server than before
+      if (goal_handle_refine_path_) {
+        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active refine_path goal due to action server change...");
+        action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_);
+      }
+
+      action_client_refine_path_.reset();
+      goal_handle_refine_path_.reset();
+      refine_queue_.clear();
+
+      refiner_parameter_client_.reset();
+      setRefinePathServerStatusMessage("waiting for input", status_neutral);
+      setRefinePathGoalStatusMessage("none sent yet", status_neutral);
+    }
+  }
+
+  // (re-)initialize action client if not initialized or resetted due to server change
+  if(!action_client_refine_path_)
+  {
+    try {
+      action_client_refine_path_ = rclcpp_action::create_client<mbf_msgs::action::RefinePath>(
+        ros_node_, selected_server);
+      goal_handle_refine_path_.reset();
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for refine_path action server at " << selected_server << ": " << e.what());
+      setRefinePathServerStatusMessage("connection failed!", status_error);
+      return;
+    }
+    refiner_parameter_client_.reset(); // force the following steps to reinitialize the parameter client
+  }
+
+  // connecting
+  setRefinePathServerStatusMessage("connecting...", status_info);
+  action_client_refine_path_->wait_for_action_server(
+    std::chrono::seconds(1));
+
+  if(!action_client_refine_path_->action_server_is_ready())
+  {
+    setRefinePathServerStatusMessage("connection failed!", status_error);
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to refine_path action server at " << selected_server);
+    return;
+  }
+
+  refine_path_action_server_name_ = selected_server;
+  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to refine_path action server at " << selected_server);
+  setRefinePathServerStatusMessage("ready", status_success);
+
+  if(!refiner_parameter_client_)
+  {
+    // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
+    // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
+    refine_path_node_name_ = node_name_guess(selected_server);
+
+    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for refiner list: " << refine_path_node_name_);
+
+    setRefinePathServerStatusMessage("connecting to parameters...", status_info);
+    refiner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, refine_path_node_name_);
+  }
+  refiner_parameter_client_->wait_for_service(std::chrono::seconds(1));
+
+  if(!refiner_parameter_client_->service_is_ready())
+  {
+    setRefinePathServerStatusMessage("Could not connect to parameters!", status_error);
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of refine_path action server node " << refine_path_node_name_);
+    return;
+  }
+
+  // update list of plan refiners
+  setRefinePathServerStatusMessage("updating refiner list...", status_info);
+  refiner_parameter_client_->get_parameters({"plan_refiners"},
+    [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+      // Parameter client callback runs on executor thread — marshal Qt property access to GUI thread.
+      auto parameters = future.get();
+      QMetaObject::invokeMethod(this, [this, selected_server, parameters]() {
+        // An empty refiner list is a valid configuration: the panel then simply executes the
+        // planned path without refinement.
+        const std::vector<std::string> refiners =
+          parameters.empty() ? std::vector<std::string>() : parameters[0].as_string_array();
+        updateRefinerProperties(refiners);
+        RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received plan refiner list with " << refiners.size() << " entries for refiner action " << selected_server);
+        setRefinePathServerStatusMessage("ready", status_success);
+      }, Qt::QueuedConnection);
+    });
+}
+
 void MbfGoalActionsPanel::updateExePathActionClient()
 {
   std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
@@ -691,6 +964,40 @@ void MbfGoalActionsPanel::stopGetPathAction()
   });
 }
 
+void MbfGoalActionsPanel::stopRefinePathAction()
+{
+  std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+
+  // stop the whole chain, not just the running refiner
+  refine_queue_.clear();
+
+  if (!action_client_refine_path_)
+  {
+    setRefinePathGoalStatusMessage("No refiner action to stop", status_neutral);
+    return;
+  }
+
+  if(!goal_handle_refine_path_)
+  {
+    setRefinePathGoalStatusMessage("No refiner goal to stop", status_neutral);
+    return;
+  }
+
+  // start stopping refiner action
+  setRefinePathGoalStatusMessage("Stopping refiner action...", status_warning);
+  action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_, [this](
+      const typename RefinePathClient::CancelResponse::SharedPtr & response)
+  {
+    if(response->return_code == RefinePathClient::CancelResponse::ERROR_NONE)
+    {
+      setRefinePathGoalStatusMessage("Refiner action stopped", status_success);
+    } else {
+      setRefinePathGoalStatusMessage("Failed to stop refiner action", status_error);
+    }
+    goal_handle_refine_path_.reset();
+  });
+}
+
 void MbfGoalActionsPanel::stopExePathAction()
 {
   std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
@@ -727,6 +1034,7 @@ void MbfGoalActionsPanel::onInitialize()
   const auto rviz_ros_node_abstraction = getDisplayContext()->getRosNodeAbstraction();
   goal_input_topic_->initialize(rviz_ros_node_abstraction);
   get_path_action_server_path_->initialize(rviz_ros_node_abstraction);
+  refine_path_action_server_path_->initialize(rviz_ros_node_abstraction);
   exe_path_action_server_path_->initialize(rviz_ros_node_abstraction);
 
   // rviz node is spinned externally. But we need full control when calling action clients
@@ -753,6 +1061,32 @@ void MbfGoalActionsPanel::onInitialize()
         setGetPathServerStatusMessage("not connected", status_error);
         // updateGetPathActionClient reads Qt properties — must run on GUI thread
         QMetaObject::invokeMethod(this, "updateGetPathActionClient", Qt::QueuedConnection);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  });
+
+  conn_check_thread_refine_path_stop_ = false;
+  conn_check_thread_refine_path_ = std::thread([this]() -> void {
+    while (rclcpp::ok() && !conn_check_thread_refine_path_stop_) {
+
+      bool needs_reconnect = false;
+      {
+        // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
+        std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+        const bool server_set = !refine_path_action_server_name_.empty();
+        needs_reconnect = server_set && (!action_client_refine_path_ || !action_client_refine_path_->action_server_is_ready());
+        if (server_set && !needs_reconnect) {
+          setRefinePathServerStatusMessage("ready", status_success);
+        }
+      }
+
+      if(needs_reconnect)
+      {
+        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Refine_path action server not ready. Attempting to reconnect...");
+        setRefinePathServerStatusMessage("not connected", status_error);
+        // updateRefinePathActionClient reads Qt properties — must run on GUI thread
+        QMetaObject::invokeMethod(this, "updateRefinePathActionClient", Qt::QueuedConnection);
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -888,53 +1222,12 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
 void MbfGoalActionsPanel::getPathResultCallback(
   const GetPathClient::GoalHandle::WrappedResult & wrapped_result)
 {
-  mbf_msgs::action::ExePath::Goal exe_path_goal;
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       setGetPathGoalStatusMessage(QString("Succeeded. Path cost %1").arg(wrapped_result.result->cost), status_success);
 
-      exe_path_goal.path = wrapped_result.result->path;
-
-      {
-        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-        exe_path_goal.controller = exe_path_controller_name_; // cached from GUI thread, protected by mutex
-        if(!action_client_exe_path_)
-        {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
-          return;
-        }
-        if(!action_client_exe_path_->action_server_is_ready())
-        {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
-          return;
-        }
-      }
-
-      if (goal_handle_exe_path_) {
-
-        // path execution is currently active, cancel first
-        // result callback will start new path execution with next_exe_path_goal_ as goal
-        // UI currently cannot properly handle parallel actions
-        // next_exe_path_goal_ = exe_path_goal;
-        setExePathGoalStatusMessage("Cancel existing", status_warning);
-
-        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this, exe_path_goal](
-            const typename ExePathClient::CancelResponse::SharedPtr & response)
-        {
-          if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
-          {
-            setExePathGoalStatusMessage("Existing goal cancelled", status_success);
-          } else {
-            setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
-          }
-
-          goal_handle_exe_path_.reset();
-          sendExePathGoal(exe_path_goal);
-        });
-
-      } else {
-        sendExePathGoal(exe_path_goal);
-      }
+      // refines the path with the selected plan refiners (if any), then executes it
+      startRefineChain(wrapped_result.result->path);
       break;
     case rclcpp_action::ResultCode::ABORTED:
       setGetPathGoalStatusMessage(QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
@@ -947,6 +1240,182 @@ void MbfGoalActionsPanel::getPathResultCallback(
       break;
   }
   goal_handle_get_path_.reset();
+}
+
+void MbfGoalActionsPanel::startRefineChain(const nav_msgs::msg::Path & path)
+{
+  {
+    std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+    refine_queue_ = selected_refiners_; // cached from GUI thread, protected by mutex
+    refine_queue_idx_ = 0;
+    refine_current_path_ = path;
+
+    if(!refine_queue_.empty())
+    {
+      if(!action_client_refine_path_)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized, executing unrefined path");
+        setRefinePathGoalStatusMessage("Refiner action not connected", status_error);
+        refine_queue_.clear();
+      }
+      else if(!action_client_refine_path_->action_server_is_ready())
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine_path action server is not ready, executing unrefined path");
+        setRefinePathGoalStatusMessage("Refiner action server not ready", status_error);
+        refine_queue_.clear();
+      }
+    }
+  }
+
+  if (refine_queue_.empty()) {
+    dispatchExePath(path);
+    return;
+  }
+
+  sendRefinePathGoal();
+}
+
+void MbfGoalActionsPanel::sendRefinePathGoal()
+{
+  mbf_msgs::action::RefinePath::Goal refine_path_goal;
+  refine_path_goal.path = refine_current_path_;
+  refine_path_goal.refiner = refine_queue_[refine_queue_idx_];
+
+  const QString progress = QString("%1/%2: %3")
+    .arg(refine_queue_idx_ + 1)
+    .arg(refine_queue_.size())
+    .arg(QString::fromStdString(refine_path_goal.refiner));
+
+  RefinePathClient::SendGoalOptions options;
+  options.goal_response_callback =
+    [progress, this](const RefinePathClient::GoalHandle::SharedPtr & goal_handle) {
+      this->goal_handle_refine_path_ = goal_handle;
+      if (goal_handle) {
+        setRefinePathGoalStatusMessage(QString("(%1) accepted").arg(progress), status_success);
+      } else {
+        setRefinePathGoalStatusMessage(QString("(%1) rejected").arg(progress), status_error);
+      }
+    };
+  options.result_callback = std::bind(
+    &MbfGoalActionsPanel::refinePathResultCallback, this,
+    std::placeholders::_1);
+
+  {
+    std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+    if(!action_client_refine_path_)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized when sending goal");
+      setRefinePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
+      refine_queue_.clear();
+      return;
+    }
+    action_client_refine_path_->async_send_goal(refine_path_goal, options);
+  }
+  setRefinePathGoalStatusMessage(QString("(%1) sent, awaiting response").arg(progress), status_info);
+}
+
+void MbfGoalActionsPanel::refinePathResultCallback(
+  const RefinePathClient::GoalHandle::WrappedResult & wrapped_result)
+{
+  goal_handle_refine_path_.reset();
+
+  if (refine_queue_.empty()) {
+    // chain was stopped meanwhile (e.g. by the stop button or a server change)
+    return;
+  }
+
+  const QString refiner_name = QString::fromStdString(refine_queue_[refine_queue_idx_]);
+
+  switch (wrapped_result.code) {
+    case rclcpp_action::ResultCode::SUCCEEDED:
+      if (wrapped_result.result->outcome != mbf_msgs::action::RefinePath::Result::SUCCESS) {
+        // A refined path we cannot trust must not be executed.
+        setRefinePathGoalStatusMessage(
+          QString("%1 failed (outcome %2). %3").arg(refiner_name)
+            .arg(wrapped_result.result->outcome)
+            .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+        refine_queue_.clear();
+        return;
+      }
+      break;
+    case rclcpp_action::ResultCode::ABORTED:
+      setRefinePathGoalStatusMessage(
+        QString("%1 aborted. %2").arg(refiner_name)
+          .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+      refine_queue_.clear();
+      return;
+    case rclcpp_action::ResultCode::CANCELED:
+      setRefinePathGoalStatusMessage(
+        QString("%1 cancelled. %2").arg(refiner_name)
+          .arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
+      refine_queue_.clear();
+      return;
+    default:
+      setRefinePathGoalStatusMessage("Error: Unknown action result code", status_error);
+      refine_queue_.clear();
+      return;
+  }
+
+  // feed the refined path into the next refiner, or execute it
+  refine_current_path_ = wrapped_result.result->refined_path;
+  ++refine_queue_idx_;
+
+  if (refine_queue_idx_ < refine_queue_.size()) {
+    sendRefinePathGoal();
+    return;
+  }
+
+  setRefinePathGoalStatusMessage(
+    QString("Succeeded. %1 refiner(s) applied").arg(refine_queue_.size()), status_success);
+  refine_queue_.clear();
+  dispatchExePath(refine_current_path_);
+}
+
+void MbfGoalActionsPanel::dispatchExePath(const nav_msgs::msg::Path & path)
+{
+  mbf_msgs::action::ExePath::Goal exe_path_goal;
+  exe_path_goal.path = path;
+
+  {
+    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+    exe_path_goal.controller = exe_path_controller_name_; // cached from GUI thread, protected by mutex
+    if(!action_client_exe_path_)
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
+      return;
+    }
+    if(!action_client_exe_path_->action_server_is_ready())
+    {
+      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
+      return;
+    }
+  }
+
+  if (goal_handle_exe_path_) {
+
+    // path execution is currently active, cancel first
+    // result callback will start new path execution with next_exe_path_goal_ as goal
+    // UI currently cannot properly handle parallel actions
+    // next_exe_path_goal_ = exe_path_goal;
+    setExePathGoalStatusMessage("Cancel existing", status_warning);
+
+    action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this, exe_path_goal](
+        const typename ExePathClient::CancelResponse::SharedPtr & response)
+    {
+      if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+      {
+        setExePathGoalStatusMessage("Existing goal cancelled", status_success);
+      } else {
+        setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
+      }
+
+      goal_handle_exe_path_.reset();
+      sendExePathGoal(exe_path_goal);
+    });
+
+  } else {
+    sendExePathGoal(exe_path_goal);
+  }
 }
 
 void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal)
@@ -1043,6 +1512,16 @@ void MbfGoalActionsPanel::setGetPathServerStatusMessage(const QString & text, co
 void MbfGoalActionsPanel::setGetPathGoalStatusMessage(const QString & text, const QString& style)
 {
   emit getPathGoalStatusChanged(text, style);
+}
+
+void MbfGoalActionsPanel::setRefinePathServerStatusMessage(const QString & text, const QString& style)
+{
+  emit refinePathServerStatusChanged(text, style);
+}
+
+void MbfGoalActionsPanel::setRefinePathGoalStatusMessage(const QString & text, const QString& style)
+{
+  emit refinePathGoalStatusChanged(text, style);
 }
 
 void MbfGoalActionsPanel::setExePathServerStatusMessage(const QString & text, const QString& style)

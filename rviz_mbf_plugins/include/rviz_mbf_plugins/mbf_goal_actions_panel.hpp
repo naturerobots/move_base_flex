@@ -40,11 +40,14 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mbf_msgs/action/exe_path.hpp>
 #include <mbf_msgs/action/get_path.hpp>
+#include <mbf_msgs/action/refine_path.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/parameter_client.hpp>
 
 #include <rviz_common/panel.hpp>
+#include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/editable_enum_property.hpp>
 #include <rviz_common/properties/ros_topic_property.hpp>
 #include <rviz_common/properties/ros_action_property.hpp>
@@ -61,11 +64,14 @@
 #include <future>
 #include <thread>
 #include <atomic>
+#include <string>
+#include <vector>
 
 namespace rviz_mbf_plugins
 {
 using GetPathClient = rclcpp_action::Client<mbf_msgs::action::GetPath>;
 using ExePathClient = rclcpp_action::Client<mbf_msgs::action::ExePath>;
+using RefinePathClient = rclcpp_action::Client<mbf_msgs::action::RefinePath>;
 
 class MbfGoalActionsPanel : public rviz_common::Panel
 {
@@ -88,27 +94,48 @@ protected:
   void constructGoalInputWidget();
   //! Sets up the get path widget, which displays information about the currently active or previous get path action goal
   void constructGetPathWidget();
+  //! Sets up the refine path widget, which displays information about the currently active or previous refine path action goal
+  void constructRefinePathWidget();
   //! Sets up the exe path widget, which displays information about the currently active or previous exe path action
   void constructExePathWidget();
 
   void sendGetPathGoal(const mbf_msgs::action::GetPath::Goal & goal);
   void getPathResultCallback(const GetPathClient::GoalHandle::WrappedResult & wrapped_result);
 
+  //! Starts the chain of selected plan refiners on the given path.
+  //! If no refiner is selected (or the refiner action is unavailable), the path is executed as is.
+  void startRefineChain(const nav_msgs::msg::Path & path);
+  //! Sends the path currently held in refine_current_path_ to the refiner at refine_queue_idx_
+  void sendRefinePathGoal();
+  void refinePathResultCallback(const RefinePathClient::GoalHandle::WrappedResult & wrapped_result);
+
+  //! Sends the given path to the controller, cancelling a possibly still active exe path goal first
+  void dispatchExePath(const nav_msgs::msg::Path & path);
+
   void sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal);
   void exePathResultCallback(const ExePathClient::GoalHandle::WrappedResult & wrapped_result);
+
+  //! Rebuilds the refiner checkbox list from the names loaded on the server. Must run on the GUI thread.
+  void updateRefinerProperties(const std::vector<std::string> & refiner_names);
+  //! Caches the checked refiners into selected_refiners_. Must run on the GUI thread.
+  void cacheSelectedRefiners();
 
 Q_SIGNALS:
   void getPathServerStatusChanged(const QString & text, const QString & style);
   void getPathGoalStatusChanged(const QString & text, const QString & style);
   void exePathServerStatusChanged(const QString & text, const QString & style);
   void exePathGoalStatusChanged(const QString & text, const QString & style);
+  void refinePathServerStatusChanged(const QString & text, const QString & style);
+  void refinePathGoalStatusChanged(const QString & text, const QString & style);
   void goalInputStatusChanged(const QString & text);
 
 private Q_SLOTS:
   void updateGoalInputSubscription();
   void updateGetPathActionClient();
+  void updateRefinePathActionClient();
   void updateExePathActionClient();
   void stopGetPathAction();
+  void stopRefinePathAction();
   void stopExePathAction();
 
 protected:
@@ -127,6 +154,28 @@ protected:
   //! Goal handle of active get path action
   GetPathClient::GoalHandle::SharedPtr goal_handle_get_path_;
 
+  //! Action client for refining a path
+  mutable std::mutex refine_path_action_client_mutex_;
+  RefinePathClient::SharedPtr action_client_refine_path_;
+  std::shared_ptr<rclcpp::AsyncParametersClient> refiner_parameter_client_;
+  std::string refine_path_node_name_;
+  std::string refine_path_action_server_name_;
+  //! Names of the checked refiners, in the order the server declares them. Cached from GUI thread.
+  std::vector<std::string> selected_refiners_;
+  //! Refiner names restored by load(), applied once the server's refiner list is known
+  std::vector<std::string> pending_selected_refiners_;
+  //! True until the refiner list has been received for the first time
+  bool refiner_list_pending_;
+
+  //! Goal handle of active refine path action
+  RefinePathClient::GoalHandle::SharedPtr goal_handle_refine_path_;
+
+  //! Refiners still to be applied to the current path, and the index of the running one
+  std::vector<std::string> refine_queue_;
+  size_t refine_queue_idx_;
+  //! Path handed from one refiner to the next
+  nav_msgs::msg::Path refine_current_path_;
+
   //! Action client for traversing a path
   mutable std::mutex exe_path_action_client_mutex_;
   ExePathClient::SharedPtr action_client_exe_path_;
@@ -140,6 +189,8 @@ protected:
 
   std::atomic_bool conn_check_thread_get_path_stop_;
   std::thread conn_check_thread_get_path_;
+  std::atomic_bool conn_check_thread_refine_path_stop_;
+  std::thread conn_check_thread_refine_path_;
   std::atomic_bool conn_check_thread_exe_path_stop_;
   std::thread conn_check_thread_exe_path_;
   std::atomic_bool executor_thread_stop_;
@@ -160,6 +211,10 @@ protected:
   rviz_common::properties::RosTopicProperty*      goal_input_topic_;
   rviz_common::properties::RosActionProperty*     get_path_action_server_path_;
   rviz_common::properties::EditableEnumProperty*  planner_name_property_;
+  rviz_common::properties::RosActionProperty*     refine_path_action_server_path_;
+  //! Parent node of the refiner checkboxes. Collapse it to hide a long refiner list.
+  rviz_common::properties::Property*              refiners_property_;
+  std::vector<rviz_common::properties::BoolProperty*> refiner_properties_;
   rviz_common::properties::RosActionProperty*     exe_path_action_server_path_;
   rviz_common::properties::EditableEnumProperty*  controller_name_property_;
 
@@ -179,6 +234,19 @@ protected:
   QLabel * get_path_action_goal_status_desc_;
   QLabel * get_path_action_goal_status_;
   QPushButton * stop_get_path_button_;
+
+  void setRefinePathServerStatusMessage(const QString & text, const QString& style);
+  void setRefinePathGoalStatusMessage(const QString & text, const QString& style);
+
+  QGroupBox * refine_path_ui_box_;
+  QVBoxLayout * refine_path_ui_layout_;
+  QHBoxLayout * refine_path_ui_layout_server_status_;
+  QLabel * refine_path_action_server_status_desc_;
+  QLabel * refine_path_action_server_status_;
+  QHBoxLayout * refine_path_ui_layout_goal_status_;
+  QLabel * refine_path_action_goal_status_desc_;
+  QLabel * refine_path_action_goal_status_;
+  QPushButton * stop_refine_path_button_;
 
   void setExePathServerStatusMessage(const QString & text, const QString& style);
   void setExePathGoalStatusMessage(const QString & text, const QString& style);
