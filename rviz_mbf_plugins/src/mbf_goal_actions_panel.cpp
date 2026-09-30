@@ -60,11 +60,11 @@ constexpr auto notset_refiners = "none loaded";
 
 // Color scheme for status messages
 
-static const QString status_success   = "background-color: #90EE90; color: #1a1a1a;";   // Light green, dark text
-static const QString status_error     = "background-color: #FFB6C6; color: #ffffff;";   // Light red, white text
-static const QString status_warning   = "background-color: #FFE4B5; color: #1a1a1a;";   // Light orange, dark text
-static const QString status_info      = "background-color: #ADD8E6; color: #1a1a1a;";   // Light blue, dark text
-static const QString status_neutral   = "background-color: #D3D3D3; color: #1a1a1a;";   // Light gray, dark text
+static const QString status_success = "background-color: #90EE90; color: #1a1a1a;";     // Light green, dark text
+static const QString status_error = "background-color: #FFB6C6; color: #ffffff;";       // Light red, white text
+static const QString status_warning = "background-color: #FFE4B5; color: #1a1a1a;";     // Light orange, dark text
+static const QString status_info = "background-color: #ADD8E6; color: #1a1a1a;";        // Light blue, dark text
+static const QString status_neutral = "background-color: #D3D3D3; color: #1a1a1a;";     // Light gray, dark text
 
 MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
 : Panel(parent)
@@ -89,61 +89,65 @@ MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
   setLayout(ui_layout_);
 
   // Wire status signals to widget updates. AutoConnection: direct on GUI thread, queued from other threads.
-  connect(this, &MbfGoalActionsPanel::goalInputStatusChanged,
+  connect(
+    this, &MbfGoalActionsPanel::goalInputStatusChanged,
     goal_input_status_, &QLabel::setText);
-  connect(this, &MbfGoalActionsPanel::getPathServerStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::getPathServerStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       get_path_action_server_status_->setText(t);
       get_path_action_server_status_->setStyleSheet(s);
     });
-  connect(this, &MbfGoalActionsPanel::getPathGoalStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::getPathGoalStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       get_path_action_goal_status_->setText(t);
       get_path_action_goal_status_->setStyleSheet(s);
     });
-  connect(this, &MbfGoalActionsPanel::refinePathServerStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::refinePathServerStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       refine_path_action_server_status_->setText(t);
       refine_path_action_server_status_->setStyleSheet(s);
     });
-  connect(this, &MbfGoalActionsPanel::refinePathGoalStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::refinePathGoalStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       refine_path_action_goal_status_->setText(t);
       refine_path_action_goal_status_->setStyleSheet(s);
     });
-  connect(this, &MbfGoalActionsPanel::exePathServerStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::exePathServerStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       exe_path_action_server_status_->setText(t);
       exe_path_action_server_status_->setStyleSheet(s);
     });
-  connect(this, &MbfGoalActionsPanel::exePathGoalStatusChanged,
-    this, [this](const QString& t, const QString& s) {
+  connect(
+    this, &MbfGoalActionsPanel::exePathGoalStatusChanged,
+    this, [this](const QString & t, const QString & s) {
       exe_path_action_goal_status_->setText(t);
       exe_path_action_goal_status_->setStyleSheet(s);
     });
 }
 
-MbfGoalActionsPanel::~MbfGoalActionsPanel() {
+MbfGoalActionsPanel::~MbfGoalActionsPanel()
+{
 
   // joining threads here
   conn_check_thread_get_path_stop_ = true;
-  if(conn_check_thread_get_path_.joinable())
-  {
+  if (conn_check_thread_get_path_.joinable()) {
     conn_check_thread_get_path_.join();
   }
   conn_check_thread_refine_path_stop_ = true;
-  if(conn_check_thread_refine_path_.joinable())
-  {
+  if (conn_check_thread_refine_path_.joinable()) {
     conn_check_thread_refine_path_.join();
   }
   conn_check_thread_exe_path_stop_ = true;
-  if(conn_check_thread_exe_path_.joinable())
-  {
+  if (conn_check_thread_exe_path_.joinable()) {
     conn_check_thread_exe_path_.join();
   }
   executor_thread_stop_ = true;
-  if(executor_thread_.joinable())
-  {
+  if (executor_thread_.joinable()) {
     executor_thread_.join();
   }
 }
@@ -160,7 +164,7 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
     nullptr,
     SLOT(updateGoalInputSubscription()), this);
   properity_tree_model_->getRoot()->addChild(goal_input_topic_);
-  
+
   get_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
     "Planner Action", notset_action_server_path, "mbf_msgs/action/GetPath",
     "ROS path to move base flex get_path action server",
@@ -169,13 +173,15 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
   properity_tree_model_->getRoot()->addChild(get_path_action_server_path_);
 
   planner_name_property_ = new rviz_common::properties::EditableEnumProperty(
-    "Planner Name", "", "Key name of planner to use (must defined in config), e.g. 'GridBased' or 'mesh_planner'");
+    "Planner Name", "",
+    "Key name of planner to use (must defined in config), e.g. 'GridBased' or 'mesh_planner'");
   properity_tree_model_->getRoot()->addChild(planner_name_property_);
   // Keep cached name in sync with the property (signal runs on GUI thread)
-  connect(planner_name_property_, &rviz_common::properties::Property::changed, this, [this]() {
-    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-    get_path_planner_name_ = planner_name_property_->getStdString();
-  });
+  connect(
+    planner_name_property_, &rviz_common::properties::Property::changed, this, [this]() {
+      std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+      get_path_planner_name_ = planner_name_property_->getStdString();
+    });
 
   refine_path_action_server_path_ = new rviz_common::properties::RosActionProperty(
     "Refiner Action", notset_action_server_path, "mbf_msgs/action/RefinePath",
@@ -201,13 +207,15 @@ void MbfGoalActionsPanel::constructPropertiesWidget()
   properity_tree_model_->getRoot()->addChild(exe_path_action_server_path_);
 
   controller_name_property_ = new rviz_common::properties::EditableEnumProperty(
-    "Controller Name", "", "Key name of planner to use (must defined in config), e.g. 'mppi' or 'mesh_controller'");
+    "Controller Name", "",
+    "Key name of planner to use (must defined in config), e.g. 'mppi' or 'mesh_controller'");
   properity_tree_model_->getRoot()->addChild(controller_name_property_);
   // Keep cached name in sync with the property (signal runs on GUI thread)
-  connect(controller_name_property_, &rviz_common::properties::Property::changed, this, [this]() {
-    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    exe_path_controller_name_ = controller_name_property_->getStdString();
-  });
+  connect(
+    controller_name_property_, &rviz_common::properties::Property::changed, this, [this]() {
+      std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+      exe_path_controller_name_ = controller_name_property_->getStdString();
+    });
 
   properity_tree_widget_ = new rviz_common::properties::PropertyTreeWidget();
   properity_tree_widget_->setModel(properity_tree_model_);
@@ -238,7 +246,9 @@ void MbfGoalActionsPanel::constructGetPathWidget()
   get_path_ui_layout_goal_status_->addWidget(get_path_action_goal_status_);
 
   stop_get_path_button_ = new QPushButton("Stop Planner Action");
-  connect(stop_get_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopGetPathAction);
+  connect(
+    stop_get_path_button_, &QPushButton::clicked, this,
+    &MbfGoalActionsPanel::stopGetPathAction);
 
   get_path_ui_layout_ = new QVBoxLayout();
   get_path_ui_layout_->addLayout(get_path_ui_layout_server_status_);
@@ -295,7 +305,8 @@ void MbfGoalActionsPanel::updateRefinerProperties(const std::vector<std::string>
     auto * refiner_property = new rviz_common::properties::BoolProperty(
       QString::fromStdString(refiner_name), was_checked,
       "Apply this plan refiner to the planned path", refiners_property_);
-    connect(refiner_property, &rviz_common::properties::Property::changed, this,
+    connect(
+      refiner_property, &rviz_common::properties::Property::changed, this,
       [this]() {cacheSelectedRefiners();});
     refiner_properties_.push_back(refiner_property);
   }
@@ -319,7 +330,9 @@ void MbfGoalActionsPanel::constructRefinePathWidget()
   refine_path_ui_layout_goal_status_->addWidget(refine_path_action_goal_status_);
 
   stop_refine_path_button_ = new QPushButton("Stop Refiner Action");
-  connect(stop_refine_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopRefinePathAction);
+  connect(
+    stop_refine_path_button_, &QPushButton::clicked, this,
+    &MbfGoalActionsPanel::stopRefinePathAction);
 
   refine_path_ui_layout_ = new QVBoxLayout();
   refine_path_ui_layout_->addLayout(refine_path_ui_layout_server_status_);
@@ -346,7 +359,9 @@ void MbfGoalActionsPanel::constructExePathWidget()
   exe_path_ui_layout_goal_status_->addWidget(exe_path_action_goal_status_);
 
   stop_exe_path_button_ = new QPushButton("Stop Controller Action");
-  connect(stop_exe_path_button_, &QPushButton::clicked, this, &MbfGoalActionsPanel::stopExePathAction);
+  connect(
+    stop_exe_path_button_, &QPushButton::clicked, this,
+    &MbfGoalActionsPanel::stopExePathAction);
 
   exe_path_ui_layout_ = new QVBoxLayout();
   exe_path_ui_layout_->addLayout(exe_path_ui_layout_server_status_);
@@ -412,7 +427,7 @@ void MbfGoalActionsPanel::updateGoalInputSubscription()
   }
 }
 
-std::string node_name_guess(const std::string& topic)
+std::string node_name_guess(const std::string & topic)
 {
   // this just guesses the node name and returns it.
   // split topic by first slashes from right. return first part as node name
@@ -456,19 +471,20 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
 
   const std::string selected_server = get_path_action_server_path_->getAction().toStdString();
 
-  if(selected_server == notset_action_server_path)
-  {
+  if (selected_server == notset_action_server_path) {
     // reset action client: first cancel active goal, then reset client
     if (action_client_get_path_ && goal_handle_get_path_) {
 
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+      RCLCPP_INFO_STREAM(
+        ros_node_->get_logger(),
+        "Cancelling active get_path goal due to action server change...");
       setGetPathGoalStatusMessage("Cancelling active goal", status_warning);
 
-      try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
-          const typename GetPathClient::CancelResponse::SharedPtr & response) 
+      try_cancel_goal<GetPathClient>(
+        action_client_get_path_, goal_handle_get_path_, [this](
+          const typename GetPathClient::CancelResponse::SharedPtr & response)
         {
-          if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
-          {
+          if (response->return_code == GetPathClient::CancelResponse::ERROR_NONE) {
             setGetPathGoalStatusMessage("Planner action stopped", status_success);
             goal_handle_get_path_.reset();
           } else {
@@ -483,7 +499,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
           setGetPathServerStatusMessage("waiting for input", status_neutral);
           setGetPathGoalStatusMessage("none sent yet", status_neutral);
         });
-        
+
     } else {
       action_client_get_path_.reset();
       goal_handle_get_path_.reset();
@@ -496,15 +512,14 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     return;
   }
 
-  if(action_client_get_path_)
-  {
+  if (action_client_get_path_) {
     // was already initialized
-    if(selected_server == get_path_action_server_name_)
-    {
+    if (selected_server == get_path_action_server_name_) {
       // same server than before: check if connection has been lost
-      if(!action_client_get_path_->action_server_is_ready())
-      {
-        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to get_path action server lost. Resetting action client...");
+      if (!action_client_get_path_->action_server_is_ready()) {
+        RCLCPP_WARN_STREAM(
+          ros_node_->get_logger(),
+          "Connection to get_path action server lost. Resetting action client...");
         setGetPathServerStatusMessage("connection lost", status_error);
         action_client_get_path_.reset(); // reset so that reinitialization is triggered
         goal_handle_get_path_.reset();
@@ -518,14 +533,16 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
       // reset action client: first cancel active goal, then reset client
       if (goal_handle_get_path_) {
 
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
+        RCLCPP_INFO_STREAM(
+          ros_node_->get_logger(),
+          "Cancelling active get_path goal due to action server change...");
         setGetPathGoalStatusMessage("Cancelling active goal", status_warning);
 
-        try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
-          const typename GetPathClient::CancelResponse::SharedPtr & response) 
+        try_cancel_goal<GetPathClient>(
+          action_client_get_path_, goal_handle_get_path_, [this](
+            const typename GetPathClient::CancelResponse::SharedPtr & response)
           {
-            if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
-            {
+            if (response->return_code == GetPathClient::CancelResponse::ERROR_NONE) {
               setGetPathGoalStatusMessage("Planner action stopped", status_success);
             } else {
               setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
@@ -535,9 +552,9 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
           });
       }
 
-      while(goal_handle_get_path_)
-      {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Waiting for active get_path goal to be cancelled...");
+      while (goal_handle_get_path_) {
+        RCLCPP_INFO_STREAM(
+          ros_node_->get_logger(), "Waiting for active get_path goal to be cancelled...");
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
       }
 
@@ -552,14 +569,16 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
   }
 
   // (re-)initialize action client if not initialized or resetted due to server change
-  if(!action_client_get_path_)
-  {
+  if (!action_client_get_path_) {
     try {
       action_client_get_path_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
         ros_node_, selected_server);
       goal_handle_get_path_.reset();
-    } catch (const std::exception& e) {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for get_path action server at " << selected_server << ": " << e.what());
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(),
+        "Failed to create action client for get_path action server at " << selected_server << ": " <<
+          e.what());
       setGetPathServerStatusMessage("connection failed!", status_error);
       return;
     }
@@ -571,60 +590,71 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
   action_client_get_path_->wait_for_action_server(
     std::chrono::seconds(1));
 
-  if(!action_client_get_path_->action_server_is_ready())
-  {
+  if (!action_client_get_path_->action_server_is_ready()) {
     setGetPathServerStatusMessage("connection failed!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to get_path action server at " << selected_server);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to get_path action server at " << selected_server);
     return;
   }
-  
+
   get_path_action_server_name_ = selected_server;
-  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to get_path action server at " << selected_server);
+  RCLCPP_INFO_STREAM(
+    ros_node_->get_logger(), "Connected to get_path action server at " << selected_server);
   setGetPathServerStatusMessage("ready", status_success);
 
   // bool parameter_client_reinitialized = false;
-  if(!planner_parameter_client_)
-  {
+  if (!planner_parameter_client_) {
     // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
     // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
     get_path_node_name_ = node_name_guess(selected_server);
 
-    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for planner list: " << get_path_node_name_);
+    RCLCPP_INFO_STREAM(
+      ros_node_->get_logger(), "Guessed node name for planner list: " << get_path_node_name_);
 
     setGetPathServerStatusMessage("connecting to parameters...", status_info);
-    planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, get_path_node_name_);
+    planner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(
+      ros_node_,
+      get_path_node_name_);
   }
   planner_parameter_client_->wait_for_service(std::chrono::seconds(1));
 
-  if(!planner_parameter_client_->service_is_ready())
-  {
+  if (!planner_parameter_client_->service_is_ready()) {
     setGetPathServerStatusMessage("Could not connect to parameters!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of planner action server node " << get_path_node_name_);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to parameter service of planner action server node " <<
+        get_path_node_name_);
     return;
   }
 
   // update list of planners
   setGetPathServerStatusMessage("updating planner list...", status_info);
-  planner_parameter_client_->get_parameters({"planners"},
+  planner_parameter_client_->get_parameters(
+    {"planners"},
     [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
       // Parameter client callback runs on executor thread — marshal Qt property access to GUI thread.
       auto parameters = future.get();
-      QMetaObject::invokeMethod(this, [this, selected_server, parameters]() {
-        if(!parameters.empty())
-        {
-          planner_name_property_->clearOptions();
-          const std::vector<std::string> planners = parameters[0].as_string_array();
-          for(const std::string& planner : planners)
-          {
-            planner_name_property_->addOptionStd(planner);
+      QMetaObject::invokeMethod(
+        this, [this, selected_server, parameters]() {
+          if (!parameters.empty()) {
+            planner_name_property_->clearOptions();
+            const std::vector<std::string> planners = parameters[0].as_string_array();
+            for (const std::string & planner : planners) {
+              planner_name_property_->addOptionStd(planner);
+            }
+            RCLCPP_INFO_STREAM(
+              this->ros_node_->get_logger(),
+              "Received planner list with " << planners.size() << " entries for planner action " <<
+                selected_server);
+            setGetPathServerStatusMessage("ready", status_success);
+          } else {
+            setGetPathServerStatusMessage("No planner found!", status_error);
+            RCLCPP_WARN_STREAM(
+              this->ros_node_->get_logger(),
+              "No planner found for planner action " << selected_server);
           }
-          RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received planner list with " << planners.size() << " entries for planner action " << selected_server);
-          setGetPathServerStatusMessage("ready", status_success);
-        } else {
-          setGetPathServerStatusMessage("No planner found!", status_error);
-          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No planner found for planner action " << selected_server);
-        }
-      }, Qt::QueuedConnection);
+        }, Qt::QueuedConnection);
     });
 }
 
@@ -635,8 +665,7 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
 
   const std::string selected_server = refine_path_action_server_path_->getAction().toStdString();
 
-  if(selected_server == notset_action_server_path)
-  {
+  if (selected_server == notset_action_server_path) {
     // reset action client. An active refine goal is cancelled, but - other than for get_path and
     // exe_path - we do not have to wait for it: the chain id makes late callbacks a no-op.
     stopRefineChainLocked();
@@ -649,15 +678,14 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
     return;
   }
 
-  if(action_client_refine_path_)
-  {
+  if (action_client_refine_path_) {
     // was already initialized
-    if(selected_server == refine_path_action_server_name_)
-    {
+    if (selected_server == refine_path_action_server_name_) {
       // same server than before: check if connection has been lost
-      if(!action_client_refine_path_->action_server_is_ready())
-      {
-        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to refine_path action server lost. Resetting action client...");
+      if (!action_client_refine_path_->action_server_is_ready()) {
+        RCLCPP_WARN_STREAM(
+          ros_node_->get_logger(),
+          "Connection to refine_path action server lost. Resetting action client...");
         stopRefineChainLocked();
         action_client_refine_path_.reset(); // reset so that reinitialization is triggered
         refiner_parameter_client_.reset();
@@ -676,14 +704,16 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
   }
 
   // (re-)initialize action client if not initialized or resetted due to server change
-  if(!action_client_refine_path_)
-  {
+  if (!action_client_refine_path_) {
     try {
       action_client_refine_path_ = rclcpp_action::create_client<mbf_msgs::action::RefinePath>(
         ros_node_, selected_server);
       goal_handle_refine_path_.reset();
-    } catch (const std::exception& e) {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for refine_path action server at " << selected_server << ": " << e.what());
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(),
+        "Failed to create action client for refine_path action server at " << selected_server << ": " <<
+          e.what());
       setRefinePathServerStatusMessage("connection failed!", status_error);
       return;
     }
@@ -695,74 +725,87 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
   action_client_refine_path_->wait_for_action_server(
     std::chrono::seconds(1));
 
-  if(!action_client_refine_path_->action_server_is_ready())
-  {
+  if (!action_client_refine_path_->action_server_is_ready()) {
     setRefinePathServerStatusMessage("connection failed!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to refine_path action server at " << selected_server);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to refine_path action server at " << selected_server);
     return;
   }
 
   refine_path_action_server_name_ = selected_server;
-  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to refine_path action server at " << selected_server);
+  RCLCPP_INFO_STREAM(
+    ros_node_->get_logger(), "Connected to refine_path action server at " << selected_server);
   setRefinePathServerStatusMessage("ready", status_success);
 
-  if(!refiner_parameter_client_)
-  {
+  if (!refiner_parameter_client_) {
     // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
     // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
     refine_path_node_name_ = node_name_guess(selected_server);
 
-    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for refiner list: " << refine_path_node_name_);
+    RCLCPP_INFO_STREAM(
+      ros_node_->get_logger(), "Guessed node name for refiner list: " << refine_path_node_name_);
 
     setRefinePathServerStatusMessage("connecting to parameters...", status_info);
-    refiner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, refine_path_node_name_);
+    refiner_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(
+      ros_node_,
+      refine_path_node_name_);
   }
   refiner_parameter_client_->wait_for_service(std::chrono::seconds(1));
 
-  if(!refiner_parameter_client_->service_is_ready())
-  {
+  if (!refiner_parameter_client_->service_is_ready()) {
     setRefinePathServerStatusMessage("Could not connect to parameters!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of refine_path action server node " << refine_path_node_name_);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to parameter service of refine_path action server node " <<
+        refine_path_node_name_);
     return;
   }
 
   // update list of plan refiners
   setRefinePathServerStatusMessage("updating refiner list...", status_info);
-  refiner_parameter_client_->get_parameters({"plan_refiners"},
+  refiner_parameter_client_->get_parameters(
+    {"plan_refiners"},
     [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
       // Parameter client callback runs on executor thread — marshal Qt property access to GUI thread.
       auto parameters = future.get();
-      QMetaObject::invokeMethod(this, [this, selected_server, parameters]() {
-        // An empty refiner list is a valid configuration: the panel then simply executes the
-        // planned path without refinement.
-        const std::vector<std::string> refiners =
+      QMetaObject::invokeMethod(
+        this, [this, selected_server, parameters]() {
+          // An empty refiner list is a valid configuration: the panel then simply executes the
+          // planned path without refinement.
+          const std::vector<std::string> refiners =
           parameters.empty() ? std::vector<std::string>() : parameters[0].as_string_array();
-        updateRefinerProperties(refiners);
-        RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received plan refiner list with " << refiners.size() << " entries for refiner action " << selected_server);
-        setRefinePathServerStatusMessage("ready", status_success);
-      }, Qt::QueuedConnection);
+          updateRefinerProperties(refiners);
+          RCLCPP_INFO_STREAM(
+            this->ros_node_->get_logger(),
+            "Received plan refiner list with " << refiners.size() <<
+              " entries for refiner action " <<
+              selected_server);
+          setRefinePathServerStatusMessage("ready", status_success);
+        }, Qt::QueuedConnection);
     });
 }
 
 void MbfGoalActionsPanel::updateExePathActionClient()
 {
   std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-  
+
   const std::string selected_server = exe_path_action_server_path_->getAction().toStdString();
 
-  if(selected_server == notset_action_server_path)
-  {
+  if (selected_server == notset_action_server_path) {
     // reset action client: first cancel active goal, then reset client
     if (action_client_exe_path_ && goal_handle_exe_path_) {
 
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
+      RCLCPP_INFO_STREAM(
+        ros_node_->get_logger(),
+        "Cancelling active exe_path goal due to action server change...");
       setExePathGoalStatusMessage("Cancelling active goal", status_warning);
 
-      try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
-          const typename ExePathClient::CancelResponse::SharedPtr & response) 
+      try_cancel_goal<ExePathClient>(
+        action_client_exe_path_, goal_handle_exe_path_, [this](
+          const typename ExePathClient::CancelResponse::SharedPtr & response)
         {
-          if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
-          {
+          if (response->return_code == ExePathClient::CancelResponse::ERROR_NONE) {
             setExePathGoalStatusMessage("Controller action stopped", status_success);
           } else {
             setExePathGoalStatusMessage("Failed to stop controller action", status_error);
@@ -776,7 +819,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
           setExePathServerStatusMessage("waiting for input", status_neutral);
           setExePathGoalStatusMessage("none sent yet", status_neutral);
         });
-        
+
     } else {
       action_client_exe_path_.reset();
       goal_handle_exe_path_.reset();
@@ -789,15 +832,14 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     return;
   }
 
-  if(action_client_exe_path_)
-  {
+  if (action_client_exe_path_) {
     // was already initialized
-    if(selected_server == exe_path_action_server_name_)
-    {
+    if (selected_server == exe_path_action_server_name_) {
       // same server than before: check if connection has been lost
-      if(!action_client_exe_path_->action_server_is_ready())
-      {
-        RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to exe_path action server lost. Resetting action client...");
+      if (!action_client_exe_path_->action_server_is_ready()) {
+        RCLCPP_WARN_STREAM(
+          ros_node_->get_logger(),
+          "Connection to exe_path action server lost. Resetting action client...");
         setExePathServerStatusMessage("connection lost", status_error);
         action_client_exe_path_.reset(); // reset so that reinitialization is triggered
         goal_handle_exe_path_.reset();
@@ -811,14 +853,16 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       // reset action client: first cancel active goal, then reset client
       if (goal_handle_exe_path_) {
 
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
+        RCLCPP_INFO_STREAM(
+          ros_node_->get_logger(),
+          "Cancelling active exe_path goal due to action server change...");
         setExePathGoalStatusMessage("Cancelling active goal", status_warning);
 
-        try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
-            const typename ExePathClient::CancelResponse::SharedPtr & response) 
+        try_cancel_goal<ExePathClient>(
+          action_client_exe_path_, goal_handle_exe_path_, [this](
+            const typename ExePathClient::CancelResponse::SharedPtr & response)
           {
-            if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
-            {
+            if (response->return_code == ExePathClient::CancelResponse::ERROR_NONE) {
               setExePathGoalStatusMessage("Controller action stopped", status_success);
             } else {
               setExePathGoalStatusMessage("Failed to stop controller action", status_error);
@@ -827,9 +871,9 @@ void MbfGoalActionsPanel::updateExePathActionClient()
           });
       }
 
-      while(goal_handle_exe_path_)
-      {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Waiting for active exe_path goal to be cancelled...");
+      while (goal_handle_exe_path_) {
+        RCLCPP_INFO_STREAM(
+          ros_node_->get_logger(), "Waiting for active exe_path goal to be cancelled...");
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
       }
 
@@ -843,14 +887,16 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   }
 
   // (re-)initialize action client if not initialized or resetted due to server change
-  if(!action_client_exe_path_)
-  {
+  if (!action_client_exe_path_) {
     try {
       action_client_exe_path_ = rclcpp_action::create_client<mbf_msgs::action::ExePath>(
         ros_node_, selected_server);
       goal_handle_exe_path_.reset();
-    } catch (const std::exception& e) {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Failed to create action client for exe_path action server at " << selected_server << ": " << e.what());
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(),
+        "Failed to create action client for exe_path action server at " << selected_server << ": " <<
+          e.what());
       setExePathServerStatusMessage("connection failed!", status_error);
       return;
     }
@@ -861,61 +907,72 @@ void MbfGoalActionsPanel::updateExePathActionClient()
   setExePathServerStatusMessage("connecting...", status_info);
   action_client_exe_path_->wait_for_action_server(
     std::chrono::seconds(1));
-  
-  if(!action_client_exe_path_->action_server_is_ready())
-  {
+
+  if (!action_client_exe_path_->action_server_is_ready()) {
     setExePathServerStatusMessage("connection failed!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to exe_path action server at " << selected_server);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to exe_path action server at " << selected_server);
     return;
   }
-  
+
   exe_path_action_server_name_ = selected_server;
-  RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Connected to exe_path action server at " << selected_server);
+  RCLCPP_INFO_STREAM(
+    ros_node_->get_logger(), "Connected to exe_path action server at " << selected_server);
   setExePathServerStatusMessage("ready", status_success);
 
   // bool parameter_client_reinitialized = false;
-  if(!controller_parameter_client_)
-  {
+  if (!controller_parameter_client_) {
     // TODO(amock): this is a bit hacky. We extract the node name from the action server topic
     // - but if the topic was remapped we get a problem. Currently I dont know an efficient (!) solution to that problem
     exe_path_node_name_ = node_name_guess(selected_server);
 
-    RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Guessed node name for controller list: " << exe_path_node_name_);
+    RCLCPP_INFO_STREAM(
+      ros_node_->get_logger(), "Guessed node name for controller list: " << exe_path_node_name_);
 
     setExePathServerStatusMessage("connecting to parameters...", status_info);
-    controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(ros_node_, exe_path_node_name_);
+    controller_parameter_client_ = std::make_shared<rclcpp::AsyncParametersClient>(
+      ros_node_,
+      exe_path_node_name_);
   }
   controller_parameter_client_->wait_for_service(std::chrono::seconds(1));
 
-  if(!controller_parameter_client_->service_is_ready())
-  {
+  if (!controller_parameter_client_->service_is_ready()) {
     setExePathServerStatusMessage("Could not connect to parameters!", status_error);
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Could not connect to parameter service of exe_path action server node " << exe_path_node_name_);
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(),
+      "Could not connect to parameter service of exe_path action server node " <<
+        exe_path_node_name_);
     return;
   }
 
   // update list of controllers
   setExePathServerStatusMessage("updating controller list...", status_info);
-  controller_parameter_client_->get_parameters({"controllers"},
+  controller_parameter_client_->get_parameters(
+    {"controllers"},
     [this, selected_server](std::shared_future<std::vector<rclcpp::Parameter>> future) {
       // Parameter client callback runs on executor thread — marshal Qt property access to GUI thread.
       auto parameters = future.get();
-      QMetaObject::invokeMethod(this, [this, selected_server, parameters]() {
-        if(!parameters.empty())
-        {
-          controller_name_property_->clearOptions();
-          const std::vector<std::string> controllers = parameters[0].as_string_array();
-          for(const std::string& controller : controllers)
-          {
-            controller_name_property_->addOptionStd(controller);
+      QMetaObject::invokeMethod(
+        this, [this, selected_server, parameters]() {
+          if (!parameters.empty()) {
+            controller_name_property_->clearOptions();
+            const std::vector<std::string> controllers = parameters[0].as_string_array();
+            for (const std::string & controller : controllers) {
+              controller_name_property_->addOptionStd(controller);
+            }
+            RCLCPP_INFO_STREAM(
+              this->ros_node_->get_logger(),
+              "Received controller list with " << controllers.size() <<
+                " entries for exe_path action " << selected_server);
+            setExePathServerStatusMessage("ready", status_success);
+          } else {
+            setExePathServerStatusMessage("No controller found!", status_error);
+            RCLCPP_WARN_STREAM(
+              this->ros_node_->get_logger(),
+              "No controller found for exe_path action " << selected_server);
           }
-          RCLCPP_INFO_STREAM(this->ros_node_->get_logger(), "Received controller list with " << controllers.size() << " entries for exe_path action " << selected_server);
-          setExePathServerStatusMessage("ready", status_success);
-        } else {
-          setExePathServerStatusMessage("No controller found!", status_error);
-          RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "No controller found for exe_path action " << selected_server);
-        }
-      }, Qt::QueuedConnection);
+        }, Qt::QueuedConnection);
     });
 }
 
@@ -923,46 +980,42 @@ void MbfGoalActionsPanel::stopGetPathAction()
 {
   std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
 
-  if (!action_client_get_path_) 
-  {
+  if (!action_client_get_path_) {
     setGetPathGoalStatusMessage("No planner action to stop", status_neutral);
     return;
   }
 
-  if(!goal_handle_get_path_)
-  {
+  if (!goal_handle_get_path_) {
     setGetPathGoalStatusMessage("No planner goal to stop", status_neutral);
     return;
   }
 
   // start stopping planner action
   setGetPathGoalStatusMessage("Stopping planner action...", status_warning);
-  try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
-      const typename GetPathClient::CancelResponse::SharedPtr & response) 
-  {
-    if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
+  try_cancel_goal<GetPathClient>(
+    action_client_get_path_, goal_handle_get_path_, [this](
+      const typename GetPathClient::CancelResponse::SharedPtr & response)
     {
-      setGetPathGoalStatusMessage("Planner action stopped", status_success);
-    } else {
-      setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
-    }
-    goal_handle_get_path_.reset();
-  });
+      if (response->return_code == GetPathClient::CancelResponse::ERROR_NONE) {
+        setGetPathGoalStatusMessage("Planner action stopped", status_success);
+      } else {
+        setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
+      }
+      goal_handle_get_path_.reset();
+    });
 }
 
 void MbfGoalActionsPanel::stopRefinePathAction()
 {
   std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
 
-  if (!action_client_refine_path_)
-  {
+  if (!action_client_refine_path_) {
     stopRefineChainLocked();
     setRefinePathGoalStatusMessage("No refiner action to stop", status_neutral);
     return;
   }
 
-  if(!goal_handle_refine_path_)
-  {
+  if (!goal_handle_refine_path_) {
     stopRefineChainLocked();
     setRefinePathGoalStatusMessage("No refiner goal to stop", status_neutral);
     return;
@@ -970,15 +1023,15 @@ void MbfGoalActionsPanel::stopRefinePathAction()
 
   // stop the whole chain, not just the running refiner
   setRefinePathGoalStatusMessage("Stopping refiner action...", status_warning);
-  stopRefineChainLocked([this](const typename RefinePathClient::CancelResponse::SharedPtr & response)
-  {
-    if(response->return_code == RefinePathClient::CancelResponse::ERROR_NONE)
+  stopRefineChainLocked(
+    [this](const typename RefinePathClient::CancelResponse::SharedPtr & response)
     {
-      setRefinePathGoalStatusMessage("Refiner action stopped", status_success);
-    } else {
-      setRefinePathGoalStatusMessage("Failed to stop refiner action", status_error);
-    }
-  });
+      if (response->return_code == RefinePathClient::CancelResponse::ERROR_NONE) {
+        setRefinePathGoalStatusMessage("Refiner action stopped", status_success);
+      } else {
+        setRefinePathGoalStatusMessage("Failed to stop refiner action", status_error);
+      }
+    });
 }
 
 void MbfGoalActionsPanel::stopRefineChainLocked(RefinePathClient::CancelCallback cancel_callback)
@@ -987,7 +1040,9 @@ void MbfGoalActionsPanel::stopRefineChainLocked(RefinePathClient::CancelCallback
   ++refine_chain_id_;
   refine_queue_.clear();
   if (action_client_refine_path_ && goal_handle_refine_path_) {
-    try_cancel_goal<RefinePathClient>(action_client_refine_path_, goal_handle_refine_path_, cancel_callback);
+    try_cancel_goal<RefinePathClient>(
+      action_client_refine_path_, goal_handle_refine_path_,
+      cancel_callback);
   }
   goal_handle_refine_path_.reset();
 }
@@ -996,31 +1051,29 @@ void MbfGoalActionsPanel::stopExePathAction()
 {
   std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
 
-  if (!action_client_exe_path_) 
-  {
+  if (!action_client_exe_path_) {
     setExePathGoalStatusMessage("No controller action to stop", status_neutral);
     return;
   }
 
-  if(!goal_handle_exe_path_)
-  {
+  if (!goal_handle_exe_path_) {
     setExePathGoalStatusMessage("No controller goal to stop", status_neutral);
     return;
   }
 
   // start stopping controller action
   setExePathGoalStatusMessage("Stopping controller action...", status_warning);
-  try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
-      const typename ExePathClient::CancelResponse::SharedPtr & response) 
-  {
-    if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
+  try_cancel_goal<ExePathClient>(
+    action_client_exe_path_, goal_handle_exe_path_, [this](
+      const typename ExePathClient::CancelResponse::SharedPtr & response)
     {
-      setExePathGoalStatusMessage("Controller action stopped", status_success);
-    } else {
-      setExePathGoalStatusMessage("Failed to stop controller action", status_error);
-    }
-    goal_handle_exe_path_.reset();
-  });
+      if (response->return_code == ExePathClient::CancelResponse::ERROR_NONE) {
+        setExePathGoalStatusMessage("Controller action stopped", status_success);
+      } else {
+        setExePathGoalStatusMessage("Failed to stop controller action", status_error);
+      }
+      goal_handle_exe_path_.reset();
+    });
 }
 
 void MbfGoalActionsPanel::onInitialize()
@@ -1035,94 +1088,104 @@ void MbfGoalActionsPanel::onInitialize()
   ros_node_ = rclcpp::Node::make_shared("mbf_goal_actions_panel");
 
   conn_check_thread_get_path_stop_ = false;
-  conn_check_thread_get_path_ = std::thread([this]() -> void {
-    while (rclcpp::ok() && !conn_check_thread_get_path_stop_) {
+  conn_check_thread_get_path_ = std::thread(
+    [this]() -> void {
+      while (rclcpp::ok() && !conn_check_thread_get_path_stop_) {
 
-      bool needs_reconnect = false;
-      {
-        // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
-        std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-        const bool server_set = !get_path_action_server_name_.empty();
-        needs_reconnect = server_set && (!action_client_get_path_ || !action_client_get_path_->action_server_is_ready());
-        if (server_set && !needs_reconnect) {
-          setGetPathServerStatusMessage("ready", status_success);
+        bool needs_reconnect = false;
+        {
+          // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
+          std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+          const bool server_set = !get_path_action_server_name_.empty();
+          needs_reconnect = server_set &&
+          (!action_client_get_path_ || !action_client_get_path_->action_server_is_ready());
+          if (server_set && !needs_reconnect) {
+            setGetPathServerStatusMessage("ready", status_success);
+          }
         }
-      }
 
-      if(needs_reconnect)
-      {
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Get_path action server not ready. Attempting to reconnect...");
-        setGetPathServerStatusMessage("not connected", status_error);
-        // updateGetPathActionClient reads Qt properties — must run on GUI thread
-        QMetaObject::invokeMethod(this, "updateGetPathActionClient", Qt::QueuedConnection);
+        if (needs_reconnect) {
+          RCLCPP_WARN_STREAM(
+            this->ros_node_->get_logger(),
+            "Get_path action server not ready. Attempting to reconnect...");
+          setGetPathServerStatusMessage("not connected", status_error);
+          // updateGetPathActionClient reads Qt properties — must run on GUI thread
+          QMetaObject::invokeMethod(this, "updateGetPathActionClient", Qt::QueuedConnection);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-  });
+    });
 
   conn_check_thread_refine_path_stop_ = false;
-  conn_check_thread_refine_path_ = std::thread([this]() -> void {
-    while (rclcpp::ok() && !conn_check_thread_refine_path_stop_) {
+  conn_check_thread_refine_path_ = std::thread(
+    [this]() -> void {
+      while (rclcpp::ok() && !conn_check_thread_refine_path_stop_) {
 
-      bool needs_reconnect = false;
-      {
-        // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
-        std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
-        const bool server_set = !refine_path_action_server_name_.empty();
-        needs_reconnect = server_set && (!action_client_refine_path_ || !action_client_refine_path_->action_server_is_ready());
-        if (server_set && !needs_reconnect) {
-          setRefinePathServerStatusMessage("ready", status_success);
+        bool needs_reconnect = false;
+        {
+          // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
+          std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+          const bool server_set = !refine_path_action_server_name_.empty();
+          needs_reconnect = server_set &&
+          (!action_client_refine_path_ || !action_client_refine_path_->action_server_is_ready());
+          if (server_set && !needs_reconnect) {
+            setRefinePathServerStatusMessage("ready", status_success);
+          }
         }
-      }
 
-      if(needs_reconnect)
-      {
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Refine_path action server not ready. Attempting to reconnect...");
-        setRefinePathServerStatusMessage("not connected", status_error);
-        // updateRefinePathActionClient reads Qt properties — must run on GUI thread
-        QMetaObject::invokeMethod(this, "updateRefinePathActionClient", Qt::QueuedConnection);
+        if (needs_reconnect) {
+          RCLCPP_WARN_STREAM(
+            this->ros_node_->get_logger(),
+            "Refine_path action server not ready. Attempting to reconnect...");
+          setRefinePathServerStatusMessage("not connected", status_error);
+          // updateRefinePathActionClient reads Qt properties — must run on GUI thread
+          QMetaObject::invokeMethod(this, "updateRefinePathActionClient", Qt::QueuedConnection);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-  });
+    });
 
   conn_check_thread_exe_path_stop_ = false;
-  conn_check_thread_exe_path_ = std::thread([this]() -> void {
-    while (rclcpp::ok() && !conn_check_thread_exe_path_stop_) {
+  conn_check_thread_exe_path_ = std::thread(
+    [this]() -> void {
+      while (rclcpp::ok() && !conn_check_thread_exe_path_stop_) {
 
-      bool needs_reconnect = false;
-      {
-        // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
-        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-        const bool server_set = !exe_path_action_server_name_.empty();
-        needs_reconnect = server_set && (!action_client_exe_path_ || !action_client_exe_path_->action_server_is_ready());
-        if (server_set && !needs_reconnect) {
-          setExePathServerStatusMessage("ready", status_success);
+        bool needs_reconnect = false;
+        {
+          // Use the cached server name (set after successful connect) to avoid reading Qt properties from bg thread.
+          std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+          const bool server_set = !exe_path_action_server_name_.empty();
+          needs_reconnect = server_set &&
+          (!action_client_exe_path_ || !action_client_exe_path_->action_server_is_ready());
+          if (server_set && !needs_reconnect) {
+            setExePathServerStatusMessage("ready", status_success);
+          }
         }
-      }
 
-      if(needs_reconnect)
-      {
-        RCLCPP_WARN_STREAM(this->ros_node_->get_logger(), "Exe_path action server not ready. Attempting to reconnect...");
-        setExePathServerStatusMessage("not connected", status_error);
-        // updateExePathActionClient reads Qt properties — must run on GUI thread
-        QMetaObject::invokeMethod(this, "updateExePathActionClient", Qt::QueuedConnection);
+        if (needs_reconnect) {
+          RCLCPP_WARN_STREAM(
+            this->ros_node_->get_logger(),
+            "Exe_path action server not ready. Attempting to reconnect...");
+          setExePathServerStatusMessage("not connected", status_error);
+          // updateExePathActionClient reads Qt properties — must run on GUI thread
+          QMetaObject::invokeMethod(this, "updateExePathActionClient", Qt::QueuedConnection);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-  });
+    });
 
   // executor thread. needed so that actions work properly
   executor_thread_stop_ = false;
-  executor_thread_ = std::thread([this]() -> void {
-    rclcpp::executors::SingleThreadedExecutor executor;
-    executor.add_node(ros_node_);
-    while (rclcpp::ok() && !executor_thread_stop_) {
-      executor.spin_once(std::chrono::milliseconds(100));
-    }
-  });
+  executor_thread_ = std::thread(
+    [this]() -> void {
+      rclcpp::executors::SingleThreadedExecutor executor;
+      executor.add_node(ros_node_);
+      while (rclcpp::ok() && !executor_thread_stop_) {
+        executor.spin_once(std::chrono::milliseconds(100));
+      }
+    });
 
-} 
+}
 
 void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped & msg)
 {
@@ -1137,14 +1200,14 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
   {
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
     get_path_goal.planner = get_path_planner_name_; // cached from GUI thread, protected by mutex
-    if(!action_client_get_path_)
-    {
+    if (!action_client_get_path_) {
       RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized");
       return;
     }
-    if(!action_client_get_path_->action_server_is_ready())
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
+    if (!action_client_get_path_->action_server_is_ready()) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(),
+        "Get_path action server is still not ready after update. Cannot send goal.");
       return;
     }
   }
@@ -1156,20 +1219,20 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
     // next_get_path_goal_ = get_path_goal;
 
     setGetPathGoalStatusMessage("Cancelling...", status_warning);
-    try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this, get_path_goal](
+    try_cancel_goal<GetPathClient>(
+      action_client_get_path_, goal_handle_get_path_, [this, get_path_goal](
         const typename GetPathClient::CancelResponse::SharedPtr & response)
-    {
-      if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
       {
-        setGetPathGoalStatusMessage("Cancelled", status_success);
-        // next_get_path_goal_.reset();
-        goal_handle_get_path_.reset();
-      } else {
-        setGetPathGoalStatusMessage("Failed to cancel active goal", status_error);
-      }
+        if (response->return_code == GetPathClient::CancelResponse::ERROR_NONE) {
+          setGetPathGoalStatusMessage("Cancelled", status_success);
+          // next_get_path_goal_.reset();
+          goal_handle_get_path_.reset();
+        } else {
+          setGetPathGoalStatusMessage("Failed to cancel active goal", status_error);
+        }
 
-      sendGetPathGoal(get_path_goal);
-    });
+        sendGetPathGoal(get_path_goal);
+      });
 
   } else {
     sendGetPathGoal(get_path_goal);
@@ -1180,9 +1243,9 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
 {
   {
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-    if(!action_client_get_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized when sending goal");
+    if (!action_client_get_path_) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(), "Get path action client not initialized when sending goal");
       setGetPathGoalStatusMessage("Goal sending failed: client not ready", status_error);
       return;
     }
@@ -1205,12 +1268,13 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
 
   {
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-    if(action_client_get_path_)
-    {
+    if (action_client_get_path_) {
       action_client_get_path_->async_send_goal(goal, options);
     }
   }
-  setGetPathGoalStatusMessage(QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
+  setGetPathGoalStatusMessage(
+    QString("(t=%1) sent, awaiting response").arg(
+      goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::getPathResultCallback(
@@ -1218,16 +1282,26 @@ void MbfGoalActionsPanel::getPathResultCallback(
 {
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      setGetPathGoalStatusMessage(QString("Succeeded. Path cost %1").arg(wrapped_result.result->cost), status_success);
+      setGetPathGoalStatusMessage(
+        QString("Succeeded. Path cost %1").arg(
+          wrapped_result.result->cost), status_success);
 
       // refines the path with the selected plan refiners (if any), then executes it
       startRefineChain(wrapped_result.result->path);
       break;
     case rclcpp_action::ResultCode::ABORTED:
-      setGetPathGoalStatusMessage(QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+      setGetPathGoalStatusMessage(
+        QString("Aborted. %1").arg(
+          QString::fromStdString(
+            wrapped_result.
+            result->message)), status_error);
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      setGetPathGoalStatusMessage(QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
+      setGetPathGoalStatusMessage(
+        QString("Cancelled. %1").arg(
+          QString::fromStdString(
+            wrapped_result
+            .result->message)), status_warning);
       break;
     default:
       setGetPathGoalStatusMessage("Error: Unknown action result code", status_error);
@@ -1246,17 +1320,17 @@ void MbfGoalActionsPanel::startRefineChain(const nav_msgs::msg::Path & path)
     refine_queue_idx_ = 0;
     refine_current_path_ = path;
 
-    if(!refine_queue_.empty())
-    {
-      if(!action_client_refine_path_)
-      {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized, executing unrefined path");
+    if (!refine_queue_.empty()) {
+      if (!action_client_refine_path_) {
+        RCLCPP_ERROR_STREAM(
+          ros_node_->get_logger(),
+          "Refine path action client not initialized, executing unrefined path");
         setRefinePathGoalStatusMessage("Refiner action not connected", status_error);
         refine_queue_.clear();
-      }
-      else if(!action_client_refine_path_->action_server_is_ready())
-      {
-        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine_path action server is not ready, executing unrefined path");
+      } else if (!action_client_refine_path_->action_server_is_ready()) {
+        RCLCPP_ERROR_STREAM(
+          ros_node_->get_logger(),
+          "Refine_path action server is not ready, executing unrefined path");
         setRefinePathGoalStatusMessage("Refiner action server not ready", status_error);
         refine_queue_.clear();
       }
@@ -1273,9 +1347,9 @@ void MbfGoalActionsPanel::startRefineChain(const nav_msgs::msg::Path & path)
 
 void MbfGoalActionsPanel::sendRefinePathGoalLocked()
 {
-  if(!action_client_refine_path_)
-  {
-    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized when sending goal");
+  if (!action_client_refine_path_) {
+    RCLCPP_ERROR_STREAM(
+      ros_node_->get_logger(), "Refine path action client not initialized when sending goal");
     setRefinePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
     refine_queue_.clear();
     return;
@@ -1316,7 +1390,9 @@ void MbfGoalActionsPanel::sendRefinePathGoalLocked()
       refinePathResultCallback(wrapped_result, chain_id);
     };
 
-  setRefinePathGoalStatusMessage(QString("(%1) sent, awaiting response").arg(progress), status_info);
+  setRefinePathGoalStatusMessage(
+    QString("(%1) sent, awaiting response").arg(progress),
+    status_info);
   action_client_refine_path_->async_send_goal(refine_path_goal, options);
 }
 
@@ -1341,8 +1417,8 @@ void MbfGoalActionsPanel::refinePathResultCallback(
           // A refined path we cannot trust must not be executed.
           setRefinePathGoalStatusMessage(
             QString("%1 failed (outcome %2). %3").arg(refiner_name)
-              .arg(wrapped_result.result->outcome)
-              .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+            .arg(wrapped_result.result->outcome)
+            .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
           refine_queue_.clear();
           return;
         }
@@ -1350,13 +1426,13 @@ void MbfGoalActionsPanel::refinePathResultCallback(
       case rclcpp_action::ResultCode::ABORTED:
         setRefinePathGoalStatusMessage(
           QString("%1 aborted. %2").arg(refiner_name)
-            .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+          .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
         refine_queue_.clear();
         return;
       case rclcpp_action::ResultCode::CANCELED:
         setRefinePathGoalStatusMessage(
           QString("%1 cancelled. %2").arg(refiner_name)
-            .arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
+          .arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
         refine_queue_.clear();
         return;
       default:
@@ -1392,14 +1468,15 @@ void MbfGoalActionsPanel::dispatchExePath(const nav_msgs::msg::Path & path)
   {
     std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
     exe_path_goal.controller = exe_path_controller_name_; // cached from GUI thread, protected by mutex
-    if(!action_client_exe_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
+    if (!action_client_exe_path_) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
       return;
     }
-    if(!action_client_exe_path_->action_server_is_ready())
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
+    if (!action_client_exe_path_->action_server_is_ready()) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(),
+        "Exe_path action server is still not ready after update. Cannot send goal.");
       return;
     }
   }
@@ -1412,19 +1489,19 @@ void MbfGoalActionsPanel::dispatchExePath(const nav_msgs::msg::Path & path)
     // next_exe_path_goal_ = exe_path_goal;
     setExePathGoalStatusMessage("Cancel existing", status_warning);
 
-    try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this, exe_path_goal](
+    try_cancel_goal<ExePathClient>(
+      action_client_exe_path_, goal_handle_exe_path_, [this, exe_path_goal](
         const typename ExePathClient::CancelResponse::SharedPtr & response)
-    {
-      if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
       {
-        setExePathGoalStatusMessage("Existing goal cancelled", status_success);
-      } else {
-        setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
-      }
+        if (response->return_code == ExePathClient::CancelResponse::ERROR_NONE) {
+          setExePathGoalStatusMessage("Existing goal cancelled", status_success);
+        } else {
+          setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
+        }
 
-      goal_handle_exe_path_.reset();
-      sendExePathGoal(exe_path_goal);
-    });
+        goal_handle_exe_path_.reset();
+        sendExePathGoal(exe_path_goal);
+      });
 
   } else {
     sendExePathGoal(exe_path_goal);
@@ -1435,9 +1512,9 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
 {
   {
     std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    if(!action_client_exe_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe path action client not initialized when sending goal");
+    if (!action_client_exe_path_) {
+      RCLCPP_ERROR_STREAM(
+        ros_node_->get_logger(), "Exe path action client not initialized when sending goal");
       setExePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
       return;
     }
@@ -1450,16 +1527,23 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
       RCLCPP_WARN(this->ros_node_->get_logger(), "SETTING GOAL HANDLE");
       this->goal_handle_exe_path_ = goal_handle;
       if (goal_handle) {
-        setExePathGoalStatusMessage(QString("Goal (t=%1) accepted").arg(goal_stamp.sec), status_success);
+        setExePathGoalStatusMessage(
+          QString("Goal (t=%1) accepted").arg(
+            goal_stamp.sec), status_success);
       } else {
-        setExePathGoalStatusMessage(QString("Goal (t=%1) rejected").arg(goal_stamp.sec), status_error);
+        setExePathGoalStatusMessage(
+          QString("Goal (t=%1) rejected").arg(
+            goal_stamp.sec), status_error);
       }
     };
   options.feedback_callback = [this](
     ExePathClient::GoalHandle::SharedPtr,
     const mbf_msgs::action::ExePath::Feedback::ConstSharedPtr feedback)
     {
-      setExePathGoalStatusMessage(QString("Executing. Remaining distance: %1m").arg(feedback->dist_to_goal), status_info);
+      setExePathGoalStatusMessage(
+        QString("Executing. Remaining distance: %1m").arg(
+          feedback->
+          dist_to_goal), status_info);
     };
   options.result_callback = std::bind(
     &MbfGoalActionsPanel::exePathResultCallback, this,
@@ -1467,12 +1551,13 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
 
   {
     std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    if(action_client_exe_path_)
-    {
+    if (action_client_exe_path_) {
       action_client_exe_path_->async_send_goal(goal, options);
     }
   }
-  setExePathGoalStatusMessage(QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
+  setExePathGoalStatusMessage(
+    QString("(t=%1) sent, awaiting response").arg(
+      goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::exePathResultCallback(
@@ -1480,13 +1565,18 @@ void MbfGoalActionsPanel::exePathResultCallback(
 {
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
-      setExePathGoalStatusMessage(QString("Succeeded (remaining distance: %1)").arg(wrapped_result.result->dist_to_goal), status_success);
+      setExePathGoalStatusMessage(
+        QString("Succeeded (remaining distance: %1)").arg(
+          wrapped_result.
+          result->dist_to_goal), status_success);
       break;
     case rclcpp_action::ResultCode::ABORTED:
       if (wrapped_result.result->outcome == mbf_msgs::action::ExePath::Result::ROBOT_STUCK) {
         if (goal_retry_cnt_ < 3) {
 
-          setExePathGoalStatusMessage(QString("Robot stuck. Replanning ... (retry %1/3)").arg(goal_retry_cnt_ + 1), status_warning);
+          setExePathGoalStatusMessage(
+            QString("Robot stuck. Replanning ... (retry %1/3)").arg(
+              goal_retry_cnt_ + 1), status_warning);
 
           goal_retry_cnt_ += 1;
           mbf_msgs::action::GetPath::Goal get_path_goal;
@@ -1501,14 +1591,24 @@ void MbfGoalActionsPanel::exePathResultCallback(
           sendGetPathGoal(get_path_goal);
 
         } else {
-          setExePathGoalStatusMessage(QString("Robot stuck. Maximum retries exceeded! Goal failed!"), status_error);
+          setExePathGoalStatusMessage(
+            QString(
+              "Robot stuck. Maximum retries exceeded! Goal failed!"), status_error);
         }
         break;
       }
-      setExePathGoalStatusMessage(QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+      setExePathGoalStatusMessage(
+        QString("Aborted. %1").arg(
+          QString::fromStdString(
+            wrapped_result.
+            result->message)), status_error);
       break;
     case rclcpp_action::ResultCode::CANCELED:
-      setExePathGoalStatusMessage(QString("Cancelled. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
+      setExePathGoalStatusMessage(
+        QString("Cancelled. %1").arg(
+          QString::fromStdString(
+            wrapped_result
+            .result->message)), status_warning);
       break;
     default:
       setExePathGoalStatusMessage("Error: Unknown action result code", status_error);
@@ -1517,32 +1617,36 @@ void MbfGoalActionsPanel::exePathResultCallback(
   goal_handle_exe_path_.reset();
 }
 
-void MbfGoalActionsPanel::setGetPathServerStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setGetPathServerStatusMessage(const QString & text, const QString & style)
 {
   emit getPathServerStatusChanged(text, style);
 }
 
-void MbfGoalActionsPanel::setGetPathGoalStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setGetPathGoalStatusMessage(const QString & text, const QString & style)
 {
   emit getPathGoalStatusChanged(text, style);
 }
 
-void MbfGoalActionsPanel::setRefinePathServerStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setRefinePathServerStatusMessage(
+  const QString & text,
+  const QString & style)
 {
   emit refinePathServerStatusChanged(text, style);
 }
 
-void MbfGoalActionsPanel::setRefinePathGoalStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setRefinePathGoalStatusMessage(
+  const QString & text,
+  const QString & style)
 {
   emit refinePathGoalStatusChanged(text, style);
 }
 
-void MbfGoalActionsPanel::setExePathServerStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setExePathServerStatusMessage(const QString & text, const QString & style)
 {
   emit exePathServerStatusChanged(text, style);
 }
 
-void MbfGoalActionsPanel::setExePathGoalStatusMessage(const QString & text, const QString& style)
+void MbfGoalActionsPanel::setExePathGoalStatusMessage(const QString & text, const QString & style)
 {
   emit exePathGoalStatusChanged(text, style);
 }
