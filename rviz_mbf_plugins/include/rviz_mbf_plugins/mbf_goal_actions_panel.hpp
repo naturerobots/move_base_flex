@@ -105,9 +105,14 @@ protected:
   //! Starts the chain of selected plan refiners on the given path.
   //! If no refiner is selected (or the refiner action is unavailable), the path is executed as is.
   void startRefineChain(const nav_msgs::msg::Path & path);
-  //! Sends the path currently held in refine_current_path_ to the refiner at refine_queue_idx_
-  void sendRefinePathGoal();
-  void refinePathResultCallback(const RefinePathClient::GoalHandle::WrappedResult & wrapped_result);
+  //! Sends the path currently held in refine_current_path_ to the refiner at refine_queue_idx_.
+  //! Caller must hold refine_path_action_client_mutex_.
+  void sendRefinePathGoalLocked();
+  void refinePathResultCallback(
+    const RefinePathClient::GoalHandle::WrappedResult & wrapped_result, uint64_t chain_id);
+  //! Ends the running refine chain: cancels its goal and invalidates its pending callbacks.
+  //! Caller must hold refine_path_action_client_mutex_.
+  void stopRefineChainLocked(RefinePathClient::CancelCallback cancel_callback = nullptr);
 
   //! Sends the given path to the controller, cancelling a possibly still active exe path goal first
   void dispatchExePath(const nav_msgs::msg::Path & path);
@@ -167,6 +172,8 @@ protected:
   //! True until the refiner list has been received for the first time
   bool refiner_list_pending_;
 
+  // All refine chain state below is protected by refine_path_action_client_mutex_.
+
   //! Goal handle of active refine path action
   RefinePathClient::GoalHandle::SharedPtr goal_handle_refine_path_;
 
@@ -175,6 +182,8 @@ protected:
   size_t refine_queue_idx_;
   //! Path handed from one refiner to the next
   nav_msgs::msg::Path refine_current_path_;
+  //! Bumped whenever a chain is stopped or replaced. Callbacks of older chains are dropped.
+  uint64_t refine_chain_id_;
 
   //! Action client for traversing a path
   mutable std::mutex exe_path_action_client_mutex_;

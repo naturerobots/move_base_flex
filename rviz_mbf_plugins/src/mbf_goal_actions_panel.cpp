@@ -70,6 +70,7 @@ MbfGoalActionsPanel::MbfGoalActionsPanel(QWidget * parent)
 : Panel(parent)
   , refiner_list_pending_(true)
   , refine_queue_idx_(0)
+  , refine_chain_id_(0)
   , goal_retry_cnt_(0)
 {
   constructPropertiesWidget();
@@ -284,10 +285,8 @@ void MbfGoalActionsPanel::updateRefinerProperties(const std::vector<std::string>
     }
   }
 
+  // removeChildren() deletes the child properties, so we only drop our now dangling pointers
   refiners_property_->removeChildren();
-  for (auto * refiner_property : refiner_properties_) {
-    delete refiner_property;
-  }
   refiner_properties_.clear();
 
   for (const std::string & refiner_name : refiner_names) {
@@ -368,7 +367,13 @@ void MbfGoalActionsPanel::save(rviz_common::Config config) const
 
   // The refiner checkboxes only exist while connected to a server, so we store the selected names
   // instead of the properties themselves.
+  // While the refiner list was not received yet, keep the selection restored by load().
   QStringList selected_refiners;
+  if (refiner_list_pending_) {
+    for (const std::string & refiner_name : pending_selected_refiners_) {
+      selected_refiners.append(QString::fromStdString(refiner_name));
+    }
+  }
   for (const auto * refiner_property : refiner_properties_) {
     if (refiner_property->getBool()) {
       selected_refiners.append(refiner_property->getName());
@@ -423,31 +428,25 @@ std::string node_name_guess(const std::string& topic)
   }
 }
 
+//! Wraps async_cancel_goal, which throws if the goal reached a terminal state meanwhile (e.g. its
+//! result arrived on the executor thread just before). An uncaught throw would abort rviz. In that
+//! case the cancel callback is invoked right away with ERROR_GOAL_TERMINATED, so callers that
+//! rely on the callback (to reset the goal handle or send the next goal) still proceed.
 template<typename ActionClientT>
-bool sync_cancel_goal(
-  const typename ActionClientT::SharedPtr& action_client, 
-  const typename ActionClientT::GoalHandle::SharedPtr& goal_handle,
-  std::chrono::duration<double> timeout = std::chrono::seconds(5))
+void try_cancel_goal(
+  const typename ActionClientT::SharedPtr & action_client,
+  const typename ActionClientT::GoalHandle::SharedPtr & goal_handle,
+  typename ActionClientT::CancelCallback cancel_callback = nullptr)
 {
-  using CancelResponse = typename ActionClientT::CancelResponse;
-  std::atomic_bool cancel_process_finished = false;
-  std::atomic_bool cancel_successful = false;
-  action_client->async_cancel_goal(goal_handle, [&cancel_process_finished, &cancel_successful](
-      const typename CancelResponse::SharedPtr & response) 
-  {
-    cancel_successful = (response->return_code == CancelResponse::ERROR_NONE);
-    cancel_process_finished = true;
-  });
-  // wait for cancel process to finish (with timeout)
-  auto start_time = std::chrono::steady_clock::now();
-  while (!cancel_process_finished) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    if (std::chrono::steady_clock::now() - start_time > timeout) {
-      break;
+  try {
+    action_client->async_cancel_goal(goal_handle, cancel_callback);
+  } catch (const rclcpp_action::exceptions::UnknownGoalHandleError &) {
+    if (cancel_callback) {
+      auto response = std::make_shared<typename ActionClientT::CancelResponse>();
+      response->return_code = ActionClientT::CancelResponse::ERROR_GOAL_TERMINATED;
+      cancel_callback(response);
     }
   }
-
-  return cancel_successful;
 }
 
 void MbfGoalActionsPanel::updateGetPathActionClient()
@@ -465,7 +464,7 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
       setGetPathGoalStatusMessage("Cancelling active goal", status_warning);
 
-      action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+      try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
           const typename GetPathClient::CancelResponse::SharedPtr & response) 
         {
           if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
@@ -522,17 +521,17 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
         RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
         setGetPathGoalStatusMessage("Cancelling active goal", status_warning);
 
-        action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+        try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
           const typename GetPathClient::CancelResponse::SharedPtr & response) 
           {
             if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
             {
               setGetPathGoalStatusMessage("Planner action stopped", status_success);
-              // next_get_path_goal_.reset();
-              goal_handle_get_path_.reset();
             } else {
               setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
             }
+            // always reset: the wait loop below spins until the handle is gone
+            goal_handle_get_path_.reset();
           });
       }
 
@@ -639,15 +638,9 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
   if(selected_server == notset_action_server_path)
   {
     // reset action client. An active refine goal is cancelled, but - other than for get_path and
-    // exe_path - we do not have to wait for it: the result callback stops the chain on cancel.
-    if (action_client_refine_path_ && goal_handle_refine_path_) {
-      RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active refine_path goal due to action server change...");
-      action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_);
-    }
-
+    // exe_path - we do not have to wait for it: the chain id makes late callbacks a no-op.
+    stopRefineChainLocked();
     action_client_refine_path_.reset();
-    goal_handle_refine_path_.reset();
-    refine_queue_.clear();
 
     refiner_parameter_client_.reset();
     refine_path_action_server_name_.clear();
@@ -665,23 +658,16 @@ void MbfGoalActionsPanel::updateRefinePathActionClient()
       if(!action_client_refine_path_->action_server_is_ready())
       {
         RCLCPP_WARN_STREAM(ros_node_->get_logger(), "Connection to refine_path action server lost. Resetting action client...");
+        stopRefineChainLocked();
         action_client_refine_path_.reset(); // reset so that reinitialization is triggered
-        goal_handle_refine_path_.reset();
-        refine_queue_.clear();
         refiner_parameter_client_.reset();
         setRefinePathServerStatusMessage("connection lost", status_error);
         setRefinePathGoalStatusMessage("none sent yet", status_neutral);
       }
     } else {
       // different server than before
-      if (goal_handle_refine_path_) {
-        RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active refine_path goal due to action server change...");
-        action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_);
-      }
-
+      stopRefineChainLocked();
       action_client_refine_path_.reset();
-      goal_handle_refine_path_.reset();
-      refine_queue_.clear();
 
       refiner_parameter_client_.reset();
       setRefinePathServerStatusMessage("waiting for input", status_neutral);
@@ -772,7 +758,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
       RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
       setExePathGoalStatusMessage("Cancelling active goal", status_warning);
 
-      action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+      try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
           const typename ExePathClient::CancelResponse::SharedPtr & response) 
         {
           if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
@@ -828,7 +814,7 @@ void MbfGoalActionsPanel::updateExePathActionClient()
         RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
         setExePathGoalStatusMessage("Cancelling active goal", status_warning);
 
-        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+        try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
             const typename ExePathClient::CancelResponse::SharedPtr & response) 
           {
             if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
@@ -951,7 +937,7 @@ void MbfGoalActionsPanel::stopGetPathAction()
 
   // start stopping planner action
   setGetPathGoalStatusMessage("Stopping planner action...", status_warning);
-  action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+  try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this](
       const typename GetPathClient::CancelResponse::SharedPtr & response) 
   {
     if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
@@ -968,25 +954,23 @@ void MbfGoalActionsPanel::stopRefinePathAction()
 {
   std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
 
-  // stop the whole chain, not just the running refiner
-  refine_queue_.clear();
-
   if (!action_client_refine_path_)
   {
+    stopRefineChainLocked();
     setRefinePathGoalStatusMessage("No refiner action to stop", status_neutral);
     return;
   }
 
   if(!goal_handle_refine_path_)
   {
+    stopRefineChainLocked();
     setRefinePathGoalStatusMessage("No refiner goal to stop", status_neutral);
     return;
   }
 
-  // start stopping refiner action
+  // stop the whole chain, not just the running refiner
   setRefinePathGoalStatusMessage("Stopping refiner action...", status_warning);
-  action_client_refine_path_->async_cancel_goal(goal_handle_refine_path_, [this](
-      const typename RefinePathClient::CancelResponse::SharedPtr & response)
+  stopRefineChainLocked([this](const typename RefinePathClient::CancelResponse::SharedPtr & response)
   {
     if(response->return_code == RefinePathClient::CancelResponse::ERROR_NONE)
     {
@@ -994,8 +978,18 @@ void MbfGoalActionsPanel::stopRefinePathAction()
     } else {
       setRefinePathGoalStatusMessage("Failed to stop refiner action", status_error);
     }
-    goal_handle_refine_path_.reset();
   });
+}
+
+void MbfGoalActionsPanel::stopRefineChainLocked(RefinePathClient::CancelCallback cancel_callback)
+{
+  // callbacks of the stopped chain still carry the old id and are dropped
+  ++refine_chain_id_;
+  refine_queue_.clear();
+  if (action_client_refine_path_ && goal_handle_refine_path_) {
+    try_cancel_goal<RefinePathClient>(action_client_refine_path_, goal_handle_refine_path_, cancel_callback);
+  }
+  goal_handle_refine_path_.reset();
 }
 
 void MbfGoalActionsPanel::stopExePathAction()
@@ -1016,7 +1010,7 @@ void MbfGoalActionsPanel::stopExePathAction()
 
   // start stopping controller action
   setExePathGoalStatusMessage("Stopping controller action...", status_warning);
-  action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+  try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this](
       const typename ExePathClient::CancelResponse::SharedPtr & response) 
   {
     if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
@@ -1162,7 +1156,7 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
     // next_get_path_goal_ = get_path_goal;
 
     setGetPathGoalStatusMessage("Cancelling...", status_warning);
-    action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this, get_path_goal](
+    try_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, [this, get_path_goal](
         const typename GetPathClient::CancelResponse::SharedPtr & response)
     {
       if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
@@ -1246,6 +1240,8 @@ void MbfGoalActionsPanel::startRefineChain(const nav_msgs::msg::Path & path)
 {
   {
     std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+    // a chain still running belongs to an outdated plan
+    stopRefineChainLocked();
     refine_queue_ = selected_refiners_; // cached from GUI thread, protected by mutex
     refine_queue_idx_ = 0;
     refine_current_path_ = path;
@@ -1265,18 +1261,26 @@ void MbfGoalActionsPanel::startRefineChain(const nav_msgs::msg::Path & path)
         refine_queue_.clear();
       }
     }
+
+    if (!refine_queue_.empty()) {
+      sendRefinePathGoalLocked();
+      return;
+    }
   }
 
-  if (refine_queue_.empty()) {
-    dispatchExePath(path);
+  dispatchExePath(path);
+}
+
+void MbfGoalActionsPanel::sendRefinePathGoalLocked()
+{
+  if(!action_client_refine_path_)
+  {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized when sending goal");
+    setRefinePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
+    refine_queue_.clear();
     return;
   }
 
-  sendRefinePathGoal();
-}
-
-void MbfGoalActionsPanel::sendRefinePathGoal()
-{
   mbf_msgs::action::RefinePath::Goal refine_path_goal;
   refine_path_goal.path = refine_current_path_;
   refine_path_goal.refiner = refine_queue_[refine_queue_idx_];
@@ -1286,89 +1290,98 @@ void MbfGoalActionsPanel::sendRefinePathGoal()
     .arg(refine_queue_.size())
     .arg(QString::fromStdString(refine_path_goal.refiner));
 
+  const uint64_t chain_id = refine_chain_id_;
   RefinePathClient::SendGoalOptions options;
   options.goal_response_callback =
-    [progress, this](const RefinePathClient::GoalHandle::SharedPtr & goal_handle) {
-      this->goal_handle_refine_path_ = goal_handle;
+    [progress, chain_id, this](const RefinePathClient::GoalHandle::SharedPtr & goal_handle) {
+      std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
+      if (chain_id != refine_chain_id_) {
+        // chain was stopped before the server accepted: stop the orphaned goal too
+        if (goal_handle && action_client_refine_path_) {
+          try_cancel_goal<RefinePathClient>(action_client_refine_path_, goal_handle);
+        }
+        return;
+      }
+      goal_handle_refine_path_ = goal_handle;
       if (goal_handle) {
         setRefinePathGoalStatusMessage(QString("(%1) accepted").arg(progress), status_success);
       } else {
+        // no result will follow for a rejected goal, so end the chain here
         setRefinePathGoalStatusMessage(QString("(%1) rejected").arg(progress), status_error);
+        refine_queue_.clear();
       }
     };
-  options.result_callback = std::bind(
-    &MbfGoalActionsPanel::refinePathResultCallback, this,
-    std::placeholders::_1);
+  options.result_callback =
+    [chain_id, this](const RefinePathClient::GoalHandle::WrappedResult & wrapped_result) {
+      refinePathResultCallback(wrapped_result, chain_id);
+    };
 
-  {
-    std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
-    if(!action_client_refine_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Refine path action client not initialized when sending goal");
-      setRefinePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
-      refine_queue_.clear();
-      return;
-    }
-    action_client_refine_path_->async_send_goal(refine_path_goal, options);
-  }
   setRefinePathGoalStatusMessage(QString("(%1) sent, awaiting response").arg(progress), status_info);
+  action_client_refine_path_->async_send_goal(refine_path_goal, options);
 }
 
 void MbfGoalActionsPanel::refinePathResultCallback(
-  const RefinePathClient::GoalHandle::WrappedResult & wrapped_result)
+  const RefinePathClient::GoalHandle::WrappedResult & wrapped_result, uint64_t chain_id)
 {
-  goal_handle_refine_path_.reset();
+  nav_msgs::msg::Path refined_path;
+  {
+    std::unique_lock<std::mutex> lock(refine_path_action_client_mutex_);
 
-  if (refine_queue_.empty()) {
-    // chain was stopped meanwhile (e.g. by the stop button or a server change)
-    return;
-  }
+    if (chain_id != refine_chain_id_ || refine_queue_.empty()) {
+      // chain was stopped or replaced meanwhile (stop button, server change, new plan)
+      return;
+    }
+    goal_handle_refine_path_.reset();
 
-  const QString refiner_name = QString::fromStdString(refine_queue_[refine_queue_idx_]);
+    const QString refiner_name = QString::fromStdString(refine_queue_[refine_queue_idx_]);
 
-  switch (wrapped_result.code) {
-    case rclcpp_action::ResultCode::SUCCEEDED:
-      if (wrapped_result.result->outcome != mbf_msgs::action::RefinePath::Result::SUCCESS) {
-        // A refined path we cannot trust must not be executed.
+    switch (wrapped_result.code) {
+      case rclcpp_action::ResultCode::SUCCEEDED:
+        if (wrapped_result.result->outcome != mbf_msgs::action::RefinePath::Result::SUCCESS) {
+          // A refined path we cannot trust must not be executed.
+          setRefinePathGoalStatusMessage(
+            QString("%1 failed (outcome %2). %3").arg(refiner_name)
+              .arg(wrapped_result.result->outcome)
+              .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
+          refine_queue_.clear();
+          return;
+        }
+        break;
+      case rclcpp_action::ResultCode::ABORTED:
         setRefinePathGoalStatusMessage(
-          QString("%1 failed (outcome %2). %3").arg(refiner_name)
-            .arg(wrapped_result.result->outcome)
+          QString("%1 aborted. %2").arg(refiner_name)
             .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
         refine_queue_.clear();
         return;
-      }
-      break;
-    case rclcpp_action::ResultCode::ABORTED:
-      setRefinePathGoalStatusMessage(
-        QString("%1 aborted. %2").arg(refiner_name)
-          .arg(QString::fromStdString(wrapped_result.result->message)), status_error);
-      refine_queue_.clear();
+      case rclcpp_action::ResultCode::CANCELED:
+        setRefinePathGoalStatusMessage(
+          QString("%1 cancelled. %2").arg(refiner_name)
+            .arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
+        refine_queue_.clear();
+        return;
+      default:
+        setRefinePathGoalStatusMessage("Error: Unknown action result code", status_error);
+        refine_queue_.clear();
+        return;
+    }
+
+    // feed the refined path into the next refiner, or execute it
+    refine_current_path_ = wrapped_result.result->refined_path;
+    ++refine_queue_idx_;
+
+    if (refine_queue_idx_ < refine_queue_.size()) {
+      sendRefinePathGoalLocked();
       return;
-    case rclcpp_action::ResultCode::CANCELED:
-      setRefinePathGoalStatusMessage(
-        QString("%1 cancelled. %2").arg(refiner_name)
-          .arg(QString::fromStdString(wrapped_result.result->message)), status_warning);
-      refine_queue_.clear();
-      return;
-    default:
-      setRefinePathGoalStatusMessage("Error: Unknown action result code", status_error);
-      refine_queue_.clear();
-      return;
+    }
+
+    setRefinePathGoalStatusMessage(
+      QString("Succeeded. %1 refiner(s) applied").arg(refine_queue_.size()), status_success);
+    refine_queue_.clear();
+    refined_path = refine_current_path_;
   }
 
-  // feed the refined path into the next refiner, or execute it
-  refine_current_path_ = wrapped_result.result->refined_path;
-  ++refine_queue_idx_;
-
-  if (refine_queue_idx_ < refine_queue_.size()) {
-    sendRefinePathGoal();
-    return;
-  }
-
-  setRefinePathGoalStatusMessage(
-    QString("Succeeded. %1 refiner(s) applied").arg(refine_queue_.size()), status_success);
-  refine_queue_.clear();
-  dispatchExePath(refine_current_path_);
+  // outside the lock: dispatchExePath takes the exe_path mutex
+  dispatchExePath(refined_path);
 }
 
 void MbfGoalActionsPanel::dispatchExePath(const nav_msgs::msg::Path & path)
@@ -1399,7 +1412,7 @@ void MbfGoalActionsPanel::dispatchExePath(const nav_msgs::msg::Path & path)
     // next_exe_path_goal_ = exe_path_goal;
     setExePathGoalStatusMessage("Cancel existing", status_warning);
 
-    action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this, exe_path_goal](
+    try_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, [this, exe_path_goal](
         const typename ExePathClient::CancelResponse::SharedPtr & response)
     {
       if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
