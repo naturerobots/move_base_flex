@@ -408,6 +408,19 @@ bool AbstractControllerExecution::cancel()
   {
     start_time_ = node_handle_->now();
 
+    // rclcpp::Rate sleeps on wall time (Humble); sleep on the node's clock instead to follow sim time
+    rclcpp::Time next_cycle_time = node_handle_->now();
+    auto sleep_cycle = [&]() {
+      next_cycle_time += rclcpp::Duration(loop_rate_->period());
+      const rclcpp::Time now = node_handle_->now();
+      if (next_cycle_time <= now)
+      {
+        next_cycle_time = now;  // cycle took too long, do not try to catch up
+        return false;
+      }
+      return node_handle_->get_clock()->sleep_until(next_cycle_time);
+    };
+
     // init plan
     std::vector<geometry_msgs::msg::PoseStamped> plan;
     if (!hasNewPlan())
@@ -449,7 +462,7 @@ bool AbstractControllerExecution::cancel()
           // the specific implementation must have detected a risk situation; at this abstract level, we
           // cannot tell what the problem is, but anyway we command the robot to stop to avoid crashes
           publishZeroVelocity();
-          loop_rate_->sleep();
+          sleep_cycle();
           continue;
         }
 
@@ -596,7 +609,7 @@ bool AbstractControllerExecution::cancel()
               return;
             }
           }
-          if (!loop_rate_->sleep())
+          if (!sleep_cycle())
           {
             // TODO: missing loop_rate_->cycletime ROS2 equivalent for conveniently outputting the duration of the loop-to-blame.
             RCLCPP_WARN_THROTTLE( node_->get_logger(), *node_->get_clock(), 1000, 
