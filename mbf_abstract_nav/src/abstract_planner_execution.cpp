@@ -176,7 +176,9 @@ rclcpp::Time AbstractPlannerExecution::getLastValidPlanTime() const
 
 bool AbstractPlannerExecution::isPatienceExceeded() const
 {
-  return !(patience_ == rclcpp::Duration(0, 0)) && (node_handle_->now() - last_call_start_time_ > patience_);
+  // measured in wall time, see last_call_start_time_
+  return !(patience_ == rclcpp::Duration(0, 0)) &&
+         (rclcpp::Duration(std::chrono::steady_clock::now() - last_call_start_time_) > patience_);
 }
 
 
@@ -275,7 +277,7 @@ void AbstractPlannerExecution::run()
   geometry_msgs::msg::PoseStamped current_goal = goal_;
   double current_tolerance = tolerance_;
 
-  last_call_start_time_ = node_handle_->now();
+  last_call_start_time_ = std::chrono::steady_clock::now();
   last_valid_plan_time_ = node_handle_->now();
 
   try

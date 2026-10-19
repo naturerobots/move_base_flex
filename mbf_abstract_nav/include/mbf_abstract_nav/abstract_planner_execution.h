@@ -41,6 +41,7 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_PLANNER_EXECUTION_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_PLANNER_EXECUTION_H_
 
+#include <chrono>
 #include <map>
 #include <string>
 #include <vector>
@@ -261,8 +262,9 @@ namespace mbf_abstract_nav
     //! true, if a new start pose has been set, until it is used.
     bool has_new_start_;
 
-    //! the last call start time, updated each cycle.
-    rclcpp::Time last_call_start_time_;
+    //! the last call start time, updated each cycle. Wall clock (steady), not the node clock: with sim time
+    //! running faster than real time, the planner's compute time would otherwise eat up the patience
+    std::chrono::steady_clock::time_point last_call_start_time_;
 
     //! the last time a valid plan has been computed.
     rclcpp::Time last_valid_plan_time_;
