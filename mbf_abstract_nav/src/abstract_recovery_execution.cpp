@@ -140,8 +140,6 @@ bool AbstractRecoveryExecution::isPatienceExceeded()
 
 void AbstractRecoveryExecution::run()
 {
-  cancel_ = false; // reset the canceled state
-
   time_mtx_.lock();
   start_time_ = node_handle_->now();
   time_mtx_.unlock();
