@@ -39,6 +39,7 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_EXECUTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_EXECUTION_BASE_H_
 
+#include <atomic>
 #include <thread>
 #include <chrono>
 #include <condition_variable>
@@ -117,8 +118,8 @@ protected:
   std::mutex should_exit_mutex_;
   bool should_exit_;
 
-  //! flag for canceling controlling
-  bool cancel_;
+  //! flag for canceling controlling; written by cancel callers, read by the execution thread
+  std::atomic<bool> cancel_;
 
   //! the last received plugin execution outcome
   uint32_t outcome_;
