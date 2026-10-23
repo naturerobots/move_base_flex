@@ -33,6 +33,17 @@ Since robot navigation can be separated into planning and controlling in many ca
 **MBF architecture:**
 ![MBF architecture](doc/images/move_base_flex.png)
 
+### Implementing your own navigation server
+
+Construct your server (this loads the map and the plugins), then call `startActionServers()`, then spin.
+Until `startActionServers()` is called, clients see the action servers as unavailable.
+
+```cpp
+auto server = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(tf, node);
+server->startActionServers();
+rclcpp::spin(node);
+```
+
 ## History
 
 MBF was originally developed for ROS 1 by [Magazino](https://www.magazino.eu/en/) (see [noetic](https://github.com/naturerobots/move_base_flex/tree/noetic) or [master](https://github.com/naturerobots/move_base_flex/tree/master) branch) as a backwards-compatible replacement for `move_base`, providing a more flexible and transparent architecture when no modular alternative was available.
