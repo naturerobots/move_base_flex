@@ -39,6 +39,7 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 
+#include <atomic>
 #include <mutex>
 #include <functional>
 
@@ -68,28 +69,30 @@ namespace mbf_abstract_nav
  * for your execution.
  *
  */
-template <typename Action, typename Execution>
+template<typename Action, typename Execution>
 class AbstractActionBase
 {
- public:
+public:
   typedef std::shared_ptr<AbstractActionBase> Ptr;
   typedef typename rclcpp_action::ServerGoalHandle<Action> GoalHandle;
   typedef typename std::shared_ptr<GoalHandle> GoalHandlePtr;
 
   /// @brief POD holding info for one execution
-  struct ConcurrencySlot{
-    ConcurrencySlot() : thread_ptr(NULL), in_use(false){}
+  struct ConcurrencySlot
+  {
+    ConcurrencySlot()
+    : thread_ptr(NULL), in_use(false) {}
     typename Execution::Ptr execution;
-    std::thread* thread_ptr; ///< Owned pointer to a thread
+    std::thread * thread_ptr; ///< Owned pointer to a thread
     GoalHandlePtr goal_handle;
-    bool in_use;
+    std::atomic<bool> in_use; ///< Written by the worker thread without holding slot_map_mtx_
   };
 
 protected:
   // not part of the public interface
   typedef std::unordered_map<uint8_t, ConcurrencySlot> ConcurrencyMap;
-public:
 
+public:
   /**
    * @brief Construct a new AbstractActionBase
    *
@@ -97,24 +100,25 @@ public:
    * @param robot_info robot information
    */
   AbstractActionBase(
-      const rclcpp::Node::SharedPtr& node,
-      const std::string &name,
-      const mbf_utility::RobotInformation::ConstPtr &robot_info
-  ) : node_(node), name_(name), robot_info_(robot_info){}
+    const rclcpp::Node::SharedPtr & node,
+    const std::string & name,
+    const mbf_utility::RobotInformation::ConstPtr & robot_info
+  )
+  : node_(node), name_(name), robot_info_(robot_info) {}
 
   virtual ~AbstractActionBase()
   {
     // cleanup threads used on executions
     // note: cannot call cancelAll, since our mutex is not recursive
     std::lock_guard<std::mutex> guard(slot_map_mtx_);
-    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
-    {
+    for (auto & [slot_id, concurrency_slot] : concurrency_slots_) {
       // cancel and join all spawned threads.
       concurrency_slot.execution->cancel();
-      if(concurrency_slot.thread_ptr->joinable())
+      if (concurrency_slot.thread_ptr->joinable()) {
         concurrency_slot.thread_ptr->join();
+      }
       // if the respective goal_handle is active, communicate that the goal was aborted to the client
-      if(concurrency_slot.goal_handle && concurrency_slot.goal_handle->is_active()) {
+      if (concurrency_slot.goal_handle && concurrency_slot.goal_handle->is_active()) {
         typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
         concurrency_slot.goal_handle->abort(result);
       }
@@ -124,24 +128,20 @@ public:
   }
 
   virtual void start(
-      const GoalHandlePtr &goal_handle,
-      typename Execution::Ptr execution_ptr
+    const GoalHandlePtr & goal_handle,
+    typename Execution::Ptr execution_ptr
   )
   {
     uint8_t slot_id = goal_handle->get_goal()->concurrency_slot;
 
-    if(goal_handle->is_canceling())
-    {
+    if (goal_handle->is_canceling()) {
       typename Action::Result::SharedPtr result = std::make_shared<typename Action::Result>();
       goal_handle->canceled(result);
       RCLCPP_INFO(node_->get_logger(), "Goal canceled before execution started.");
-    }
-    else
-    {
+    } else {
       std::lock_guard<std::mutex> guard(slot_map_mtx_);
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot_id);
-      if (slot_it != concurrency_slots_.end())
-      {
+      if (slot_it != concurrency_slots_.end()) {
         if (slot_it->second.in_use) {
           // if there is already a plugin running on the same slot, cancel it
           slot_it->second.execution->cancel();
@@ -153,12 +153,10 @@ public:
         }
         // cleanup previous execution; otherwise we will leak threads
         delete concurrency_slots_[slot_id].thread_ptr;
-      }
-      else
-      {
+      } else {
         // create a new map object in order to avoid costly lookups
         // note: currently unchecked
-        slot_it = concurrency_slots_.insert(std::make_pair(slot_id, ConcurrencySlot())).first;
+        slot_it = concurrency_slots_.try_emplace(slot_id).first;
       }
 
       // fill concurrency slot with the new goal handle, execution, and working thread
@@ -176,21 +174,23 @@ public:
 
     std::lock_guard<std::mutex> guard(slot_map_mtx_);
     typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
-    if (slot_it != concurrency_slots_.end())
-    {
+    if (slot_it != concurrency_slots_.end()) {
       concurrency_slots_[slot].execution->cancel();
     }
   }
 
-  // Using const ref to shared ptr of concurrency slot here. 
+  // Using const ref to shared ptr of concurrency slot here.
   // Not so nice, but currently required for updating the path without stopping and starting a new execution (see ControllerAction::start()).
-  virtual void runImpl(const GoalHandlePtr &goal_handle, Execution& execution) {};
+  virtual void runImpl(const GoalHandlePtr & goal_handle, Execution & execution) {}
 
-  virtual void run(ConcurrencySlot &slot)
+  virtual void run(ConcurrencySlot & slot)
   {
     slot.execution->preRun();
     runImpl(slot.goal_handle, *slot.execution);
-    RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
+    RCLCPP_DEBUG_STREAM(
+      rclcpp::get_logger(
+        name_),
+      "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
     slot.execution->join();
     // TODO reenable debug output, if possible. how do we get the state from ROS2 Action Server GoalHandle?
     //RCLCPP_DEBUG_STREAM(rclcpp::get_logger(name_), "Execution completed with goal status "
@@ -203,13 +203,11 @@ public:
   {
     RCLCPP_INFO_STREAM(rclcpp::get_logger(name_), "Cancel all goals for \"" << name_ << "\".");
     std::lock_guard<std::mutex> guard(slot_map_mtx_);
-    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
-    {
+    for (auto & [slot_id, concurrency_slot] : concurrency_slots_) {
       concurrency_slot.execution->cancel();
     }
-    for (auto& [slot_id, concurrency_slot] : concurrency_slots_)
-    {
-      if (concurrency_slot.thread_ptr->joinable()) concurrency_slot.thread_ptr->join();
+    for (auto & [slot_id, concurrency_slot] : concurrency_slots_) {
+      if (concurrency_slot.thread_ptr->joinable()) {concurrency_slot.thread_ptr->join();}
     }
   }
 
