@@ -57,6 +57,7 @@ int main(int argc, char **argv)
   tf2_ros::TransformListener tf_listener(*tf_buffer_ptr);
 
   mbf_simple_nav::SimpleNavigationServer simple_nav_server(tf_buffer_ptr, node);
+  simple_nav_server.startActionServers();
 
   rclcpp::spin(node);
   return EXIT_SUCCESS;

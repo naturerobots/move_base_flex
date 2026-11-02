@@ -2,6 +2,11 @@
 Changelog for package mbf_simple_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Action servers are no longer advertised in the constructor; call ``startActionServers()`` after the navigation server is initialized (#397)
+* Fix ``move_base`` not using the loaded recovery behaviors when the goal specifies none
+
 1.2.1 (2026-07-23)
 ------------------
 * Remove ament_cmake_ros dependency
