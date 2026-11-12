@@ -321,27 +321,34 @@ void MbfGoalActionsPanel::updateGetPathActionClient()
     return;
   }
 
-  if(action_client_get_path_ && goal_handle_get_path_ && action_client_get_path_->action_server_is_ready())
+  // take the old client and goal out under the lock and reset the state. The cancel below must run without holding
+  // the lock, because the cancel response is processed by the executor thread, whose callbacks also take the lock.
+  GetPathClient::SharedPtr old_client = std::move(action_client_get_path_);
+  GetPathClient::GoalHandle::SharedPtr old_goal = std::move(goal_handle_get_path_);
+  planner_parameter_client_.reset();
+  get_path_action_server_name_.clear();
+  get_path_connected_ = false;
+  planner_list_requested_ = false;
+  lock.unlock();
+
+  if(old_client && old_goal && old_client->action_server_is_ready())
   {
-    // server changed or unset: first cancel the active goal (skipped if the server is gone anyway)
+    // server changed or unset: cancel the active goal (skipped if the server is gone anyway)
     RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active get_path goal due to action server change...");
     setGetPathGoalStatusMessage("Cancelling active goal", status_warning);
-    if(sync_cancel_goal<GetPathClient>(action_client_get_path_, goal_handle_get_path_, std::chrono::seconds(1)))
+    if(sync_cancel_goal<GetPathClient>(old_client, old_goal, std::chrono::seconds(1)))
     {
       setGetPathGoalStatusMessage("Planner action stopped", status_success);
     } else {
       setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
     }
+  } else {
+    setGetPathGoalStatusMessage("none sent yet", status_neutral);
   }
+  old_goal.reset();
+  old_client.reset();
 
-  // reset action client and planner parameter client
-  action_client_get_path_.reset();
-  goal_handle_get_path_.reset();
-  planner_parameter_client_.reset();
-  get_path_action_server_name_.clear();
-  get_path_connected_ = false;
-  planner_list_requested_ = false;
-  setGetPathGoalStatusMessage("none sent yet", status_neutral);
+  lock.lock();
 
   if(selected_server == notset_action_server_path)
   {
@@ -449,27 +456,34 @@ void MbfGoalActionsPanel::updateExePathActionClient()
     return;
   }
 
-  if(action_client_exe_path_ && goal_handle_exe_path_ && action_client_exe_path_->action_server_is_ready())
+  // take the old client and goal out under the lock and reset the state. The cancel below must run without holding
+  // the lock, because the cancel response is processed by the executor thread, whose callbacks also take the lock.
+  ExePathClient::SharedPtr old_client = std::move(action_client_exe_path_);
+  ExePathClient::GoalHandle::SharedPtr old_goal = std::move(goal_handle_exe_path_);
+  controller_parameter_client_.reset();
+  exe_path_action_server_name_.clear();
+  exe_path_connected_ = false;
+  controller_list_requested_ = false;
+  lock.unlock();
+
+  if(old_client && old_goal && old_client->action_server_is_ready())
   {
-    // server changed or unset: first cancel the active goal (skipped if the server is gone anyway)
+    // server changed or unset: cancel the active goal (skipped if the server is gone anyway)
     RCLCPP_INFO_STREAM(ros_node_->get_logger(), "Cancelling active exe_path goal due to action server change...");
     setExePathGoalStatusMessage("Cancelling active goal", status_warning);
-    if(sync_cancel_goal<ExePathClient>(action_client_exe_path_, goal_handle_exe_path_, std::chrono::seconds(1)))
+    if(sync_cancel_goal<ExePathClient>(old_client, old_goal, std::chrono::seconds(1)))
     {
       setExePathGoalStatusMessage("Controller action stopped", status_success);
     } else {
       setExePathGoalStatusMessage("Failed to stop controller action", status_error);
     }
+  } else {
+    setExePathGoalStatusMessage("none sent yet", status_neutral);
   }
+  old_goal.reset();
+  old_client.reset();
 
-  // reset action client and controller parameter client
-  action_client_exe_path_.reset();
-  goal_handle_exe_path_.reset();
-  controller_parameter_client_.reset();
-  exe_path_action_server_name_.clear();
-  exe_path_connected_ = false;
-  controller_list_requested_ = false;
-  setExePathGoalStatusMessage("none sent yet", status_neutral);
+  lock.lock();
 
   if(selected_server == notset_action_server_path)
   {
@@ -581,7 +595,8 @@ void MbfGoalActionsPanel::stopGetPathAction()
 
   // start stopping planner action
   setGetPathGoalStatusMessage("Stopping planner action...", status_warning);
-  action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this](
+  const auto active_goal = goal_handle_get_path_;
+  action_client_get_path_->async_cancel_goal(active_goal, [this, active_goal](
       const typename GetPathClient::CancelResponse::SharedPtr & response) 
   {
     if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
@@ -590,7 +605,11 @@ void MbfGoalActionsPanel::stopGetPathAction()
     } else {
       setGetPathGoalStatusMessage("Failed to stop planner action", status_error);
     }
-    goal_handle_get_path_.reset();
+    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+    if(goal_handle_get_path_ == active_goal)
+    {
+      goal_handle_get_path_.reset();
+    }
   });
 }
 
@@ -612,7 +631,8 @@ void MbfGoalActionsPanel::stopExePathAction()
 
   // start stopping controller action
   setExePathGoalStatusMessage("Stopping controller action...", status_warning);
-  action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this](
+  const auto active_goal = goal_handle_exe_path_;
+  action_client_exe_path_->async_cancel_goal(active_goal, [this, active_goal](
       const typename ExePathClient::CancelResponse::SharedPtr & response) 
   {
     if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
@@ -621,7 +641,11 @@ void MbfGoalActionsPanel::stopExePathAction()
     } else {
       setExePathGoalStatusMessage("Failed to stop controller action", status_error);
     }
-    goal_handle_exe_path_.reset();
+    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+    if(goal_handle_exe_path_ == active_goal)
+    {
+      goal_handle_exe_path_.reset();
+    }
   });
 }
 
@@ -673,40 +697,49 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
   get_path_goal.target_pose = msg;
   get_path_goal.use_start_pose = false; // planner shall use the current robot pose
 
+  // copy client and active goal under the lock, use the copies outside of it
+  GetPathClient::SharedPtr client;
+  GetPathClient::GoalHandle::SharedPtr active_goal;
   {
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
     get_path_goal.planner = get_path_planner_name_; // cached from GUI thread, protected by mutex
-    if(!action_client_get_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized");
-      return;
-    }
-    if(!action_client_get_path_->action_server_is_ready())
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is still not ready after update. Cannot send goal.");
-      return;
-    }
+    client = action_client_get_path_;
+    active_goal = goal_handle_get_path_;
   }
 
-  if (goal_handle_get_path_) {
-    // planner is currently active, cancel first
-    // result callback will start new planner with next_get_path_goal_ as goal
-    // UI currently cannot properly handle parallel actions
-    // next_get_path_goal_ = get_path_goal;
+  if(!client)
+  {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized. Cannot send goal.");
+    setGetPathGoalStatusMessage("Not sent: no planner action selected", status_error);
+    return;
+  }
+  if(!client->action_server_is_ready())
+  {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get_path action server is not connected. Cannot send goal.");
+    setGetPathGoalStatusMessage("Not sent: planner server not connected", status_error);
+    return;
+  }
 
+  if (active_goal) {
+    // planner is currently active, cancel first and send the new goal afterwards
+    // UI currently cannot properly handle parallel actions
     setGetPathGoalStatusMessage("Cancelling...", status_warning);
-    action_client_get_path_->async_cancel_goal(goal_handle_get_path_, [this, get_path_goal](
+    client->async_cancel_goal(active_goal, [this, get_path_goal, active_goal](
         const typename GetPathClient::CancelResponse::SharedPtr & response)
     {
       if(response->return_code == GetPathClient::CancelResponse::ERROR_NONE)
       {
         setGetPathGoalStatusMessage("Cancelled", status_success);
-        // next_get_path_goal_.reset();
-        goal_handle_get_path_.reset();
       } else {
         setGetPathGoalStatusMessage("Failed to cancel active goal", status_error);
       }
-
+      {
+        std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+        if(goal_handle_get_path_ == active_goal)
+        {
+          goal_handle_get_path_.reset();
+        }
+      }
       sendGetPathGoal(get_path_goal);
     });
 
@@ -717,21 +750,26 @@ void MbfGoalActionsPanel::newGoalCallback(const geometry_msgs::msg::PoseStamped 
 
 void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal & goal)
 {
+  GetPathClient::SharedPtr client;
   {
     std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-    if(!action_client_get_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized when sending goal");
-      setGetPathGoalStatusMessage("Goal sending failed: client not ready", status_error);
-      return;
-    }
+    client = action_client_get_path_;
+  }
+  if(!client)
+  {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Get path action client not initialized when sending goal");
+    setGetPathGoalStatusMessage("Goal sending failed: client not ready", status_error);
+    return;
   }
 
   GetPathClient::SendGoalOptions options;
   const auto goal_stamp = goal.target_pose.header.stamp;
   options.goal_response_callback =
     [goal_stamp, this](const GetPathClient::GoalHandle::SharedPtr & goal_handle) {
-      this->goal_handle_get_path_ = goal_handle;
+      {
+        std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+        goal_handle_get_path_ = goal_handle;
+      }
       if (goal_handle) {
         setGetPathGoalStatusMessage(QString("(t=%1) accepted").arg(goal_stamp.sec), status_success);
       } else {
@@ -742,50 +780,50 @@ void MbfGoalActionsPanel::sendGetPathGoal(const mbf_msgs::action::GetPath::Goal 
     &MbfGoalActionsPanel::getPathResultCallback, this,
     std::placeholders::_1);
 
-  {
-    std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
-    if(action_client_get_path_)
-    {
-      action_client_get_path_->async_send_goal(goal, options);
-    }
-  }
+  client->async_send_goal(goal, options);
   setGetPathGoalStatusMessage(QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
 void MbfGoalActionsPanel::getPathResultCallback(
   const GetPathClient::GoalHandle::WrappedResult & wrapped_result)
 {
-  mbf_msgs::action::ExePath::Goal exe_path_goal;
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
+    {
       setGetPathGoalStatusMessage(QString("Succeeded. Path cost %1").arg(wrapped_result.result->cost), status_success);
 
+      mbf_msgs::action::ExePath::Goal exe_path_goal;
       exe_path_goal.path = wrapped_result.result->path;
 
+      // copy client and active goal under the lock, use the copies outside of it
+      ExePathClient::SharedPtr client;
+      ExePathClient::GoalHandle::SharedPtr active_goal;
       {
         std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
         exe_path_goal.controller = exe_path_controller_name_; // cached from GUI thread, protected by mutex
-        if(!action_client_exe_path_)
-        {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized in result callback");
-          return;
-        }
-        if(!action_client_exe_path_->action_server_is_ready())
-        {
-          RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is still not ready after update. Cannot send goal.");
-          return;
-        }
+        client = action_client_exe_path_;
+        active_goal = goal_handle_exe_path_;
       }
 
-      if (goal_handle_exe_path_) {
+      if(!client)
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action client not initialized. Cannot send goal.");
+        setExePathGoalStatusMessage("Not sent: no controller action selected", status_error);
+        break;
+      }
+      if(!client->action_server_is_ready())
+      {
+        RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe_path action server is not connected. Cannot send goal.");
+        setExePathGoalStatusMessage("Not sent: controller server not connected", status_error);
+        break;
+      }
 
-        // path execution is currently active, cancel first
-        // result callback will start new path execution with next_exe_path_goal_ as goal
+      if (active_goal) {
+        // path execution is currently active, cancel first and send the new goal afterwards
         // UI currently cannot properly handle parallel actions
-        // next_exe_path_goal_ = exe_path_goal;
         setExePathGoalStatusMessage("Cancel existing", status_warning);
 
-        action_client_exe_path_->async_cancel_goal(goal_handle_exe_path_, [this, exe_path_goal](
+        client->async_cancel_goal(active_goal, [this, exe_path_goal, active_goal](
             const typename ExePathClient::CancelResponse::SharedPtr & response)
         {
           if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
@@ -794,8 +832,13 @@ void MbfGoalActionsPanel::getPathResultCallback(
           } else {
             setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
           }
-
-          goal_handle_exe_path_.reset();
+          {
+            std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+            if(goal_handle_exe_path_ == active_goal)
+            {
+              goal_handle_exe_path_.reset();
+            }
+          }
           sendExePathGoal(exe_path_goal);
         });
 
@@ -803,6 +846,7 @@ void MbfGoalActionsPanel::getPathResultCallback(
         sendExePathGoal(exe_path_goal);
       }
       break;
+    }
     case rclcpp_action::ResultCode::ABORTED:
       setGetPathGoalStatusMessage(QString("Aborted. %1").arg(QString::fromStdString(wrapped_result.result->message)), status_error);
       break;
@@ -813,27 +857,37 @@ void MbfGoalActionsPanel::getPathResultCallback(
       setGetPathGoalStatusMessage("Error: Unknown action result code", status_error);
       break;
   }
-  goal_handle_get_path_.reset();
+
+  // only forget the goal handle if it still belongs to this goal (a newer goal may already be active)
+  std::unique_lock<std::mutex> lock(get_path_action_client_mutex_);
+  if(goal_handle_get_path_ && goal_handle_get_path_->get_goal_id() == wrapped_result.goal_id)
+  {
+    goal_handle_get_path_.reset();
+  }
 }
 
 void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal)
 {
+  ExePathClient::SharedPtr client;
   {
     std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    if(!action_client_exe_path_)
-    {
-      RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe path action client not initialized when sending goal");
-      setExePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
-      return;
-    }
+    client = action_client_exe_path_;
+  }
+  if(!client)
+  {
+    RCLCPP_ERROR_STREAM(ros_node_->get_logger(), "Exe path action client not initialized when sending goal");
+    setExePathGoalStatusMessage("Goal sending failed: client not ready", status_error);
+    return;
   }
 
   const auto goal_stamp = goal.path.header.stamp;
   ExePathClient::SendGoalOptions options;
   options.goal_response_callback =
     [this, goal_stamp](const ExePathClient::GoalHandle::SharedPtr & goal_handle) {
-      RCLCPP_WARN(this->ros_node_->get_logger(), "SETTING GOAL HANDLE");
-      this->goal_handle_exe_path_ = goal_handle;
+      {
+        std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+        goal_handle_exe_path_ = goal_handle;
+      }
       if (goal_handle) {
         setExePathGoalStatusMessage(QString("Goal (t=%1) accepted").arg(goal_stamp.sec), status_success);
       } else {
@@ -850,13 +904,7 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
     &MbfGoalActionsPanel::exePathResultCallback, this,
     std::placeholders::_1);
 
-  {
-    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    if(action_client_exe_path_)
-    {
-      action_client_exe_path_->async_send_goal(goal, options);
-    }
-  }
+  client->async_send_goal(goal, options);
   setExePathGoalStatusMessage(QString("(t=%1) sent, awaiting response").arg(goal_stamp.sec), status_info);
 }
 
@@ -899,7 +947,13 @@ void MbfGoalActionsPanel::exePathResultCallback(
       setExePathGoalStatusMessage("Error: Unknown action result code", status_error);
       break;
   }
-  goal_handle_exe_path_.reset();
+
+  // only forget the goal handle if it still belongs to this goal (a newer goal may already be active)
+  std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
+  if(goal_handle_exe_path_ && goal_handle_exe_path_->get_goal_id() == wrapped_result.goal_id)
+  {
+    goal_handle_exe_path_.reset();
+  }
 }
 
 void MbfGoalActionsPanel::setGetPathServerStatusMessage(const QString & text, const QString& style)
