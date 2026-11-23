@@ -97,6 +97,10 @@ protected:
   void sendExePathGoal(const mbf_msgs::action::ExePath::Goal & goal);
   void exePathResultCallback(const ExePathClient::GoalHandle::WrappedResult & wrapped_result);
 
+  //! Non-blocking connection checks, called periodically from the connection check threads
+  void checkGetPathConnection();
+  void checkExePathConnection();
+
 Q_SIGNALS:
   void getPathServerStatusChanged(const QString & text, const QString & style);
   void getPathGoalStatusChanged(const QString & text, const QString & style);
@@ -123,6 +127,9 @@ protected:
   std::string get_path_node_name_;
   std::string get_path_action_server_name_;
   std::string get_path_planner_name_;
+  //! Connection state, maintained by the connection check thread (guarded by get_path_action_client_mutex_)
+  bool get_path_connected_ = false;
+  bool planner_list_requested_ = false;
 
   //! Goal handle of active get path action
   GetPathClient::GoalHandle::SharedPtr goal_handle_get_path_;
@@ -134,6 +141,9 @@ protected:
   std::string exe_path_node_name_;
   std::string exe_path_action_server_name_;
   std::string exe_path_controller_name_;
+  //! Connection state, maintained by the connection check thread (guarded by exe_path_action_client_mutex_)
+  bool exe_path_connected_ = false;
+  bool controller_list_requested_ = false;
 
   //! Goal handle of active exe path action
   ExePathClient::GoalHandle::SharedPtr goal_handle_exe_path_;
