@@ -641,11 +641,6 @@ void MbfGoalActionsPanel::stopExePathAction()
     } else {
       setExePathGoalStatusMessage("Failed to stop controller action", status_error);
     }
-    std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-    if(goal_handle_exe_path_ == active_goal)
-    {
-      goal_handle_exe_path_.reset();
-    }
   });
 }
 
@@ -818,33 +813,9 @@ void MbfGoalActionsPanel::getPathResultCallback(
         break;
       }
 
-      if (active_goal) {
-        // path execution is currently active, cancel first and send the new goal afterwards
-        // UI currently cannot properly handle parallel actions
-        setExePathGoalStatusMessage("Cancel existing", status_warning);
-
-        client->async_cancel_goal(active_goal, [this, exe_path_goal, active_goal](
-            const typename ExePathClient::CancelResponse::SharedPtr & response)
-        {
-          if(response->return_code == ExePathClient::CancelResponse::ERROR_NONE)
-          {
-            setExePathGoalStatusMessage("Existing goal cancelled", status_success);
-          } else {
-            setExePathGoalStatusMessage("Failed to cancel existing goal", status_error);
-          }
-          {
-            std::unique_lock<std::mutex> lock(exe_path_action_client_mutex_);
-            if(goal_handle_exe_path_ == active_goal)
-            {
-              goal_handle_exe_path_.reset();
-            }
-          }
-          sendExePathGoal(exe_path_goal);
-        });
-
-      } else {
-        sendExePathGoal(exe_path_goal);
-      }
+      // move_base_flex allows smooth transitions when replanning by sending a new goal *without*
+      // cancelling the current goal. The old goal will then succeed with the preempted error code.
+      sendExePathGoal(exe_path_goal);
       break;
     }
     case rclcpp_action::ResultCode::ABORTED:
@@ -911,6 +882,21 @@ void MbfGoalActionsPanel::sendExePathGoal(const mbf_msgs::action::ExePath::Goal 
 void MbfGoalActionsPanel::exePathResultCallback(
   const ExePathClient::GoalHandle::WrappedResult & wrapped_result)
 {
+  {
+    // Check if we received a completion for an old or unknown goal. The UI should only be updated
+    // by the active goal, therefore we only log the result here.
+    std::unique_lock lock(exe_path_action_client_mutex_);
+    if (!goal_handle_exe_path_ || goal_handle_exe_path_->get_goal_id() != wrapped_result.goal_id) {
+      RCLCPP_INFO(
+        ros_node_->get_logger(),
+        "Received `exe_path` action result for old or unknown goal: %s (%u)",
+        wrapped_result.result->message.c_str(), wrapped_result.result->outcome
+      );
+      return;
+    }
+  }
+
+
   switch (wrapped_result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       setExePathGoalStatusMessage(QString("Succeeded (remaining distance: %1)").arg(wrapped_result.result->dist_to_goal), status_success);
