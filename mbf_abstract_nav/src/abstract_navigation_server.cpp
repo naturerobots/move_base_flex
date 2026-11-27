@@ -90,13 +90,23 @@ AbstractNavigationServer::AbstractNavigationServer(
     node, name_action_refine_path,
     robot_info_);
   recovery_action_ = std::make_shared<RecoveryAction>(node, name_action_recovery, robot_info_);
-  move_base_action_ = std::make_shared<MoveBaseAction>(
-    node, name_action_move_base, robot_info_,
-    recovery_plugin_manager_.getLoadedNames());
   goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("~/current_goal", 1);
 
   // init cmd_vel publisher for the robot velocity
   vel_pub_ = node_->create_publisher<geometry_msgs::msg::TwistStamped>("~/cmd_vel", 1);
+}
+
+void AbstractNavigationServer::startActionServers()
+{
+  if (action_server_get_path_ptr_) {
+    RCLCPP_WARN(node_->get_logger(), "Action servers already started; ignoring repeated call");
+    return;
+  }
+
+  // created here, as the recovery plugins are loaded by now
+  move_base_action_ = std::make_shared<MoveBaseAction>(
+    node_, name_action_move_base, robot_info_,
+    recovery_plugin_manager_.getLoadedNames());
 
   action_server_get_path_ptr_ = rclcpp_action::create_server<mbf_msgs::action::GetPath>(
     node_,
@@ -132,6 +142,8 @@ AbstractNavigationServer::AbstractNavigationServer(
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::handleGoalMoveBase, this, _1, _2),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::cancelActionMoveBase, this, _1),
     std::bind(&mbf_abstract_nav::AbstractNavigationServer::callActionMoveBase, this, _1));
+
+  RCLCPP_INFO(node_->get_logger(), "Action servers started");
 }
 
 void AbstractNavigationServer::initializeServerComponents()
@@ -434,7 +446,9 @@ void AbstractNavigationServer::stop()
   plan_refiner_action_->cancelAll();
   controller_action_->cancelAll();
   recovery_action_->cancelAll();
-  move_base_action_->cancel();
+  if (move_base_action_) {
+    move_base_action_->cancel();
+  }
 }
 
 } /* namespace mbf_abstract_nav */

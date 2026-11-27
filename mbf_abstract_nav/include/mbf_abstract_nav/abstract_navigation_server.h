@@ -116,7 +116,8 @@ class AbstractNavigationServer
 {
 public:
   /**
-   * @brief Constructor, reads all parameters and initializes all action servers and creates the plugin instances.
+   * @brief Constructor, reads all parameters and creates the action instances. The action servers are not
+   *        advertised until startActionServers() is called.
    *        Parameters are the concrete implementations of the abstract classes.
    * @param tf_listener_ptr shared pointer to the common TransformListener buffering transformations
    */
@@ -324,6 +325,12 @@ public:
    *        @ref controller_execution "Controller", and the @ref recovery_execution "Recovery Behavior".
    */
   virtual void initializeServerComponents();
+
+  /**
+   * @brief Creates and advertises all action servers. Call this once the server and all its plugins are
+   *        fully initialized; until then, clients see the action servers as unavailable.
+   */
+  virtual void startActionServers();
 
 protected:
   /**

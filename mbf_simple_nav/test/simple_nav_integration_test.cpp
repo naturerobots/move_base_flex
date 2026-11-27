@@ -75,7 +75,8 @@ protected:
   // Call this manually at the beginning of each test.
   // Allows setting parameter overrides via NodeOptions (mirrors behavior of how parameters are loaded from yaml via
   // launch file for example)
-  void initRosNode(rclcpp::NodeOptions node_options)
+  // Set start_action_servers to false to test the server before startActionServers() is called.
+  void initRosNode(rclcpp::NodeOptions node_options, bool start_action_servers = true)
   {
     nav_server_node_ptr_ =
       std::make_shared<rclcpp::Node>("simple_nav", "", node_options);
@@ -90,6 +91,9 @@ protected:
     nav_server_ptr_ = std::make_shared<mbf_simple_nav::SimpleNavigationServer>(
       tf_buffer_ptr_,
       nav_server_node_ptr_);
+    if (start_action_servers) {
+      nav_server_ptr_->startActionServers();
+    }
     action_client_get_path_ptr_ = rclcpp_action::create_client<mbf_msgs::action::GetPath>(
       nav_server_node_ptr_,
       "simple_nav/get_path");
@@ -304,10 +308,6 @@ TEST_F(SimpleNavIntegrationTest, moveBaseActionReachesTheGoal)
 {
   initRosNode(default_node_options_);
 
-  // TODO: How can we test whether the move base action triggers recovery when stuck?
-  // The following line would make the robot stuck, but, apparently, the move base action does not trigger recovery in this case
-  //robot_sim_node_ptr_->set_parameter(rclcpp::Parameter("is_robot_stuck", true));
-
   mbf_msgs::action::MoveBase::Goal move_base_goal;
   move_base_goal.target_pose.header.frame_id = "odom";
   move_base_goal.target_pose.header.stamp = robot_sim_node_ptr_->now();
@@ -329,4 +329,53 @@ TEST_F(SimpleNavIntegrationTest, moveBaseActionReachesTheGoal)
   const auto & goal_position = move_base_goal.target_pose.pose.position;
   EXPECT_NEAR(robot_position.x, goal_position.x, 0.05);
   EXPECT_NEAR(robot_position.y, goal_position.y, 0.05);
+}
+
+TEST_F(SimpleNavIntegrationTest, actionServersNotAvailableBeforeStart)
+{
+  initRosNode(default_node_options_, false);
+  constexpr auto timeout = std::chrono::milliseconds(200);
+  EXPECT_FALSE(action_client_get_path_ptr_->wait_for_action_server(timeout));
+  EXPECT_FALSE(action_client_refine_path_ptr_->wait_for_action_server(timeout));
+  EXPECT_FALSE(action_client_exe_path_ptr_->wait_for_action_server(timeout));
+  EXPECT_FALSE(action_client_recovery_ptr_->wait_for_action_server(timeout));
+  EXPECT_FALSE(action_client_move_base_ptr_->wait_for_action_server(timeout));
+
+  nav_server_ptr_->startActionServers();
+  constexpr auto start_timeout = std::chrono::seconds(2);
+  EXPECT_TRUE(action_client_get_path_ptr_->wait_for_action_server(start_timeout));
+  EXPECT_TRUE(action_client_refine_path_ptr_->wait_for_action_server(start_timeout));
+  EXPECT_TRUE(action_client_exe_path_ptr_->wait_for_action_server(start_timeout));
+  EXPECT_TRUE(action_client_recovery_ptr_->wait_for_action_server(start_timeout));
+  EXPECT_TRUE(action_client_move_base_ptr_->wait_for_action_server(start_timeout));
+}
+
+TEST_F(SimpleNavIntegrationTest, startActionServersTwiceIsHarmless)
+{
+  initRosNode(default_node_options_);
+  EXPECT_NO_THROW(nav_server_ptr_->startActionServers());
+  const auto goal_handle = action_client_get_path_ptr_->async_send_goal(get_path_goal_);
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
+  EXPECT_THAT(goal_handle.get(), NotNull());
+}
+
+// Regression test: move_base must fall back to the loaded recovery behaviors if the goal specifies none (#397)
+TEST_F(SimpleNavIntegrationTest, moveBaseActionUsesLoadedRecoveryBehaviorsWhenStuck)
+{
+  // let exe_path fail with OSCILLATION quickly, so that move_base triggers recovery
+  initRosNode(rclcpp::NodeOptions(default_node_options_).append_parameter_override("oscillation_timeout", 0.5));
+  robot_sim_node_ptr_->set_parameter(rclcpp::Parameter("is_robot_stuck", true));
+
+  mbf_msgs::action::MoveBase::Goal move_base_goal; // recovery_behaviors left empty on purpose
+  move_base_goal.target_pose.header.frame_id = "odom";
+  move_base_goal.target_pose.header.stamp = robot_sim_node_ptr_->now();
+  move_base_goal.target_pose.pose.position.x = -3.2;
+  move_base_goal.target_pose.pose.position.y = 0.8;
+  const auto goal_handle = action_client_move_base_ptr_->async_send_goal(move_base_goal);
+  ASSERT_TRUE(wait_until_future_complete(goal_handle));
+  const auto future_result = action_client_move_base_ptr_->async_get_result(goal_handle.get());
+  ASSERT_TRUE(wait_until_future_complete(future_result));
+
+  EXPECT_EQ(future_result.get().result->outcome, mbf_msgs::action::MoveBase::Result::SUCCESS);
+  EXPECT_FALSE(robot_sim_node_ptr_->get_parameter("is_robot_stuck").as_bool());
 }
